@@ -20,15 +20,24 @@ export const useStyles = createStyles(({ token, css }) => ({
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding-left: ${token.paddingLG}px;
-    padding-right: ${token.paddingLG}px;
+    padding-left: ${token.padding}px;
+    padding-right: ${token.padding}px;
+
+    @media (min-width: 768px) {
+      padding-left: ${token.paddingLG}px;
+      padding-right: ${token.paddingLG}px;
+    }
   `,
   navInner: css`
-    height: 72px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: ${token.margin}px;
+
+    @media (min-width: 768px) {
+      height: 72px;
+    }
   `,
   brand: css`
     display: inline-flex;
@@ -47,10 +56,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorBgBase};
   `,
   brandText: css`
-    font-size: ${token.fontSizeHeading4}px;
+    font-size: ${token.fontSizeXL}px;
     font-family: var(--font-syne), ${token.fontFamily};
     font-weight: ${token.fontWeightStrong};
     letter-spacing: -0.01em;
+
+    @media (min-width: 768px) {
+      font-size: ${token.fontSizeHeading4}px;
+    }
   `,
   navLinks: css`
     display: none;
@@ -65,12 +78,40 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: inline-flex;
     align-items: center;
     gap: ${token.marginSM}px;
+    flex-shrink: 0;
+
+    :global(.ant-btn) {
+      height: 34px;
+      padding-inline: ${token.paddingSM}px;
+      font-size: ${token.fontSizeSM}px;
+    }
+
+    @media (min-width: 768px) {
+      :global(.ant-btn) {
+        height: 40px;
+        padding-inline: ${token.padding}px;
+        font-size: ${token.fontSize}px;
+      }
+    }
+  `,
+  signInButton: css`
+    @media (max-width: 520px) {
+      display: none;
+    }
+  `,
+  getStartedButton: css`
+    white-space: nowrap;
   `,
   hero: css`
     position: relative;
     overflow: hidden;
-    padding-top: 152px;
-    padding-bottom: 96px;
+    padding-top: 116px;
+    padding-bottom: 72px;
+
+    @media (min-width: 768px) {
+      padding-top: 152px;
+      padding-bottom: 96px;
+    }
   `,
   heroGlowPrimary: css`
     position: absolute;
@@ -134,8 +175,12 @@ export const useStyles = createStyles(({ token, css }) => ({
   heroText: css`
     margin: 0 auto ${token.marginXL}px;
     max-width: 820px;
-    font-size: ${token.fontSizeHeading4}px;
+    font-size: ${token.fontSizeLG}px;
     color: ${token.colorTextSecondary};
+
+    @media (min-width: 768px) {
+      font-size: ${token.fontSizeHeading4}px;
+    }
   `,
   heroActions: css`
     display: flex;
@@ -152,7 +197,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: ${token.marginLG}px;
+    gap: ${token.margin}px;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
   `,
@@ -192,13 +237,21 @@ export const useStyles = createStyles(({ token, css }) => ({
     font-size: ${token.fontSizeSM}px;
   `,
   section: css`
-    padding: 104px 0;
+    padding: 76px 0;
+
+    @media (min-width: 768px) {
+      padding: 104px 0;
+    }
   `,
   sectionAlt: css`
-    padding: 104px 0;
+    padding: 76px 0;
     border-top: 1px solid ${token.colorBorder};
     border-bottom: 1px solid ${token.colorBorder};
     background: color-mix(in srgb, ${token.colorFillAlter} 70%, transparent);
+
+    @media (min-width: 768px) {
+      padding: 104px 0;
+    }
   `,
   sectionHeader: css`
     max-width: 780px;
@@ -309,6 +362,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     font-family: var(--font-dm-mono), monospace;
     font-size: ${token.fontSizeSM}px;
+    flex-wrap: wrap;
   `,
   simulatorLabel: css`
     margin-left: ${token.marginSM}px;
@@ -349,22 +403,28 @@ export const useStyles = createStyles(({ token, css }) => ({
     background: color-mix(in srgb, ${token.colorPrimary} 22%, transparent);
   `,
   bubble: css`
-    max-width: 80%;
+    max-width: 90%;
     border-radius: ${token.borderRadiusLG}px;
     border-top-left-radius: ${token.borderRadiusSM}px;
     background: color-mix(in srgb, ${token.colorText} 7%, transparent);
     padding: ${token.paddingSM}px ${token.padding}px;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSize}px;
+    @media (min-width: 768px) {
+      max-width: 80%;
+    }
   `,
   bubblePrimary: css`
-    max-width: 80%;
+    max-width: 90%;
     border-radius: ${token.borderRadiusLG}px;
     border-top-right-radius: ${token.borderRadiusSM}px;
     background: color-mix(in srgb, ${token.colorPrimary} 14%, transparent);
     padding: ${token.paddingSM}px ${token.padding}px;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSize}px;
+    @media (min-width: 768px) {
+      max-width: 80%;
+    }
   `,
   simulatorList: css`
     display: grid;
@@ -426,7 +486,9 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   footerLinks: css`
     display: inline-flex;
-    gap: ${token.margin}px;
+    gap: ${token.marginSM}px;
+    flex-wrap: wrap;
+    justify-content: center;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
   `,

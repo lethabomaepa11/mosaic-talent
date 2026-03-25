@@ -6,10 +6,13 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: ${token.paddingLG}px;
+    padding: ${token.padding}px;
     background: ${token.colorBgLayout};
     position: relative;
     overflow: hidden;
+    @media (min-width: 768px) {
+      padding: ${token.paddingLG}px;
+    }
   `,
   glow: css`
     position: absolute;
@@ -62,7 +65,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     border: 1px solid ${token.colorBorder};
     border-radius: ${token.borderRadiusLG + 6}px;
     background: color-mix(in srgb, ${token.colorFillAlter} 86%, transparent);
-    padding: ${token.paddingXL}px;
+    padding: ${token.paddingLG}px;
     position: relative;
 
     &::before {
@@ -73,6 +76,9 @@ export const useStyles = createStyles(({ token, css }) => ({
       right: 16px;
       height: 1px;
       background: linear-gradient(90deg, transparent, ${token.colorPrimary}, transparent);
+    }
+    @media (min-width: 768px) {
+      padding: ${token.paddingXL}px;
     }
   `,
   form: css`
@@ -105,6 +111,11 @@ export const useStyles = createStyles(({ token, css }) => ({
   actions: css`
     display: grid;
     gap: ${token.marginSM}px;
+  `,
+  helper: css`
+    text-align: center;
+    color: ${token.colorTextSecondary};
+    font-size: ${token.fontSizeSM}px;
   `,
   buttonIcon: css`
     margin-right: ${token.marginXXS}px;

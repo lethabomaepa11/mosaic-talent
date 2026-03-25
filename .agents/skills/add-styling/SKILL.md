@@ -3,38 +3,45 @@ name: add-styling
 description: Use this skill when styling any page, component, or layout in the Mosaic-Talent frontend. Covers the mandatory antd-style createStyles pattern, design token usage, and the styles folder structure that every route must follow.
 ---
 
-# Mosaic-Talent — Styling with antd-style
+# Mosaic-Talent - Styling with antd-style
 
 ## Core Rule
 
 Every page route MUST keep styles colocated with the route file. Preferred structure is:
 
-```
+```text
 app/<route-segment>/
-├── page.tsx           ← imports useStyles from ./style
-└── style.ts           ← all styles live here using createStyles
+|- page.tsx
+`- style.ts
 ```
 
 For root routes, use a route group so colocation still applies:
 
-```
+```text
 app/(landing)/
-├── page.tsx
-└── style.ts
+|- page.tsx
+`- style.ts
 ```
 
-Styles are never written inline (beyond trivial one-liners) and never in plain CSS modules.
+Styles are never written inline (except trivial one-liners) and never in CSS modules.
 
----
+## Responsive-First Rule (MANDATORY)
+
+Every frontend page/component must be mobile responsive from the first implementation.
+
+- Build for phone first, then scale up with media queries.
+- Minimum widths to verify: `360px`, `768px`, and desktop (`>=1280px`).
+- No horizontal overflow at mobile widths.
+- Primary actions must remain visible and usable on mobile.
+- Dense horizontal rows (nav/action bars/form rows) must wrap or stack on mobile.
+- Keep responsive behavior in `style.ts` via `createStyles`, not inline JSX styles.
 
 ## createStyles Pattern (CANONICAL)
 
 ```typescript
-// style.ts
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
-  // Use token.* for ALL values — never hardcode px or hex
   pageContainer: css`
     padding: ${token.paddingLG}px;
     background: ${token.colorBgLayout};
@@ -46,189 +53,54 @@ export const useStyles = createStyles(({ token, css }) => ({
     justify-content: space-between;
     align-items: center;
     margin-bottom: ${token.marginLG}px;
-  `,
 
-  tableCard: css`
-    border-radius: ${token.borderRadiusLG}px;
-    box-shadow: ${token.boxShadow};
-  `,
-
-  statusBadge: css`
-    font-size: ${token.fontSizeSM}px;
-    font-weight: ${token.fontWeightStrong};
+    @media (max-width: 767px) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: ${token.marginSM}px;
+    }
   `,
 }));
 ```
-
-```typescript
-// page.tsx
-"use client";
-import { useStyles } from './style';
-
-export default function EmployeesPage() {
-  const { styles } = useStyles();
-
-  return (
-    <div className={styles.pageContainer}>
-      <div className={styles.headerRow}>
-        {/* content */}
-      </div>
-    </div>
-  );
-}
-```
-
----
-
-## Design Tokens Reference
-
-Always use these — never hardcode values:
-
-```typescript
-// Spacing
-token.paddingSM; // 12px
-token.padding; // 16px
-token.paddingMD; // 20px
-token.paddingLG; // 24px
-token.paddingXL; // 32px
-
-token.marginSM; // 12px
-token.margin; // 16px
-token.marginMD; // 20px
-token.marginLG; // 24px
-token.marginXL; // 32px
-
-// Colors
-token.colorPrimary; // brand blue
-token.colorBgContainer; // white in light, dark in dark
-token.colorBgLayout; // page background
-token.colorBgElevated; // card/modal background
-token.colorText; // primary text
-token.colorTextSecondary; // muted text
-token.colorBorder; // border color
-token.colorSuccess; // green
-token.colorWarning; // orange
-token.colorError; // red
-
-// Typography
-token.fontSize; // 14px base
-token.fontSizeSM; // 12px
-token.fontSizeLG; // 16px
-token.fontSizeXL; // 20px
-token.fontWeightStrong; // 600
-
-// Shape
-token.borderRadius; // 6px
-token.borderRadiusLG; // 8px
-token.borderRadiusSM; // 4px
-
-// Elevation
-token.boxShadow; // card shadow
-token.boxShadowSecondary; // subtle shadow
-```
-
----
 
 ## Rules
 
-| Rule          | Wrong                     | Correct                                   |
-| ------------- | ------------------------- | ----------------------------------------- |
-| Colors        | `color: '#1677ff'`        | `color: ${token.colorPrimary}`            |
-| Spacing       | `padding: '24px'`         | `padding: ${token.paddingLG}px`           |
-| Radius        | `borderRadius: '8px'`     | `borderRadius: ${token.borderRadiusLG}px` |
-| Inline styles | `style={{ padding: 24 }}` | `className={styles.myClass}`              |
-| CSS files     | `import './page.css'`     | Never — use createStyles                  |
-| Tailwind      | `className="p-6 flex"`    | Never — use createStyles                  |
+- Colors: use `token.*`, never hardcoded hex values.
+- Spacing: use token spacing values, never hardcoded pixel strings.
+- Radius/shadow/typography: use token values.
+- Inline styles: avoid; move to `style.ts`.
+- Tailwind classes: do not use.
 
-### Page Component Structure (MANDATORY)
+## Page Component Structure (MANDATORY)
 
-- Always use **arrow functions** for page and component declarations.
+- Always use arrow functions for page and component declarations.
 - In page/components, keep this order:
-1. `state` declarations (`useState`, local constants derived from state inputs)
-2. hooks (`useStyles`, context hooks, memo/effect/callback hooks)
+1. state declarations (`useState`, local state vars)
+2. hooks (`useStyles`, providers/contexts, effects/memos/callbacks)
 3. computed values derived from state/hooks
-4. returned JSX page body
+4. returned JSX
 
-```typescript
-"use client";
+## Component Styling (Non-Page)
 
-import { useState } from "react";
-import { useStyles } from "./style";
+For non-page components, colocate a `styles.ts` next to the component:
 
-export const ExamplePage = () => {
-  const [activeTab, setActiveTab] = useState("overview");
-
-  const { styles } = useStyles();
-
-  const isOverview = activeTab === "overview";
-
-  return <div className={styles.container}>{isOverview ? "..." : "..."}</div>;
-};
+```text
+components/<feature>/
+|- MyComponent.tsx
+`- styles.ts
 ```
 
---- 
+## Responsive Checklist (Before Handoff)
 
-## Component Styling (no page needed)
+1. Confirm no horizontal scrolling at `360px`.
+2. Confirm typography and spacing are readable on mobile.
+3. Confirm forms/cards use mobile-safe padding.
+4. Confirm action groups stack or wrap on mobile.
+5. Confirm tablet/desktop layouts expand cleanly.
 
-For components that aren't pages, create a `styles.ts` next to the component:
+## Preferred Antd Components
 
-```
-components/employees/
-├── EmployeeTable.tsx
-└── styles.ts          ← component-level styles
-```
-
----
-
-## Common Page Layout Pattern
-
-```typescript
-// styles/style.ts for a typical list page
-export const useStyles = createStyles(({ token, css }) => ({
-  container: css`
-    padding: ${token.paddingLG}px;
-    background: ${token.colorBgLayout};
-    min-height: 100vh;
-  `,
-  toolbar: css`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: ${token.marginLG}px;
-  `,
-  title: css`
-    font-size: ${token.fontSizeXL}px;
-    font-weight: ${token.fontWeightStrong};
-    color: ${token.colorText};
-    margin: 0;
-  `,
-  card: css`
-    border-radius: ${token.borderRadiusLG}px;
-    box-shadow: ${token.boxShadow};
-  `,
-  emptyState: css`
-    padding: ${token.paddingXL}px;
-    text-align: center;
-    color: ${token.colorTextSecondary};
-  `,
-}));
-```
-
----
-
-## antd Components to Use (preferred)
-
-| Need           | Component                              |
-| -------------- | -------------------------------------- |
-| Data table     | `<Table>`                              |
-| Form           | `<Form>` + `<Form.Item>`               |
-| Modal / drawer | `<Modal>` or `<Drawer>`                |
-| Page layout    | `<Layout>`, `<Sider>`, `<Content>`     |
-| Cards          | `<Card>`                               |
-| Status labels  | `<Tag color="green">`                  |
-| Notifications  | `message.success()`, `message.error()` |
-| Confirm delete | `<Popconfirm>`                         |
-| Loading state  | `<Spin>` or `<Skeleton>`               |
-| Empty state    | `<Empty>`                              |
-| Breadcrumb     | `<Breadcrumb>`                         |
-| Stats          | `<Statistic>`                          |
+- Forms: `Form`, `Form.Item`, `Input`, `Select`, `InputNumber`
+- Layout: `Layout`, `Card`, `Tabs`, `Grid`
+- Feedback: `message`, `notification`, `Alert`, `Spin`, `Skeleton`
+- Data display: `Table`, `Tag`, `Statistic`, `Empty`

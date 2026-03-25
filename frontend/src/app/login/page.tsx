@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
@@ -132,6 +133,9 @@ const LoginPage = () => {
               >
                 Continue with GitHub
               </Button>
+              <div className={styles.helper}>
+                Don&apos;t have an account? <Link href="/signup">Create one</Link>
+              </div>
             </div>
           </form>
         </div>

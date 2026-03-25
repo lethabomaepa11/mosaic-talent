@@ -138,11 +138,15 @@ const LandingPage = () => {
             </div>
 
             <div className={styles.navActions}>
-              <Link href="/app">
-                <Button type="text">Sign In</Button>
+              <Link href="/login">
+                <Button type="text" className={styles.signInButton}>
+                  Sign In
+                </Button>
               </Link>
-              <Link href="/app">
-                <Button type="primary">Get Started</Button>
+              <Link href="/login">
+                <Button type="primary" className={styles.getStartedButton}>
+                  Get Started
+                </Button>
               </Link>
             </div>
           </div>
@@ -177,7 +181,7 @@ const LandingPage = () => {
             </motion.p>
 
             <motion.div variants={fadeInUp} className={styles.heroActions}>
-              <Link href="/app">
+              <Link href="/login">
                 <Button type="primary" size="large">
                   Start Free Trial
                   <ChevronRight size={18} className={styles.buttonIcon} />
@@ -360,7 +364,7 @@ const LandingPage = () => {
                   </div>
                 ))}
               </div>
-              <Link href="/app/simulator">
+              <Link href="/login">
                 <Button type="primary" className={styles.simulatorCta}>
                   Try the Simulator
                   <ChevronRight size={16} className={styles.buttonIcon} />
@@ -406,7 +410,7 @@ const LandingPage = () => {
               mosaictalent
             </p>
             <div className={styles.heroActions}>
-              <Link href="/app">
+              <Link href="/login">
                 <Button type="primary" size="large">
                   Get Started Free
                   <ChevronRight size={18} className={styles.buttonIcon} />
