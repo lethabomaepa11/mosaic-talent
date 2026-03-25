@@ -7,21 +7,30 @@ description: Use this skill when styling any page, component, or layout in the M
 
 ## Core Rule
 
-Every page route MUST have a `styles/style.ts` file. Styles are never written inline (beyond trivial one-liners) and never in plain CSS modules.
+Every page route MUST keep styles colocated with the route file. Preferred structure is:
 
 ```
-app/(dashboard)/employees/
-├── page.tsx           ← imports useStyles from ./styles/style
-└── styles/
-    └── style.ts       ← all styles live here using createStyles
+app/<route-segment>/
+├── page.tsx           ← imports useStyles from ./style
+└── style.ts           ← all styles live here using createStyles
 ```
+
+For root routes, use a route group so colocation still applies:
+
+```
+app/(landing)/
+├── page.tsx
+└── style.ts
+```
+
+Styles are never written inline (beyond trivial one-liners) and never in plain CSS modules.
 
 ---
 
 ## createStyles Pattern (CANONICAL)
 
 ```typescript
-// styles/style.ts
+// style.ts
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
@@ -54,7 +63,7 @@ export const useStyles = createStyles(({ token, css }) => ({
 ```typescript
 // page.tsx
 "use client";
-import { useStyles } from './styles/style';
+import { useStyles } from './style';
 
 export default function EmployeesPage() {
   const { styles } = useStyles();
@@ -131,7 +140,33 @@ token.boxShadowSecondary; // subtle shadow
 | CSS files     | `import './page.css'`     | Never — use createStyles                  |
 | Tailwind      | `className="p-6 flex"`    | Never — use createStyles                  |
 
----
+### Page Component Structure (MANDATORY)
+
+- Always use **arrow functions** for page and component declarations.
+- In page/components, keep this order:
+1. `state` declarations (`useState`, local constants derived from state inputs)
+2. hooks (`useStyles`, context hooks, memo/effect/callback hooks)
+3. computed values derived from state/hooks
+4. returned JSX page body
+
+```typescript
+"use client";
+
+import { useState } from "react";
+import { useStyles } from "./style";
+
+export const ExamplePage = () => {
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const { styles } = useStyles();
+
+  const isOverview = activeTab === "overview";
+
+  return <div className={styles.container}>{isOverview ? "..." : "..."}</div>;
+};
+```
+
+--- 
 
 ## Component Styling (no page needed)
 
