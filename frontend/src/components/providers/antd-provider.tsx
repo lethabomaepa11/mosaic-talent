@@ -21,3 +21,4 @@ export function AntdProvider({ children }: PropsWithChildren) {
     </AntdRegistry>
   );
 }
+

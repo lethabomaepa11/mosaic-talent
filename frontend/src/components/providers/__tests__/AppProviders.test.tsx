@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AppProviders } from "@/providers";
+import { AppProviders } from "@/components/providers";
 
 describe("AppProviders", () => {
   it("renders children through provider tree", () => {
@@ -13,3 +13,4 @@ describe("AppProviders", () => {
     expect(screen.getByText("provider-child")).toBeInTheDocument();
   });
 });
+

@@ -37,7 +37,7 @@ export const antdTheme: ThemeConfig = {
     colorFillAlter: designTokens.cardBg,
 
     borderRadius: 12,
-    fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
+    fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
   },
   components: {
     Layout: {
