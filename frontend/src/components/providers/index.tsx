@@ -9,12 +9,11 @@ export { toast } from "./antd-toast";
 
 export function AppProviders({ children }: PropsWithChildren) {
   return (
-    <AntdProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <AntdProvider>
         <AntdToastViewport />
         {children}
-      </AuthProvider>
-    </AntdProvider>
+      </AntdProvider>
+    </AuthProvider>
   );
 }
-
