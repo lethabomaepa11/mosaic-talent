@@ -2,7 +2,12 @@
 
 import { PropsWithChildren } from "react";
 import { AuthProvider } from "./auth-provider";
+import { AntdProvider } from "./antd-provider";
 
 export function AppProviders({ children }: PropsWithChildren) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AntdProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </AntdProvider>
+  );
 }
