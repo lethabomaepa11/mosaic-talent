@@ -1,0 +1,27 @@
+services:
+  abp_host:
+    image: mosaictalent_web_host:latest
+    build:
+      context: ..
+      dockerfile: src/MosaicTalent.Web.Host/Dockerfile
+    env_file:
+      - ../src/MosaicTalent.Web.Host/.env
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Staging"
+      ConnectionStrings__Default: "${ConnectionStrings__Default}"
+      App__ServerRootAddress: "http://localhost:44311/"
+      App__ClientRootAddress: "http://localhost:3000/"
+      App__CorsOrigins: "http://localhost:3000"
+      GitHub__RedirectUri: "http://localhost:44311/api/TokenAuth/GitHubCallback"
+      Groq__ApiKey: "${Groq__ApiKey}"
+      Groq__Model: "llama-3.3-70b-versatile"
+      CodeGen__LocalCopyPath: "/app/LocalOutput"
+      TZ: "America/Toronto"
+      PORT: "80"
+      Kestrel__Endpoints__Http__Url: "http://+:80"
+    ports:
+      - "44311:80"
+    volumes:
+      - "./Host-Logs:/app/App_Data/Logs"
+      - "${LOCAL_OUTPUT_PATH:-./LocalOutput}:/app/LocalOutput"
+    restart: always
