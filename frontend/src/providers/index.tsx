@@ -23,3 +23,8 @@ export {
   useCompanyProfileAction,
   useCompanyProfileState,
 } from "./company-profile-provider";
+export {
+  ProjectProvider,
+  useProjectAction,
+  useProjectState,
+} from "./project-provider";

@@ -1,0 +1,105 @@
+"use client";
+
+import Link from "next/link";
+import { Avatar, Badge, Button, Card, Progress, Space, Typography } from "antd";
+import { ChevronRight, Clock } from "lucide-react";
+import { IProject } from "@/providers/project-provider/context";
+import { useStyles } from "./styles";
+
+interface IProjectCardProps {
+  project: IProject;
+  isMember?: boolean;
+  onJoin?: () => void;
+}
+
+const statusColors: Record<string, string> = {
+  completed: "green",
+  "in-progress": "gold",
+  draft: "default",
+  open: "blue",
+};
+
+export const ProjectCard = ({ project, isMember, onJoin }: IProjectCardProps) => {
+  const { styles } = useStyles();
+  const tasksDone = project.tasks.filter((task) => task.status === "done").length;
+  const totalTasks = project.tasks.length;
+  const progress = totalTasks > 0 ? Math.round((tasksDone / totalTasks) * 100) : 0;
+  const membersShown = project.members.slice(0, 4);
+
+  return (
+    <Card className={styles.card}>
+      <div className={styles.cardTitleRow}>
+        <div>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {project.title}
+          </Typography.Title>
+          <Typography.Paragraph
+            ellipsis={{ rows: 2 }}
+            className={styles.description}
+          >
+            {project.description}
+          </Typography.Paragraph>
+        </div>
+        <Badge
+          color={statusColors[project.status] ?? "default"}
+          text={project.status}
+        />
+      </div>
+
+      <div className={styles.teamRow}>
+        <div className={styles.memberRow}>
+          <div className={styles.avatarStack}>
+            {membersShown.map((member) => (
+              <Avatar
+                key={member.id}
+                src={member.avatar || undefined}
+                className={styles.avatarItem}
+              >
+                {member.name.slice(0, 1).toUpperCase()}
+              </Avatar>
+            ))}
+          </div>
+          <Typography.Text type="secondary">
+            {project.members.length}/{project.maxMembers}
+          </Typography.Text>
+        </div>
+
+        {totalTasks > 0 ? (
+          <Typography.Text type="secondary">
+            {tasksDone}/{totalTasks} tasks
+          </Typography.Text>
+        ) : null}
+      </div>
+
+      {totalTasks > 0 ? (
+        <Progress percent={progress} showInfo={false} size="small" />
+      ) : null}
+
+      <div className={styles.footerRow}>
+        <Space>
+          <Clock size={14} />
+          <span className={styles.dateText}>
+            {new Date(project.createdAt).toLocaleDateString()}
+          </span>
+        </Space>
+
+        {isMember ? (
+          <Link href={`/app/projects/${project.id}`}>
+            <Button type="primary">
+              Open Project <ChevronRight size={14} />
+            </Button>
+          </Link>
+        ) : (
+          <Space>
+            <Link href={`/app/projects/${project.id}`}>
+              <Button>View Project</Button>
+            </Link>
+            <Button type="primary" onClick={onJoin}>
+              Join Project
+            </Button>
+          </Space>
+        )}
+      </div>
+    </Card>
+  );
+};

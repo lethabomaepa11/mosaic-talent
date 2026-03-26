@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { CompanyAccountProvider } from "@/providers/company-account-provider";
 import { CompanyProfileProvider } from "@/providers/company-profile-provider";
 import { DeveloperProvider } from "@/providers/developer-provider";
+import { ProjectProvider } from "@/providers/project-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -32,10 +33,12 @@ export function AppProviders({ children }: PropsWithChildren) {
           <AuthProvider>
             <CompanyProfileProvider>
               <DeveloperProvider>
-                <AntdProvider>
-                  <AntdToastViewport />
-                  {children}
-                </AntdProvider>
+                <ProjectProvider>
+                  <AntdProvider>
+                    <AntdToastViewport />
+                    {children}
+                  </AntdProvider>
+                </ProjectProvider>
               </DeveloperProvider>
             </CompanyProfileProvider>
           </AuthProvider>
