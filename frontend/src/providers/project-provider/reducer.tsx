@@ -117,6 +117,18 @@ export const ProjectReducer = handleActions<
       ...state,
       ...payload,
     }),
+    [ProjectStateEnums.PROJECT_UPDATE_SKILLS_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_UPDATE_SKILLS_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_UPDATE_SKILLS_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
     [ProjectStateEnums.PROJECT_COMPLETE_PENDING]: (state, { payload }) => ({
       ...state,
       ...payload,

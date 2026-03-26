@@ -31,6 +31,9 @@ export enum ProjectStateEnums {
   PROJECT_UPDATE_TASK_PENDING = "PROJECT_UPDATE_TASK_PENDING",
   PROJECT_UPDATE_TASK_SUCCESS = "PROJECT_UPDATE_TASK_SUCCESS",
   PROJECT_UPDATE_TASK_ERROR = "PROJECT_UPDATE_TASK_ERROR",
+  PROJECT_UPDATE_SKILLS_PENDING = "PROJECT_UPDATE_SKILLS_PENDING",
+  PROJECT_UPDATE_SKILLS_SUCCESS = "PROJECT_UPDATE_SKILLS_SUCCESS",
+  PROJECT_UPDATE_SKILLS_ERROR = "PROJECT_UPDATE_SKILLS_ERROR",
   PROJECT_COMPLETE_PENDING = "PROJECT_COMPLETE_PENDING",
   PROJECT_COMPLETE_SUCCESS = "PROJECT_COMPLETE_SUCCESS",
   PROJECT_COMPLETE_ERROR = "PROJECT_COMPLETE_ERROR",
@@ -183,6 +186,21 @@ export const updateTaskSuccess = createAction<ProjectStatePatch>(
 
 export const updateTaskError = createAction<ProjectStatePatch>(
   ProjectStateEnums.PROJECT_UPDATE_TASK_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const updateSkillsPending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_UPDATE_SKILLS_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const updateSkillsSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_UPDATE_SKILLS_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const updateSkillsError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_UPDATE_SKILLS_ERROR,
   () => ({ isPending: false, isSuccess: false, isError: true }),
 );
 

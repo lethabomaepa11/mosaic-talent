@@ -23,13 +23,13 @@ vi.mock("@/providers/auth-provider", () => ({
 
 describe("AppSidebar", () => {
   it("renders developer navigation by default", () => {
-    mocks.usePathname.mockReturnValue("/app/projects");
+    mocks.usePathname.mockReturnValue("/app/projects/open");
 
     render(<AppSidebar />);
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Discover")).toBeInTheDocument();
+    expect(screen.getByText("My Projects")).toBeInTheDocument();
     expect(screen.getByText("My Profile")).toBeInTheDocument();
-    expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
   });
 
@@ -45,7 +45,7 @@ describe("AppSidebar", () => {
   });
 
   it("calls logout and redirects when sign out is clicked", async () => {
-    mocks.usePathname.mockReturnValue("/app");
+    mocks.usePathname.mockReturnValue("/app/projects/open");
     mocks.logout.mockResolvedValue(undefined);
 
     render(<AppSidebar />);

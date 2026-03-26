@@ -39,6 +39,7 @@ export const useStyles = createStyles(({ token, css }) => ({
 
     @media (max-width: 767px) {
       padding: ${token.padding}px;
+      padding-bottom: calc(${token.paddingLG}px + 64px);
     }
   `,
   pageTitle: css`

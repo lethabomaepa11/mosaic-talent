@@ -5,8 +5,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
   User,
+  Compass,
   FolderKanban,
   Brain,
   MessageSquare,
@@ -23,9 +23,9 @@ interface INavItem {
 }
 
 const developerNav: INavItem[] = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/projects/open", label: "Discover", icon: Compass },
+  { href: "/app/projects/my", label: "My Projects", icon: FolderKanban },
   { href: "/app/profile", label: "My Profile", icon: User },
-  { href: "/app/projects", label: "Projects", icon: FolderKanban },
   { href: "/app/simulator", label: "AI Simulator", icon: Brain },
   { href: "/app/reviews", label: "Peer Reviews", icon: MessageSquare },
 ];
@@ -36,10 +36,6 @@ const cx = (...values: Array<string | false | undefined>) =>
 const isItemActive = (pathname: string, href: string) => {
   if (pathname === href) {
     return true;
-  }
-
-  if (href === "/app") {
-    return false;
   }
 
   return pathname.startsWith(href);
@@ -93,7 +89,7 @@ export const AppSidebar = () => {
 
         <div className={styles.navGroup}>
           <p className={styles.sectionTitle}>Quick Actions</p>
-          <Link href="/app/projects?create=true" className={styles.navLink}>
+          <Link href="/app/projects/my?create=true" className={styles.navLink}>
             <Button type="text" className={styles.quickButton}>
               + Create Project
             </Button>

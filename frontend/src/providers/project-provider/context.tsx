@@ -67,6 +67,10 @@ export interface IProjectActionContext {
     taskId: string,
     status: "todo" | "in-progress" | "done",
   ) => Promise<IProjectTask | undefined>;
+  updateProjectSkills: (
+    projectId: string,
+    skills: string[],
+  ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
 }
 
@@ -92,5 +96,6 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   aiFillTeam: async () => undefined,
   addProjectTask: async () => undefined,
   updateProjectTaskStatus: async () => undefined,
+  updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
 });

@@ -34,6 +34,9 @@ import {
   updateTaskError,
   updateTaskPending,
   updateTaskSuccess,
+  updateSkillsError,
+  updateSkillsPending,
+  updateSkillsSuccess,
 } from "./actions";
 import {
   ICreateProjectInput,
@@ -263,6 +266,25 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const updateProjectSkills = async (projectId: string, skills: string[]) => {
+    dispatch(updateSkillsPending());
+
+    try {
+      const res = await instance.put(`${ENDPOINT}/UpdateProjectSkills`, {
+        projectId,
+        skills,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(updateSkillsSuccess());
+      dispatch(fetchProjectSuccess(project));
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(updateSkillsError());
+      throw new Error(readApiErrorMessage(error, "Failed to update project skills."));
+    }
+  };
+
   return (
     <ProjectStateContext.Provider value={state}>
       <ProjectActionContext.Provider
@@ -276,6 +298,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           aiFillTeam,
           addProjectTask,
           updateProjectTaskStatus,
+          updateProjectSkills,
           completeProject,
         }}
       >

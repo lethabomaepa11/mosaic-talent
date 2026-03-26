@@ -38,6 +38,7 @@ import {
 } from "@/providers/project-provider";
 import { IProjectTask } from "@/providers/project-provider/context";
 import { useStyles } from "./style";
+import { GithubOutlined } from "@ant-design/icons";
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -68,6 +69,8 @@ const ProjectDetailPage = () => {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
+  const [skillsInput, setSkillsInput] = useState("");
   const [draggingTask, setDraggingTask] = useState<IProjectTask | null>(null);
   const [activeColumn, setActiveColumn] = useState<
     "todo" | "in-progress" | "done" | null
@@ -84,6 +87,7 @@ const ProjectDetailPage = () => {
     aiFillTeam,
     addProjectTask,
     updateProjectTaskStatus,
+    updateProjectSkills,
     completeProject,
   } = useProjectAction();
 
@@ -231,6 +235,29 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleOpenSkillsEditor = () => {
+    setSkillsInput(project!.skills.join(", "));
+    setIsSkillsOpen(true);
+  };
+
+  const handleUpdateSkills = async () => {
+    if (!projectId || !isMember) return;
+
+    try {
+      const skills = skillsInput
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      await updateProjectSkills(projectId, skills);
+      setIsSkillsOpen(false);
+      toast.success("Skills updated", "Project match skills were updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update skills.";
+      toast.error("Update failed", message);
+    }
+  };
+
   if (isPending && !project) {
     return (
       <div className={styles.notFound}>
@@ -271,6 +298,37 @@ const ProjectDetailPage = () => {
           <Typography.Paragraph className={styles.description}>
             {project.description}
           </Typography.Paragraph>
+          {project.githubRepo ? (
+            <a
+              className={styles.repoLink}
+              href={project.githubRepo}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <GithubOutlined size={14} />
+              <span>{project.githubRepo}</span>
+            </a>
+          ) : null}
+          <div className={styles.skillPitch}>
+            <span className={styles.skillTitle}>
+              You&apos;re a match if you have these skills or willing to learn:
+            </span>
+            <div className={styles.skillTagWrap}>
+              {(project.skills.length > 0
+                ? project.skills
+                : ["Adaptability"]
+              ).map((skill) => (
+                <Tag key={skill}>{skill}</Tag>
+              ))}
+            </div>
+            {isMember ? (
+              <div className={styles.skillEditRow}>
+                <Button size="small" onClick={handleOpenSkillsEditor}>
+                  Update looking-for skills
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {project.status !== "completed" ? (
@@ -437,7 +495,9 @@ const ProjectDetailPage = () => {
                               draggingTask?.id === task.id &&
                                 styles.taskDragging,
                             )}
-                            draggable={isMember && project.status !== "completed"}
+                            draggable={
+                              isMember && project.status !== "completed"
+                            }
                             onDragStart={() => handleDragStart(task)}
                             onDragEnd={handleDragEnd}
                           >
@@ -512,6 +572,21 @@ const ProjectDetailPage = () => {
             placeholder="Optional task description"
           />
         </div>
+      </Modal>
+
+      <Modal
+        title="Update Match Skills"
+        open={isSkillsOpen}
+        onCancel={() => setIsSkillsOpen(false)}
+        onOk={handleUpdateSkills}
+        okText="Save Skills"
+      >
+        <Input.TextArea
+          rows={4}
+          value={skillsInput}
+          onChange={(event) => setSkillsInput(event.target.value)}
+          placeholder="React, TypeScript, PostgreSQL"
+        />
       </Modal>
     </div>
   );

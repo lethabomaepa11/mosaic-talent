@@ -1,10 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar, Badge, Button, Card, Progress, Space, Typography } from "antd";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Progress,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
 import { ChevronRight, Clock } from "lucide-react";
 import { IProject } from "@/providers/project-provider/context";
 import { useStyles } from "./styles";
+import { GithubFilled } from "@ant-design/icons";
 
 interface IProjectCardProps {
   project: IProject;
@@ -19,11 +29,18 @@ const statusColors: Record<string, string> = {
   open: "blue",
 };
 
-export const ProjectCard = ({ project, isMember, onJoin }: IProjectCardProps) => {
+export const ProjectCard = ({
+  project,
+  isMember,
+  onJoin,
+}: IProjectCardProps) => {
   const { styles } = useStyles();
-  const tasksDone = project.tasks.filter((task) => task.status === "done").length;
+  const tasksDone = project.tasks.filter(
+    (task) => task.status === "done",
+  ).length;
   const totalTasks = project.tasks.length;
-  const progress = totalTasks > 0 ? Math.round((tasksDone / totalTasks) * 100) : 0;
+  const progress =
+    totalTasks > 0 ? Math.round((tasksDone / totalTasks) * 100) : 0;
   const membersShown = project.members.slice(0, 4);
 
   return (
@@ -33,6 +50,19 @@ export const ProjectCard = ({ project, isMember, onJoin }: IProjectCardProps) =>
           <Typography.Title level={5} style={{ margin: 0 }}>
             {project.title}
           </Typography.Title>
+          {project.githubRepo ? (
+            <a
+              className={styles.repoLink}
+              href={project.githubRepo}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Space size={4}>
+                <GithubFilled />
+                <span>{project.githubRepo}</span>
+              </Space>
+            </a>
+          ) : null}
           <Typography.Paragraph
             ellipsis={{ rows: 2 }}
             className={styles.description}
@@ -74,6 +104,17 @@ export const ProjectCard = ({ project, isMember, onJoin }: IProjectCardProps) =>
       {totalTasks > 0 ? (
         <Progress percent={progress} showInfo={false} size="small" />
       ) : null}
+
+      <p className={styles.matchLine}>
+        You&apos;re a match if you have these skills or willing to learn:
+        <span className={styles.matchSkills}>
+          {(project.skills.length > 0 ? project.skills : ["Adaptability"])
+            .slice(0, 4)
+            .map((skill) => (
+              <Tag key={skill}>{skill}</Tag>
+            ))}
+        </span>
+      </p>
 
       <div className={styles.footerRow}>
         <Space>

@@ -32,6 +32,36 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     max-width: 760px;
   `,
+  repoLink: css`
+    display: inline-flex;
+    align-items: center;
+    gap: ${token.marginXXS}px;
+    margin-top: ${token.marginXS}px;
+    color: ${token.colorPrimary};
+    font-size: ${token.fontSizeSM}px;
+    word-break: break-all;
+  `,
+  skillPitch: css`
+    margin: ${token.marginSM}px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginXS}px;
+  `,
+  skillTitle: css`
+    color: ${token.colorTextSecondary};
+    font-size: ${token.fontSizeSM}px;
+  `,
+  skillTagWrap: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+  `,
+  skillEditRow: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginXS}px;
+    flex-wrap: wrap;
+  `,
   actionRow: css`
     display: flex;
     flex-wrap: wrap;

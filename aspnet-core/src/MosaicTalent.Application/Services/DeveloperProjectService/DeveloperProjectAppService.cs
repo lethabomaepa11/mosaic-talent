@@ -318,6 +318,57 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         };
     }
 
+    public async Task<DeveloperProjectDto> UpdateProjectSkills(UpdateProjectSkillsInput input)
+    {
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+
+        var myMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+
+        if (project.OwnerDeveloperId != developer.Id && myMembership.Role != MemberRole.Lead)
+        {
+            throw new UserFriendlyException("Only project leads can update project skills.");
+        }
+
+        if (project.Status == ProjectStatus.Complete)
+        {
+            throw new UserFriendlyException("Completed projects cannot be updated.");
+        }
+
+        var normalizedSkills = (input.Skills ?? new List<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var existing = await _projectSkillRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .ToListAsync();
+
+        foreach (var skill in existing)
+        {
+            await _projectSkillRepository.DeleteAsync(skill);
+        }
+
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        foreach (var skill in normalizedSkills)
+        {
+            await _projectSkillRepository.InsertAsync(new ProjectSkill
+            {
+                TenantId = tenantId,
+                ProjectId = project.Id,
+                Name = skill,
+            });
+        }
+
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        var mapped = await MapProjects(new List<Project> { project });
+        return mapped.First();
+    }
+
     public async Task<DeveloperProjectDto> CompleteProject(GetDeveloperProjectInput input)
     {
         var developer = await GetCurrentDeveloper();

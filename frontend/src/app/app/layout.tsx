@@ -6,6 +6,7 @@ import { Drawer } from "antd";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CompanyHeader, CompanySidebar } from "@/components/company";
+import { MobileDeveloperNav } from "@/components/mobile-developer-nav";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileAction } from "@/providers/company-profile-provider";
 import { useDeveloperAction } from "@/providers/developer-provider";
@@ -64,6 +65,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
           <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
         )}
         <main className={styles.content}>{children}</main>
+        {!isCompanyTenant ? <MobileDeveloperNav /> : null}
       </div>
       <Drawer
         open={isMenuOpen}

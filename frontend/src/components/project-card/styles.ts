@@ -3,7 +3,14 @@ import { createStyles } from "antd-style";
 export const useStyles = createStyles(({ token, css }) => ({
   card: css`
     border: 1px solid ${token.colorBorderSecondary};
+    background: ${token.colorBgContainer};
+    box-shadow: ${token.boxShadowTertiary};
     transition: transform 0.2s ease, border-color 0.2s ease;
+    overflow: hidden;
+
+    :global(.ant-card-body) {
+      background: ${token.colorBgContainer};
+    }
 
     &:hover {
       transform: translateY(-2px);
@@ -19,6 +26,24 @@ export const useStyles = createStyles(({ token, css }) => ({
   description: css`
     color: ${token.colorTextSecondary};
     margin-top: ${token.marginXXS}px;
+  `,
+  repoLink: css`
+    display: inline-block;
+    margin: 0 0 ${token.marginXS}px;
+    color: ${token.colorPrimary};
+    font-size: ${token.fontSizeSM}px;
+    word-break: break-all;
+  `,
+  matchLine: css`
+    margin: 0 0 ${token.marginSM}px;
+    color: ${token.colorTextSecondary};
+    font-size: ${token.fontSizeSM}px;
+  `,
+  matchSkills: css`
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+    margin-left: ${token.marginXXS}px;
   `,
   teamRow: css`
     display: flex;
@@ -48,6 +73,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     justify-content: space-between;
     gap: ${token.marginSM}px;
+    flex-wrap: wrap;
   `,
   dateText: css`
     color: ${token.colorTextSecondary};

@@ -16,5 +16,6 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<DeveloperProjectDto> AiFillTeam(GetDeveloperProjectInput input);
     Task<DeveloperProjectTaskDto> AddProjectTask(AddProjectTaskInput input);
     Task<DeveloperProjectTaskDto> UpdateProjectTaskStatus(UpdateProjectTaskStatusInput input);
+    Task<DeveloperProjectDto> UpdateProjectSkills(UpdateProjectSkillsInput input);
     Task<DeveloperProjectDto> CompleteProject(GetDeveloperProjectInput input);
 }

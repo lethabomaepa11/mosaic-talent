@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, GitBranch } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
@@ -55,7 +55,7 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      router.push("/app");
+      router.push("/app/projects/open");
     } finally {
       setIsLoading(false);
     }
