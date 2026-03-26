@@ -3,8 +3,9 @@
 import axios, { AxiosInstance } from "axios";
 
 const AUTH_TOKEN_KEY = "mosaic-talent.access-token";
-const AUTH_USER_KEY = "mosaic-talent.auth-user";
+const TENANT_ID_KEY = "mosaic-talent.abp-tenant-id";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const DEFAULT_ABP_TENANT_ID = process.env.NEXT_PUBLIC_DEFAULT_ABP_TENANT_ID ?? "1";
 
 let axiosInstance: AxiosInstance | null = null;
 
@@ -24,6 +25,55 @@ function getTokenFromCookie() {
   return decodeURIComponent(tokenCookie.split("=")[1] ?? "");
 }
 
+function getCookieValue(key: string) {
+  if (typeof document === "undefined") {
+    return "";
+  }
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((part) => part.startsWith(`${key}=`));
+
+  if (!cookie) {
+    return "";
+  }
+
+  return decodeURIComponent(cookie.split("=")[1] ?? "");
+}
+
+function resolveTenantId() {
+  const cookieTenantId = getCookieValue(TENANT_ID_KEY);
+
+  if (!cookieTenantId) {
+    return DEFAULT_ABP_TENANT_ID;
+  }
+
+  // "host" is used to represent null tenant (host context).
+  if (cookieTenantId.toLowerCase() === "host") {
+    return null;
+  }
+
+  return cookieTenantId;
+}
+
+export const AbpAuthHeader = () => {
+  const tenantId = resolveTenantId();
+
+  if (!tenantId) {
+    return { headers: {} };
+  }
+
+  return {
+    headers: {
+      "Abp-TenantId": tenantId,
+    },
+  };
+};
+
+export function getAuthToken() {
+  return getCookieValue(AUTH_TOKEN_KEY);
+}
+
 export function getAxiosInstance(): AxiosInstance {
   if (axiosInstance) {
     return axiosInstance;
@@ -35,9 +85,18 @@ export function getAxiosInstance(): AxiosInstance {
 
   axiosInstance.interceptors.request.use((config) => {
     const token = getTokenFromCookie();
+    const tenantId = resolveTenantId();
+
+    config.headers = config.headers ?? {};
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (tenantId) {
+      config.headers["Abp-TenantId"] = tenantId;
+    } else {
+      delete config.headers["Abp-TenantId"];
     }
 
     return config;
@@ -62,37 +121,11 @@ export function removeAuthToken() {
   document.cookie = `${AUTH_TOKEN_KEY}=; Max-Age=0; path=/; SameSite=Lax`;
 }
 
-export function setAuthUser(user: unknown) {
-  if (typeof window === "undefined") {
+export function setAbpTenantId(tenantId: string | null) {
+  if (typeof document === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-}
-
-export function getAuthUser<T>() {
-  if (typeof window === "undefined") {
-    return undefined as T | undefined;
-  }
-
-  const rawUser = window.localStorage.getItem(AUTH_USER_KEY);
-
-  if (!rawUser) {
-    return undefined as T | undefined;
-  }
-
-  try {
-    return JSON.parse(rawUser) as T;
-  } catch {
-    window.localStorage.removeItem(AUTH_USER_KEY);
-    return undefined as T | undefined;
-  }
-}
-
-export function removeAuthUser() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.removeItem(AUTH_USER_KEY);
+  const value = tenantId === null ? "host" : tenantId;
+  document.cookie = `${TENANT_ID_KEY}=${encodeURIComponent(value)}; path=/; SameSite=Lax`;
 }

@@ -89,6 +89,10 @@ namespace MosaicTalent.Web.Host.Startup
             app.UseAuthentication();
             app.UseAuthorization();
 
+            if (app.ApplicationServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
             app.UseAbpRequestLocalization();
 
             app.UseEndpoints(endpoints =>
@@ -111,6 +115,7 @@ namespace MosaicTalent.Web.Host.Startup
                 options.DisplayRequestDuration(); // Controls the display of the request duration (in milliseconds) for "Try it out" requests.
             }); // URL: /swagger
         }
+
 
         private void ConfigureSwagger(IServiceCollection services)
         {

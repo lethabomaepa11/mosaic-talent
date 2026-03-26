@@ -4,23 +4,21 @@ import { AuthProvider, useAuthAction, useAuthState } from "..";
 import type { IRegisterInput } from "../context";
 
 const mocks = vi.hoisted(() => ({
-  getAuthUser: vi.fn(),
+  getAuthToken: vi.fn(),
+  get: vi.fn(),
   post: vi.fn(),
   removeAuthToken: vi.fn(),
-  removeAuthUser: vi.fn(),
   setAuthToken: vi.fn(),
-  setAuthUser: vi.fn(),
 }));
 
 vi.mock("@/utils/axiosInstance", () => ({
   getAxiosInstance: () => ({
+    get: mocks.get,
     post: mocks.post,
   }),
   setAuthToken: mocks.setAuthToken,
   removeAuthToken: mocks.removeAuthToken,
-  setAuthUser: mocks.setAuthUser,
-  removeAuthUser: mocks.removeAuthUser,
-  getAuthUser: mocks.getAuthUser,
+  getAuthToken: mocks.getAuthToken,
 }));
 
 const registerInput: IRegisterInput = {
@@ -62,12 +60,11 @@ describe("AuthProvider", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mocks.post.mockReset();
+    mocks.get.mockReset();
     mocks.setAuthToken.mockReset();
     mocks.removeAuthToken.mockReset();
-    mocks.setAuthUser.mockReset();
-    mocks.removeAuthUser.mockReset();
-    mocks.getAuthUser.mockReset();
-    mocks.getAuthUser.mockReturnValue(undefined);
+    mocks.getAuthToken.mockReset();
+    mocks.getAuthToken.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -76,10 +73,13 @@ describe("AuthProvider", () => {
   });
 
   it("restores a persisted session on mount", async () => {
-    mocks.getAuthUser.mockReturnValue({
-      accessToken: "saved-token",
-      expireInSeconds: 3600,
-      userId: 99,
+    mocks.getAuthToken.mockReturnValue("saved-token");
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: {
+          user: { id: 99 },
+        },
+      },
     });
 
     render(
@@ -91,7 +91,9 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(screen.getByTestId("auth-state")).toHaveTextContent('"userId":99');
     });
-    expect(mocks.setAuthToken).toHaveBeenCalledWith("saved-token");
+    expect(mocks.get).toHaveBeenCalledWith(
+      "/api/services/app/Session/GetCurrentLoginInformations",
+    );
   });
 
   it("logs in successfully and persists the session", async () => {
@@ -123,11 +125,6 @@ describe("AuthProvider", () => {
       userNameOrEmailAddress: "admin",
     });
     expect(mocks.setAuthToken).toHaveBeenCalledWith("token-123");
-    expect(mocks.setAuthUser).toHaveBeenCalledWith({
-      accessToken: "token-123",
-      expireInSeconds: 3600,
-      userId: 7,
-    });
   });
 
   it("registers successfully and auto-authenticates", async () => {
@@ -187,14 +184,16 @@ describe("AuthProvider", () => {
     });
 
     expect(mocks.removeAuthToken).toHaveBeenCalledTimes(1);
-    expect(mocks.removeAuthUser).toHaveBeenCalledTimes(1);
   });
 
   it("clears the session on logout", async () => {
-    mocks.getAuthUser.mockReturnValue({
-      accessToken: "saved-token",
-      expireInSeconds: 3600,
-      userId: 99,
+    mocks.getAuthToken.mockReturnValue("saved-token");
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: {
+          user: { id: 99 },
+        },
+      },
     });
 
     render(
@@ -214,6 +213,5 @@ describe("AuthProvider", () => {
     });
 
     expect(mocks.removeAuthToken).toHaveBeenCalledTimes(1);
-    expect(mocks.removeAuthUser).toHaveBeenCalledTimes(1);
   });
 });
