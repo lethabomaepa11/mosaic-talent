@@ -9,6 +9,13 @@ description: Use this skill when building or modifying the auth provider, login 
 
 The auth provider manages login, register, logout, and the current user's session. It differs from other providers because ABP's login endpoint (`/api/TokenAuth/Authenticate`) has a different shape than the standard CRUD services.
 
+## Production Auth Rules
+
+- Never implement mock/demo auth logic (no simulated success delays, no fake auth shortcuts).
+- Never persist auth session state in `localStorage`.
+- Always call real backend auth/session endpoints via provider actions.
+- Keep API calls in provider files only; pages/components must consume hooks/actions.
+
 ---
 
 ## File Structure

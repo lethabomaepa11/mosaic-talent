@@ -1,0 +1,52 @@
+"use client";
+
+import { PropsWithChildren, useEffect } from "react";
+import { AuthProvider } from "@/providers/auth-provider";
+import { CompanyAccountProvider } from "@/providers/company-account-provider";
+import { CompanyProfileProvider } from "@/providers/company-profile-provider";
+import { DeveloperProvider } from "@/providers/developer-provider";
+import { ProjectProvider } from "@/providers/project-provider";
+import { SimulationProvider } from "@/providers/simulation-provider";
+import {
+  TenantResolutionProvider,
+  useTenantResolutionAction,
+} from "@/providers/tenant-provider";
+import { AntdProvider } from "./antd-provider";
+import { AntdToastViewport } from "./antd-toast";
+
+export { toast } from "./antd-toast";
+
+const TenantBootstrap = ({ children }: PropsWithChildren) => {
+  const { resolveTenant } = useTenantResolutionAction();
+
+  useEffect(() => {
+    resolveTenant();
+  }, []);
+
+  return <>{children}</>;
+};
+
+export function AppProviders({ children }: PropsWithChildren) {
+  return (
+    <TenantResolutionProvider>
+      <TenantBootstrap>
+        <CompanyAccountProvider>
+          <AuthProvider>
+            <CompanyProfileProvider>
+              <DeveloperProvider>
+                <ProjectProvider>
+                  <SimulationProvider>
+                    <AntdProvider>
+                      <AntdToastViewport />
+                      {children}
+                    </AntdProvider>
+                  </SimulationProvider>
+                </ProjectProvider>
+              </DeveloperProvider>
+            </CompanyProfileProvider>
+          </AuthProvider>
+        </CompanyAccountProvider>
+      </TenantBootstrap>
+    </TenantResolutionProvider>
+  );
+}

@@ -1,0 +1,95 @@
+import { render, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { AuthStateContext, INITIAL_STATE } from "@/providers/auth-provider/context";
+import { AppHeader } from "@/components/app-header";
+
+const mocks = vi.hoisted(() => ({
+  useDeveloperState: vi.fn(),
+  useCompanyProfileState: vi.fn(),
+  useTenantResolutionState: vi.fn(),
+}));
+
+vi.mock("@/providers/developer-provider", () => ({
+  useDeveloperState: mocks.useDeveloperState,
+}));
+
+vi.mock("@/providers/company-profile-provider", () => ({
+  useCompanyProfileState: mocks.useCompanyProfileState,
+}));
+
+vi.mock("@/providers/tenant-provider", () => ({
+  useTenantResolutionState: mocks.useTenantResolutionState,
+}));
+
+describe("AppHeader", () => {
+  beforeAll(() => {
+    mocks.useDeveloperState.mockReturnValue({
+      currentUser: undefined,
+      profile: { avatarUrl: "" },
+    });
+    mocks.useCompanyProfileState.mockReturnValue({
+      profile: undefined,
+    });
+    mocks.useTenantResolutionState.mockReturnValue({
+      tenancyName: "",
+    });
+  });
+
+  beforeAll(() => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    class ResizeObserverMock {
+      observe() {
+        return undefined;
+      }
+
+      unobserve() {
+        return undefined;
+      }
+
+      disconnect() {
+        return undefined;
+      }
+    }
+
+    window.ResizeObserver = ResizeObserverMock;
+  });
+
+  it("renders with search and action controls", () => {
+    render(<AppHeader />);
+
+    expect(
+      screen.getByPlaceholderText("Search projects, reviews, simulations..."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "User menu" })).toBeInTheDocument();
+  });
+
+  it("renders initials from fallback user name", () => {
+    render(
+      <AuthStateContext.Provider
+        value={{
+          ...INITIAL_STATE,
+          user: { userId: 72, accessToken: "token", expireInSeconds: 1200 },
+        }}
+      >
+        <AppHeader />
+      </AuthStateContext.Provider>,
+    );
+
+    expect(screen.getByText("U7")).toBeInTheDocument();
+  });
+});
