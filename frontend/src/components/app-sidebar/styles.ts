@@ -20,26 +20,14 @@ export const useStyles = createStyles(({ token, css }) => ({
   logoRow: css`
     display: flex;
     align-items: center;
-    gap: ${token.marginXS}px;
     height: 64px;
     padding: 0 ${token.paddingLG}px;
     border-bottom: 1px solid ${token.colorBorder};
   `,
-  logoIcon: css`
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: ${token.borderRadiusLG}px;
-    background: ${token.colorPrimary};
-    color: ${token.colorBgBase};
-  `,
-  logoText: css`
-    margin: 0;
-    font-weight: ${token.fontWeightStrong};
-    font-size: ${token.fontSizeLG}px;
-    color: ${token.colorTextHeading};
+  logoImage: css`
+    width: auto;
+    max-width: 100%;
+    height: 26px;
   `,
   body: css`
     flex: 1;

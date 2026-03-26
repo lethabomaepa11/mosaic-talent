@@ -42,28 +42,12 @@ export const useStyles = createStyles(({ token, css }) => ({
   brand: css`
     display: inline-flex;
     align-items: center;
-    gap: ${token.marginSM}px;
     color: ${token.colorText};
   `,
-  brandIcon: css`
-    width: 32px;
-    height: 32px;
-    border-radius: ${token.borderRadius}px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: ${token.colorPrimary};
-    color: ${token.colorBgBase};
-  `,
-  brandText: css`
-    font-size: ${token.fontSizeXL}px;
-    font-family: var(--font-syne), ${token.fontFamily};
-    font-weight: ${token.fontWeightStrong};
-    letter-spacing: -0.01em;
-
-    @media (min-width: 768px) {
-      font-size: ${token.fontSizeHeading4}px;
-    }
+  brandLogo: css`
+    width: auto;
+    height: 28px;
+    max-width: 100%;
   `,
   navLinks: css`
     display: none;

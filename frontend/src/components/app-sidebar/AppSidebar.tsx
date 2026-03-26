@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Sparkles,
   LayoutDashboard,
   User,
   FolderKanban,
@@ -53,10 +53,14 @@ export const AppSidebar = () => {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}>
-        <div className={styles.logoIcon}>
-          <Sparkles size={16} />
-        </div>
-        <p className={styles.logoText}>mosaic talent</p>
+        <Image
+          src="/text-logo.svg"
+          alt="Mosaic Talent"
+          width={144}
+          height={28}
+          className={styles.logoImage}
+          priority
+        />
       </div>
 
       <div className={styles.body}>

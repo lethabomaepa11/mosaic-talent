@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -52,7 +53,14 @@ export const CompanySidebar = () => {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}>
-        <strong>mosaic talent</strong>
+        <Image
+          src="/text-logo.svg"
+          alt="Mosaic Talent"
+          width={144}
+          height={28}
+          className={styles.logoImage}
+          priority
+        />
       </div>
 
       <div className={styles.body}>

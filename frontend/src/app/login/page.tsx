@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
+import { ArrowRight, GitBranch } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
@@ -104,15 +105,18 @@ const LoginPage = () => {
             />
           ) : null}
           <div className={styles.logoRow}>
-            {isCompanyTenant ? null : (
-              <div className={styles.logoIcon}>
-                <Sparkles size={18} />
-              </div>
-            )}
-            <span className={styles.logoText}>
-              {isCompanyTenant ? companyName || tenancyName : "mosaictalent"}
-            </span>
+            <Image
+              src="/text-logo.svg"
+              alt="Mosaic Talent"
+              width={168}
+              height={32}
+              className={styles.logoImage}
+              priority
+            />
           </div>
+          {isCompanyTenant ? (
+            <p className={styles.tenantLabel}>{companyName || tenancyName}</p>
+          ) : null}
           <p className={styles.subtitle}>
             {companyName ? `Sign in to ${companyName}` : "Sign in to continue"}
           </p>

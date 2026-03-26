@@ -13,10 +13,14 @@ export const useStyles = createStyles(({ token, css }) => ({
   logoRow: css`
     display: flex;
     align-items: center;
-    gap: ${token.marginXS}px;
     height: 64px;
     padding: 0 ${token.paddingLG}px;
     border-bottom: 1px solid ${token.colorBorder};
+  `,
+  logoImage: css`
+    width: auto;
+    max-width: 100%;
+    height: 26px;
   `,
   body: css`
     flex: 1;

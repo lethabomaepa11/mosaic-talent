@@ -2,6 +2,7 @@
 
 import { useState, type ComponentType } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -119,10 +120,14 @@ const LandingPage = () => {
         <div className={styles.container}>
           <div className={styles.navInner}>
             <Link href="/" className={styles.brand}>
-              <div className={styles.brandIcon}>
-                <Sparkles size={16} />
-              </div>
-              <span className={styles.brandText}>mosaictalent</span>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={156}
+                height={30}
+                className={styles.brandLogo}
+                priority
+              />
             </Link>
 
             <div className={styles.navLinks}>
@@ -430,10 +435,13 @@ const LandingPage = () => {
         <div className={styles.container}>
           <div className={styles.footerInner}>
             <Link href="/" className={styles.brand}>
-              <div className={styles.brandIcon}>
-                <Sparkles size={16} />
-              </div>
-              <span className={styles.brandText}>mosaictalent</span>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={156}
+                height={30}
+                className={styles.brandLogo}
+              />
             </Link>
 
             <div className={styles.footerLinks}>
