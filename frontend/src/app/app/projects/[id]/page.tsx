@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   Plus,
   Sparkles,
   Users,
+  Lightbulb,
 } from "lucide-react";
 import {
   Avatar,
@@ -61,6 +62,7 @@ const statusColor = (status: string) => {
 
 const ProjectDetailPage = () => {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const projectId = params.id;
   const router = useRouter();
 
@@ -78,7 +80,7 @@ const ProjectDetailPage = () => {
 
   const { styles } = useStyles();
   const { currentUser, isPending } = useDeveloperState();
-  const { selectedProject: project, myProjects } = useProjectState();
+  const { selectedProject: project, myProjects, lastMatch } = useProjectState();
   const { fetchCurrentUser } = useDeveloperAction();
   const {
     fetchProjectById,
@@ -110,6 +112,13 @@ const ProjectDetailPage = () => {
       project.tasks.every((task) => task.status === "done")
     );
   }, [project]);
+
+  const shouldShowMatchInsight = useMemo(() => {
+    return (
+      searchParams.get("from") === "ai-match" &&
+      lastMatch?.projectId === projectId
+    );
+  }, [searchParams, lastMatch, projectId]);
 
   const handleFillTeam = async () => {
     if (!projectId) return;
@@ -329,6 +338,30 @@ const ProjectDetailPage = () => {
               </div>
             ) : null}
           </div>
+
+          {shouldShowMatchInsight ? (
+            <div className={styles.matchInsightBox}>
+              <div className={styles.matchInsightTitle}>
+                <Lightbulb size={14} />
+                <span>Why this project is your best match</span>
+              </div>
+              <Typography.Paragraph className={styles.matchInsightText}>
+                {lastMatch?.insight || "This project best aligns with your current profile."}
+              </Typography.Paragraph>
+              <div className={styles.matchInsightLearn}>
+                <Typography.Text strong>You will most likely learn:</Typography.Text>
+                <ul className={styles.learnList}>
+                  {(lastMatch?.learningOutcomes ?? []).length > 0 ? (
+                    lastMatch?.learningOutcomes.map((outcome) => (
+                      <li key={outcome}>{outcome}</li>
+                    ))
+                  ) : (
+                    <li>Hands-on collaboration and delivery in a real project context.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {project.status !== "completed" ? (

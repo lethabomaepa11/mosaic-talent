@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Button,
@@ -27,6 +28,7 @@ const MyProjectsPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
+  const router = useRouter();
 
   const { styles } = useStyles();
   const { fetchCurrentUser } = useDeveloperAction();
@@ -61,7 +63,8 @@ const MyProjectsPage = () => {
     try {
       const matched = await aiMatchProject();
       if (matched) {
-        toast.success("Match found", `AI matched you to "${matched.title}".`);
+        toast.success("Match found", `Best match: "${matched.title}".`);
+        router.push(`/app/projects/${matched.id}?from=ai-match`);
       } else {
         toast.info("No matches", "No matching open projects found.");
       }

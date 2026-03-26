@@ -77,6 +77,9 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
   status: input.status ?? "open",
   ownerId: String(input.ownerId ?? ""),
   createdAt: input.createdAt ?? new Date().toISOString(),
+  matchScore: Number(input.matchScore ?? 0),
+  matchInsight: input.matchInsight ?? "",
+  learningOutcomes: input.learningOutcomes ?? [],
   members: (input.members ?? []).map((member) => ({
     id: String(member.id ?? ""),
     name: member.name ?? "Developer",
@@ -180,7 +183,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
       const project = res.data?.result
         ? normalizeProject((res.data.result ?? {}) as Partial<IProject>)
         : undefined;
-      dispatch(aiMatchSuccess());
+      dispatch(aiMatchSuccess(project));
       await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
       return project;
     } catch (error) {

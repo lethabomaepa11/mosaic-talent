@@ -101,6 +101,13 @@ export const ProjectCard = ({
         ) : null}
       </div>
 
+      {typeof project.matchScore === "number" && project.matchScore > 0 ? (
+        <div className={styles.scoreRow}>
+          <Typography.Text type="secondary">Match Score</Typography.Text>
+          <Tag color="gold">{project.matchScore}%</Tag>
+        </div>
+      ) : null}
+
       {totalTasks > 0 ? (
         <Progress percent={progress} showInfo={false} size="small" />
       ) : null}

@@ -52,6 +52,12 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginSM}px;
     margin-bottom: ${token.marginSM}px;
   `,
+  scoreRow: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 ${token.marginSM}px;
+  `,
   memberRow: css`
     display: flex;
     align-items: center;

@@ -62,6 +62,34 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginXS}px;
     flex-wrap: wrap;
   `,
+  matchInsightBox: css`
+    margin-top: ${token.marginSM}px;
+    border: 1px solid color-mix(in srgb, ${token.colorPrimary} 28%, ${token.colorBorder});
+    border-radius: ${token.borderRadiusLG}px;
+    padding: ${token.paddingSM}px;
+    background: color-mix(in srgb, ${token.colorPrimaryBg} 45%, ${token.colorBgContainer});
+  `,
+  matchInsightTitle: css`
+    display: inline-flex;
+    align-items: center;
+    gap: ${token.marginXXS}px;
+    font-size: ${token.fontSizeSM}px;
+    color: ${token.colorPrimary};
+    font-weight: ${token.fontWeightStrong};
+  `,
+  matchInsightText: css`
+    margin: ${token.marginXS}px 0 ${token.marginSM}px;
+    color: ${token.colorText};
+  `,
+  matchInsightLearn: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+  `,
+  learnList: css`
+    margin: 0;
+    padding-left: ${token.paddingMD}px;
+    color: ${token.colorTextSecondary};
+  `,
   actionRow: css`
     display: flex;
     flex-wrap: wrap;

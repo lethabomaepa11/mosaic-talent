@@ -3,12 +3,14 @@ using Abp.Domain.Repositories;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
+using MosaicTalent.Services.AiService;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MosaicTalent.Services.DeveloperProjectService;
@@ -22,6 +24,10 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IRepository<ProjectMember, Guid> _projectMemberRepository;
     private readonly IRepository<ProjectSkill, Guid> _projectSkillRepository;
     private readonly IRepository<ProjectTask, Guid> _projectTaskRepository;
+    private readonly IRepository<DeveloperProfile, Guid> _developerProfileRepository;
+    private readonly IRepository<DeveloperProfileSkill, Guid> _developerProfileSkillRepository;
+    private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
+    private readonly IGroqChatService _groqChatService;
 
     public DeveloperProjectAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -29,7 +35,11 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IRepository<Project, Guid> projectRepository,
         IRepository<ProjectMember, Guid> projectMemberRepository,
         IRepository<ProjectSkill, Guid> projectSkillRepository,
-        IRepository<ProjectTask, Guid> projectTaskRepository)
+        IRepository<ProjectTask, Guid> projectTaskRepository,
+        IRepository<DeveloperProfile, Guid> developerProfileRepository,
+        IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
+        IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
+        IGroqChatService groqChatService)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -37,6 +47,10 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _projectMemberRepository = projectMemberRepository;
         _projectSkillRepository = projectSkillRepository;
         _projectTaskRepository = projectTaskRepository;
+        _developerProfileRepository = developerProfileRepository;
+        _developerProfileSkillRepository = developerProfileSkillRepository;
+        _developerProfileGoalRepository = developerProfileGoalRepository;
+        _groqChatService = groqChatService;
     }
 
     public async Task<List<DeveloperProjectDto>> GetMyProjects()
@@ -60,38 +74,26 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     public async Task<List<DeveloperProjectDto>> GetOpenProjects()
     {
         var developer = await GetCurrentDeveloper();
+        var developerSkills = await GetDeveloperSkills(developer.Id);
+        var developerGoals = await GetDeveloperGoals(developer.Id);
 
         var projects = await _projectRepository.GetAll()
             .Where(x => x.Status == ProjectStatus.Open)
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 
-        var members = await _projectMemberRepository.GetAll()
-            .Where(x => projects.Select(p => p.Id).Contains(x.ProjectId))
-            .ToListAsync();
+        var mapped = await MapProjects(projects);
+        var sorted = mapped
+            .OrderByDescending(project => ScoreProjectMatch(project, developerSkills, developerGoals))
+            .ThenByDescending(project => project.CreatedAt)
+            .ToList();
 
-        var myProjectIds = members
-            .Where(x => x.DeveloperId == developer.Id)
-            .Select(x => x.ProjectId)
-            .ToHashSet();
-
-        var openProjects = projects.Where(project =>
+        foreach (var project in sorted)
         {
-            if (project.OwnerDeveloperId == developer.Id)
-            {
-                return false;
-            }
+            project.MatchScore = CalculateMatchScore(project, developerSkills, developerGoals);
+        }
 
-            if (myProjectIds.Contains(project.Id))
-            {
-                return false;
-            }
-
-            var memberCount = members.Count(m => m.ProjectId == project.Id);
-            return memberCount < (project.MaxMembers ?? 4);
-        }).ToList();
-
-        return await MapProjects(openProjects);
+        return sorted;
     }
 
     public async Task<DeveloperProjectDto> GetProject(GetDeveloperProjectInput input)
@@ -200,8 +202,39 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
 
     public async Task<DeveloperProjectDto> AiMatchProject()
     {
+        var developer = await GetCurrentDeveloper();
+        var developerSkills = await GetDeveloperSkills(developer.Id);
+        var developerGoals = await GetDeveloperGoals(developer.Id);
         var openProjects = await GetOpenProjects();
-        return openProjects.FirstOrDefault();
+
+        if (openProjects.Count == 0)
+        {
+            return null;
+        }
+
+        var selection = await SelectProjectWithGroq(openProjects, developerSkills, developerGoals);
+        if (selection?.ProjectId != null)
+        {
+            var selected = openProjects.FirstOrDefault(x => x.Id == selection.ProjectId.Value);
+            if (selected != null)
+            {
+                selected.MatchInsight = selection.Insight;
+                selected.LearningOutcomes = selection.LearningOutcomes;
+                return selected;
+            }
+        }
+
+        var fallback = openProjects
+            .OrderByDescending(project => project.MatchScore)
+            .FirstOrDefault();
+        if (fallback == null)
+        {
+            return null;
+        }
+
+        fallback.MatchInsight = BuildFallbackInsight(fallback, developerSkills, developerGoals);
+        fallback.LearningOutcomes = BuildFallbackLearningOutcomes(fallback, developerSkills);
+        return fallback;
     }
 
     public async Task<DeveloperProjectDto> AiFillTeam(GetDeveloperProjectInput input)
@@ -238,10 +271,23 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             var candidates = await _developerRepository.GetAll()
                 .Where(x => !currentMemberIds.Contains(x.Id))
                 .OrderBy(x => x.CreationTime)
-                .Take(availableSlots)
+                .Take(40)
                 .ToListAsync();
 
-            foreach (var candidate in candidates)
+            var candidateIds = await SelectCandidatesWithGroq(project.Id, candidates, availableSlots);
+            var selectedCandidates = candidates
+                .Where(x => candidateIds.Contains(x.Id))
+                .Take(availableSlots)
+                .ToList();
+
+            if (selectedCandidates.Count == 0)
+            {
+                selectedCandidates = (await RankCandidatesBySkills(project.Id, candidates))
+                    .Take(availableSlots)
+                    .ToList();
+            }
+
+            foreach (var candidate in selectedCandidates)
             {
                 await _projectMemberRepository.InsertAsync(new ProjectMember
                 {
@@ -516,6 +562,435 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 Tasks = taskDtos,
             };
         }).ToList();
+    }
+
+    private async Task<ProjectMatchSelection> SelectProjectWithGroq(
+        List<DeveloperProjectDto> openProjects,
+        List<string> developerSkills,
+        List<string> developerGoals)
+    {
+        if (!_groqChatService.IsConfigured())
+        {
+            return null;
+        }
+
+        var payload = new
+        {
+            developer = new
+            {
+                skills = developerSkills,
+                goals = developerGoals,
+            },
+            projects = openProjects.Select(project => new
+            {
+                id = project.Id,
+                title = project.Title,
+                description = project.Description,
+                skills = project.Skills,
+                status = project.Status,
+                maxMembers = project.MaxMembers,
+                currentMembers = project.Members.Count,
+            }),
+        };
+
+        var systemPrompt = "You are a project matching assistant. Return only JSON with {\"projectId\":\"<guid or empty>\",\"insight\":\"short reason\",\"learningOutcomes\":[\"item\"]}.";
+        var userPrompt = JsonSerializer.Serialize(payload);
+        var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(response);
+            if (!document.RootElement.TryGetProperty("projectId", out var projectIdElement))
+            {
+                return null;
+            }
+
+            if (!Guid.TryParse(projectIdElement.GetString(), out var projectId))
+            {
+                return null;
+            }
+
+            if (!openProjects.Any(x => x.Id == projectId))
+            {
+                return null;
+            }
+
+            var insight = document.RootElement.TryGetProperty("insight", out var insightElement)
+                ? insightElement.GetString()
+                : null;
+            var learningOutcomes = new List<string>();
+            if (document.RootElement.TryGetProperty("learningOutcomes", out var learningElement) &&
+                learningElement.ValueKind == JsonValueKind.Array)
+            {
+                learningOutcomes = learningElement
+                    .EnumerateArray()
+                    .Select(x => x.GetString())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+            }
+
+            return new ProjectMatchSelection
+            {
+                ProjectId = projectId,
+                Insight = insight,
+                LearningOutcomes = learningOutcomes,
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int ScoreProjectMatch(
+        DeveloperProjectDto project,
+        IReadOnlyCollection<string> developerSkills,
+        IReadOnlyCollection<string> developerGoals)
+    {
+        return CalculateMatchScore(project, developerSkills, developerGoals);
+    }
+
+    private static int CalculateMatchScore(
+        DeveloperProjectDto project,
+        IReadOnlyCollection<string> developerSkills,
+        IReadOnlyCollection<string> developerGoals)
+    {
+        var normalizedDeveloperSkills = developerSkills
+            .Where(skill => !string.IsNullOrWhiteSpace(skill))
+            .Select(NormalizeSkillToken)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var normalizedProjectSkills = project.Skills
+            .Where(skill => !string.IsNullOrWhiteSpace(skill))
+            .Select(NormalizeSkillToken)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var overlap = normalizedProjectSkills.Count(projectSkill =>
+            normalizedDeveloperSkills.Any(devSkill => SkillTokensMatch(devSkill, projectSkill)));
+        var totalProjectSkills = Math.Max(normalizedProjectSkills.Count, 1);
+        var skillCoverage = (double)overlap / totalProjectSkills;
+
+        var goalsCount = Math.Max(developerGoals.Count, 1);
+        var projectText = $"{project.Title} {project.Description} {string.Join(" ", project.Skills)}";
+        var goalHits = developerGoals.Count(goal =>
+            !string.IsNullOrWhiteSpace(goal) &&
+            ContainsRelaxed(projectText, goal));
+        var goalCoverage = (double)goalHits / goalsCount;
+
+        var maxMembers = project.MaxMembers.GetValueOrDefault(4);
+        if (maxMembers <= 0)
+        {
+            maxMembers = 4;
+        }
+        var availableSlots = Math.Max(maxMembers - project.Members.Count, 0);
+        var availabilityRatio = (double)availableSlots / Math.Max(maxMembers, 1);
+
+        var weighted =
+            (Math.Min(skillCoverage, 1) * 0.75) +
+            (Math.Min(goalCoverage, 1) * 0.15) +
+            (Math.Min(availabilityRatio, 1) * 0.1);
+
+        var boosted = 35 + (weighted * 65);
+        if (overlap > 0 && boosted < 55)
+        {
+            boosted = 55;
+        }
+
+        if (overlap >= Math.Max(1, totalProjectSkills - 1) && goalHits > 0)
+        {
+            boosted = Math.Max(boosted, 85);
+        }
+
+        var capped = Math.Min(boosted, 100);
+        return (int)Math.Round(capped, MidpointRounding.AwayFromZero);
+    }
+
+    private static string NormalizeSkillToken(string value)
+    {
+        var token = value.Trim().ToLowerInvariant();
+        return token switch
+        {
+            "js" => "javascript",
+            "node" => "nodejs",
+            "node.js" => "nodejs",
+            "ts" => "typescript",
+            "py" => "python",
+            "postgres" => "postgresql",
+            "c#" => "dotnet",
+            ".net" => "dotnet",
+            "asp.net" => "dotnet",
+            _ => token,
+        };
+    }
+
+    private static bool SkillTokensMatch(string developerSkill, string projectSkill)
+    {
+        if (string.Equals(developerSkill, projectSkill, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return developerSkill.Contains(projectSkill, StringComparison.OrdinalIgnoreCase) ||
+               projectSkill.Contains(developerSkill, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsRelaxed(string haystack, string needle)
+    {
+        if (string.IsNullOrWhiteSpace(haystack) || string.IsNullOrWhiteSpace(needle))
+        {
+            return false;
+        }
+
+        var normalizedHaystack = NormalizeText(haystack);
+        var normalizedNeedle = NormalizeText(needle);
+        return normalizedHaystack.Contains(normalizedNeedle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeText(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        normalized = normalized
+            .Replace("node.js", "nodejs")
+            .Replace("node js", "nodejs")
+            .Replace("javascript", "javascript")
+            .Replace(" js ", " javascript ")
+            .Replace("typescript", "typescript")
+            .Replace(" ts ", " typescript ")
+            .Replace("postgres", "postgresql")
+            .Replace("asp.net", "dotnet")
+            .Replace(".net", "dotnet")
+            .Replace("c#", "dotnet");
+
+        return normalized;
+    }
+
+    private async Task<HashSet<Guid>> SelectCandidatesWithGroq(Guid projectId, List<Developer> candidates, int availableSlots)
+    {
+        if (!_groqChatService.IsConfigured() || availableSlots <= 0 || candidates.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var projectSkills = await _projectSkillRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.Name)
+            .ToListAsync();
+
+        var candidateProfiles = await BuildCandidateProfiles(candidates);
+
+        var payload = new
+        {
+            slots = availableSlots,
+            projectSkills,
+            candidates = candidateProfiles.Select(x => new
+            {
+                id = x.DeveloperId,
+                yearsOfExperience = x.YearsOfExperience,
+                teamworkRating = x.TeamworkRating,
+                skills = x.Skills,
+            }),
+        };
+
+        var systemPrompt = "Pick the best candidates for the project. Return only JSON: {\"developerIds\":[\"<guid>\"]}.";
+        var userPrompt = JsonSerializer.Serialize(payload);
+        var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            return new HashSet<Guid>();
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(response);
+            if (!document.RootElement.TryGetProperty("developerIds", out var idsElement) ||
+                idsElement.ValueKind != JsonValueKind.Array)
+            {
+                return new HashSet<Guid>();
+            }
+
+            var allowed = candidates.Select(x => x.Id).ToHashSet();
+            var selected = new HashSet<Guid>();
+            foreach (var idValue in idsElement.EnumerateArray())
+            {
+                if (Guid.TryParse(idValue.GetString(), out var parsedId) && allowed.Contains(parsedId))
+                {
+                    selected.Add(parsedId);
+                    if (selected.Count >= availableSlots)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return selected;
+        }
+        catch
+        {
+            return new HashSet<Guid>();
+        }
+    }
+
+    private async Task<List<Developer>> RankCandidatesBySkills(Guid projectId, List<Developer> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return new List<Developer>();
+        }
+
+        var projectSkills = await _projectSkillRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.Name)
+            .ToListAsync();
+        var projectSkillSet = new HashSet<string>(projectSkills, StringComparer.OrdinalIgnoreCase);
+        var candidateProfiles = await BuildCandidateProfiles(candidates);
+
+        var rankedIds = candidateProfiles
+            .OrderByDescending(candidate => candidate.Skills.Count(skill => projectSkillSet.Contains(skill)))
+            .ThenByDescending(candidate => candidate.TeamworkRating)
+            .ThenByDescending(candidate => candidate.YearsOfExperience ?? 0)
+            .Select(candidate => candidate.DeveloperId)
+            .ToList();
+
+        var idOrder = rankedIds
+            .Select((id, index) => new { id, index })
+            .ToDictionary(x => x.id, x => x.index);
+
+        return candidates
+            .OrderBy(candidate => idOrder.TryGetValue(candidate.Id, out var index) ? index : int.MaxValue)
+            .ToList();
+    }
+
+    private async Task<List<DeveloperCandidateProfile>> BuildCandidateProfiles(List<Developer> candidates)
+    {
+        var candidateIds = candidates.Select(x => x.Id).ToList();
+
+        var profiles = await _developerProfileRepository.GetAll()
+            .Where(x => candidateIds.Contains(x.DeveloperId))
+            .ToListAsync();
+
+        var profileIds = profiles.Select(x => x.Id).ToList();
+        var profileSkills = await _developerProfileSkillRepository.GetAll()
+            .Where(x => profileIds.Contains(x.ProfileId))
+            .ToListAsync();
+
+        return candidates.Select(candidate =>
+        {
+            var profile = profiles.FirstOrDefault(x => x.DeveloperId == candidate.Id);
+            var skills = profile == null
+                ? new List<string>()
+                : profileSkills
+                    .Where(x => x.ProfileId == profile.Id)
+                    .Select(x => x.Name)
+                    .ToList();
+
+            return new DeveloperCandidateProfile
+            {
+                DeveloperId = candidate.Id,
+                YearsOfExperience = candidate.YearsOfExperience,
+                TeamworkRating = profile?.TeamworkRating ?? 0,
+                Skills = skills,
+            };
+        }).ToList();
+    }
+
+    private async Task<List<string>> GetDeveloperSkills(Guid developerId)
+    {
+        var profile = await _developerProfileRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.DeveloperId == developerId);
+
+        if (profile == null)
+        {
+            return new List<string>();
+        }
+
+        return await _developerProfileSkillRepository.GetAll()
+            .Where(x => x.ProfileId == profile.Id)
+            .Select(x => x.Name)
+            .ToListAsync();
+    }
+
+    private async Task<List<string>> GetDeveloperGoals(Guid developerId)
+    {
+        var profile = await _developerProfileRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.DeveloperId == developerId);
+
+        if (profile == null)
+        {
+            return new List<string>();
+        }
+
+        return await _developerProfileGoalRepository.GetAll()
+            .Where(x => x.ProfileId == profile.Id)
+            .Select(x => x.Goal)
+            .ToListAsync();
+    }
+
+    private class DeveloperCandidateProfile
+    {
+        public Guid DeveloperId { get; set; }
+        public int? YearsOfExperience { get; set; }
+        public double TeamworkRating { get; set; }
+        public List<string> Skills { get; set; } = new();
+    }
+
+    private class ProjectMatchSelection
+    {
+        public Guid? ProjectId { get; set; }
+        public string Insight { get; set; }
+        public List<string> LearningOutcomes { get; set; } = new();
+    }
+
+    private static string BuildFallbackInsight(
+        DeveloperProjectDto project,
+        IReadOnlyCollection<string> developerSkills,
+        IReadOnlyCollection<string> developerGoals)
+    {
+        var skillSet = new HashSet<string>(developerSkills, StringComparer.OrdinalIgnoreCase);
+        var overlaps = project.Skills.Where(skill => skillSet.Contains(skill)).Take(3).ToList();
+        var goalHint = developerGoals.FirstOrDefault(goal =>
+            !string.IsNullOrWhiteSpace(goal) &&
+            project.Description.Contains(goal, StringComparison.OrdinalIgnoreCase));
+
+        if (overlaps.Count > 0 && !string.IsNullOrWhiteSpace(goalHint))
+        {
+            return $"Strong overlap with your skills ({string.Join(", ", overlaps)}) and aligns with your goal: {goalHint}.";
+        }
+
+        if (overlaps.Count > 0)
+        {
+            return $"Strong overlap with your current skills: {string.Join(", ", overlaps)}.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(goalHint))
+        {
+            return $"This project aligns with your stated goal: {goalHint}.";
+        }
+
+        return "This project offers the best available fit based on your profile and open team slots.";
+    }
+
+    private static List<string> BuildFallbackLearningOutcomes(
+        DeveloperProjectDto project,
+        IReadOnlyCollection<string> developerSkills)
+    {
+        var skillSet = new HashSet<string>(developerSkills, StringComparer.OrdinalIgnoreCase);
+        var newSkills = project.Skills.Where(skill => !skillSet.Contains(skill)).Take(3).ToList();
+
+        if (newSkills.Count > 0)
+        {
+            return newSkills.Select(skill => $"Build practical experience in {skill}.").ToList();
+        }
+
+        return new List<string>
+        {
+            "Deepen collaboration in a real delivery team.",
+            "Improve project execution from planning to completion.",
+        };
     }
 
     private static string ToStatusLabel(ProjectStatus status)

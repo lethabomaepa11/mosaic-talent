@@ -136,7 +136,19 @@ export const aiMatchPending = createAction<ProjectStatePatch>(
 
 export const aiMatchSuccess = createAction<ProjectStatePatch>(
   ProjectStateEnums.PROJECT_MATCH_SUCCESS,
-  () => ({ isPending: false, isSuccess: true, isError: false }),
+  (project?: IProject) => ({
+    isPending: false,
+    isSuccess: true,
+    isError: false,
+    lastMatch: project
+      ? {
+          projectId: project.id,
+          projectTitle: project.title,
+          insight: project.matchInsight,
+          learningOutcomes: project.learningOutcomes ?? [],
+        }
+      : undefined,
+  }),
 );
 
 export const aiMatchError = createAction<ProjectStatePatch>(

@@ -27,8 +27,18 @@ export interface IProject {
   status: string;
   ownerId: string;
   createdAt: string;
+  matchScore?: number;
+  matchInsight?: string;
+  learningOutcomes?: string[];
   members: IProjectMember[];
   tasks: IProjectTask[];
+}
+
+export interface IProjectMatchResult {
+  projectId: string;
+  projectTitle: string;
+  insight?: string;
+  learningOutcomes: string[];
 }
 
 export interface ICreateProjectInput {
@@ -48,6 +58,7 @@ export interface IProjectStateContext {
   myProjects: IProject[];
   openProjects: IProject[];
   selectedProject?: IProject;
+  lastMatch?: IProjectMatchResult;
 }
 
 export interface IProjectActionContext {
@@ -81,6 +92,7 @@ export const INITIAL_STATE: IProjectStateContext = {
   myProjects: [],
   openProjects: [],
   selectedProject: undefined,
+  lastMatch: undefined,
 };
 
 export const ProjectStateContext =
