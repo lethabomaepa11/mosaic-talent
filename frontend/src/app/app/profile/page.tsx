@@ -32,9 +32,14 @@ import {
 } from "antd";
 import { toast } from "@/components/providers";
 import {
+  useCompanyProfileAction,
+  useCompanyProfileState,
+} from "@/providers/company-profile-provider";
+import {
   useDeveloperAction,
   useDeveloperState,
 } from "@/providers/developer-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
 import { GithubOutlined } from "@ant-design/icons";
@@ -78,9 +83,17 @@ const ProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [companyDraft, setCompanyDraft] = useState({
+    name: "",
+    surname: "",
+    avatarUrl: "",
+  });
 
   const { styles } = useStyles();
+  const { tenancyName } = useTenantResolutionState();
+  const isCompanyTenant = Boolean(tenancyName);
   const { profile, scanResult, currentUser, isPending, studyLevels } = useDeveloperState();
+  const { profile: companyProfile, isPending: isCompanyPending } = useCompanyProfileState();
   const {
     fetchCurrentUser,
     fetchMyProfile,
@@ -88,8 +101,14 @@ const ProfilePage = () => {
     scanMyGithubProfile,
     upsertMyProfile,
   } = useDeveloperAction();
+  const { fetchMyEmployeeProfile, updateMyEmployeeProfile } = useCompanyProfileAction();
 
   useEffect(() => {
+    if (isCompanyTenant) {
+      fetchMyEmployeeProfile();
+      return;
+    }
+
     fetchCurrentUser();
     fetchMyProfile();
     fetchStudyLevels();
@@ -110,11 +129,36 @@ const ProfilePage = () => {
     });
   }, [profile]);
 
+  useEffect(() => {
+    if (!companyProfile) {
+      return;
+    }
+
+    setCompanyDraft({
+      name: companyProfile.name ?? "",
+      surname: companyProfile.surname ?? "",
+      avatarUrl: companyProfile.avatarUrl ?? "",
+    });
+  }, [companyProfile]);
+
   const displayName = useMemo(() => {
+    if (isCompanyTenant) {
+      const fullName = `${companyDraft.name} ${companyDraft.surname}`.trim();
+      return fullName || companyProfile?.userName || "Employee";
+    }
+
     const fullName =
       `${currentUser?.name ?? ""} ${currentUser?.surname ?? ""}`.trim();
     return fullName || currentUser?.userName || "Developer";
-  }, [currentUser?.name, currentUser?.surname, currentUser?.userName]);
+  }, [
+    companyDraft.name,
+    companyDraft.surname,
+    companyProfile?.userName,
+    currentUser?.name,
+    currentUser?.surname,
+    currentUser?.userName,
+    isCompanyTenant,
+  ]);
 
   const initials = useMemo(() => {
     return displayName
@@ -164,6 +208,26 @@ const ProfilePage = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (isCompanyTenant) {
+      setIsSaving(true);
+
+      try {
+        await updateMyEmployeeProfile({
+          name: companyDraft.name,
+          surname: companyDraft.surname,
+          avatarUrl: companyDraft.avatarUrl,
+        });
+        toast.success("Profile saved", "Your company profile has been updated.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to save profile.";
+        toast.error("Save failed", message);
+      } finally {
+        setIsSaving(false);
+      }
+
+      return;
+    }
+
     if (!draft.githubUsername.trim()) {
       toast.error(
         "GitHub username required",
@@ -209,10 +273,39 @@ const ProfilePage = () => {
 
     try {
       const uploaded = await uploadFile(file, "avatars");
-      setDraft((prev) => ({ ...prev, avatarUrl: uploaded.url }));
+      if (isCompanyTenant) {
+        const nextDraft = { ...companyDraft, avatarUrl: uploaded.url };
+        setCompanyDraft(nextDraft);
+        await updateMyEmployeeProfile({
+          name: nextDraft.name,
+          surname: nextDraft.surname,
+          avatarUrl: nextDraft.avatarUrl,
+        });
+      } else {
+        const nextDraft = { ...draft, avatarUrl: uploaded.url };
+        setDraft(nextDraft);
+
+        if (nextDraft.githubUsername.trim()) {
+          await upsertMyProfile({
+            ...profile,
+            githubUsername: nextDraft.githubUsername,
+            avatarUrl: nextDraft.avatarUrl,
+            yearsOfExperience: nextDraft.yearsOfExperience,
+            yearOfStudy: nextDraft.yearOfStudy,
+            studyLevel: nextDraft.studyLevel,
+            bio: nextDraft.bio,
+            location: nextDraft.location,
+            teamworkRating: nextDraft.teamworkRating,
+            skills: nextDraft.skills,
+            goals: nextDraft.goals,
+          });
+        }
+      }
       toast.success("Avatar uploaded", "Profile avatar has been updated.");
-    } catch {
-      toast.error("Upload failed", "Unable to upload avatar right now.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to upload avatar right now.";
+      toast.error("Upload failed", message);
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -267,7 +360,13 @@ const ProfilePage = () => {
             >
               <Card>
                 <Space size={16} align="start" wrap>
-                  <Avatar src={draft.avatarUrl || undefined} size={72}>
+                  <Avatar
+                    src={
+                      (isCompanyTenant ? companyDraft.avatarUrl : draft.avatarUrl) ||
+                      undefined
+                    }
+                    size={72}
+                  >
                     {initials}
                   </Avatar>
                   <div>
@@ -278,128 +377,183 @@ const ProfilePage = () => {
                       {displayName}
                     </Typography.Title>
                     <Typography.Text className={styles.mutedText}>
-                      {currentUser?.emailAddress || "No email loaded"}
+                      {isCompanyTenant
+                        ? companyProfile?.emailAddress || "No email loaded"
+                        : currentUser?.emailAddress || "No email loaded"}
                     </Typography.Text>
                     <div className={styles.badges}>
-                      <Badge count="Developer" color="gold" />
-                      <Badge
-                        count={`${currentSkills.length} skills`}
-                        color="blue"
-                      />
+                      {isCompanyTenant ? (
+                        <Badge count="Company Employee" color="blue" />
+                      ) : (
+                        <>
+                          <Badge count="Developer" color="gold" />
+                          <Badge
+                            count={`${currentSkills.length} skills`}
+                            color="blue"
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 </Space>
               </Card>
             </motion.div>
 
-            <motion.div
+            {isCompanyTenant ? (
+              <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
                 title={
                   <Space>
-                    <User size={16} /> Developer Details
+                    <User size={16} /> Employee Details
                   </Space>
                 }
               >
                 <div className={styles.detailsGrid}>
-                  <div>
-                    <Typography.Text type="secondary">Years of Experience</Typography.Text>
-                    <InputNumber
-                      min={0}
-                      max={80}
-                      value={draft.yearsOfExperience}
-                      onChange={(value) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          yearsOfExperience: value ?? undefined,
-                        }))
-                      }
-                      className={styles.fullControl}
-                    />
-                  </div>
-                  <div>
-                    <Typography.Text type="secondary">Year of Study</Typography.Text>
-                    <InputNumber
-                      min={0}
-                      max={9}
-                      value={draft.yearOfStudy}
-                      onChange={(value) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          yearOfStudy: value ?? undefined,
-                        }))
-                      }
-                      className={styles.fullControl}
-                    />
-                  </div>
-                  <div>
-                    <Typography.Text type="secondary">Study Level</Typography.Text>
-                    <Select
-                      className={styles.fullControl}
-                      value={draft.studyLevel}
-                      options={studyLevels.map((item) => ({
-                        label: item.label,
-                        value: item.value,
-                      }))}
-                      onChange={(value) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          studyLevel: value,
-                        }))
-                      }
-                    />
-                  </div>
                   <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">Location</Typography.Text>
+                    <Typography.Text type="secondary">First Name</Typography.Text>
                     <Input
-                      value={draft.location}
+                      value={companyDraft.name}
                       onChange={(event) =>
-                        setDraft((prev) => ({
+                        setCompanyDraft((prev) => ({
                           ...prev,
-                          location: event.target.value,
+                          name: event.target.value,
                         }))
                       }
-                      placeholder="City, Country"
+                      placeholder="First name"
                     />
                   </div>
                   <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">Bio</Typography.Text>
-                    <Input.TextArea
-                      rows={4}
-                      value={draft.bio}
+                    <Typography.Text type="secondary">Last Name</Typography.Text>
+                    <Input
+                      value={companyDraft.surname}
                       onChange={(event) =>
-                        setDraft((prev) => ({
+                        setCompanyDraft((prev) => ({
                           ...prev,
-                          bio: event.target.value,
+                          surname: event.target.value,
                         }))
                       }
-                      placeholder="Tell teams how you work and what you’re focused on."
+                      placeholder="Last name"
                     />
                   </div>
                   <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">
-                      Teamwork Rating ({draft.teamworkRating.toFixed(1)})
-                    </Typography.Text>
-                    <Slider
-                      min={0}
-                      max={10}
-                      step={0.1}
-                      value={draft.teamworkRating}
-                      onChange={(value) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          teamworkRating: value,
-                        }))
-                      }
-                    />
+                    <Typography.Text type="secondary">Role</Typography.Text>
+                    <Input value={String(companyProfile?.role ?? "")} disabled />
                   </div>
                 </div>
               </Card>
             </motion.div>
-
-            <motion.div
+            ) : (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Card
+                    title={
+                      <Space>
+                        <User size={16} /> Developer Details
+                      </Space>
+                    }
+                  >
+                    <div className={styles.detailsGrid}>
+                      <div>
+                        <Typography.Text type="secondary">Years of Experience</Typography.Text>
+                        <InputNumber
+                          min={0}
+                          max={80}
+                          value={draft.yearsOfExperience}
+                          onChange={(value) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              yearsOfExperience: value ?? undefined,
+                            }))
+                          }
+                          className={styles.fullControl}
+                        />
+                      </div>
+                      <div>
+                        <Typography.Text type="secondary">Year of Study</Typography.Text>
+                        <InputNumber
+                          min={0}
+                          max={9}
+                          value={draft.yearOfStudy}
+                          onChange={(value) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              yearOfStudy: value ?? undefined,
+                            }))
+                          }
+                          className={styles.fullControl}
+                        />
+                      </div>
+                      <div>
+                        <Typography.Text type="secondary">Study Level</Typography.Text>
+                        <Select
+                          className={styles.fullControl}
+                          value={draft.studyLevel}
+                          options={studyLevels.map((item) => ({
+                            label: item.label,
+                            value: item.value,
+                          }))}
+                          onChange={(value) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              studyLevel: value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className={styles.fullSpan}>
+                        <Typography.Text type="secondary">Location</Typography.Text>
+                        <Input
+                          value={draft.location}
+                          onChange={(event) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              location: event.target.value,
+                            }))
+                          }
+                          placeholder="City, Country"
+                        />
+                      </div>
+                      <div className={styles.fullSpan}>
+                        <Typography.Text type="secondary">Bio</Typography.Text>
+                        <Input.TextArea
+                          rows={4}
+                          value={draft.bio}
+                          onChange={(event) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              bio: event.target.value,
+                            }))
+                          }
+                          placeholder="Tell teams how you work and what you’re focused on."
+                        />
+                      </div>
+                      <div className={styles.fullSpan}>
+                        <Typography.Text type="secondary">
+                          Teamwork Rating ({draft.teamworkRating.toFixed(1)})
+                        </Typography.Text>
+                        <Slider
+                          min={0}
+                          max={10}
+                          step={0.1}
+                          value={draft.teamworkRating}
+                          onChange={(value) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              teamworkRating: value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+                <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -463,8 +617,7 @@ const ProfilePage = () => {
                 </div>
               </Card>
             </motion.div>
-
-            <motion.div
+                <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -528,6 +681,8 @@ const ProfilePage = () => {
                 </div>
               </Card>
             </motion.div>
+              </>
+            )}
           </Space>
         </Col>
 
@@ -564,17 +719,23 @@ const ProfilePage = () => {
                       </Button>
                     </Upload>
                     <Input
-                      value={draft.avatarUrl}
+                      value={isCompanyTenant ? companyDraft.avatarUrl : draft.avatarUrl}
                       onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          avatarUrl: event.target.value,
-                        }))
+                        isCompanyTenant
+                          ? setCompanyDraft((prev) => ({
+                              ...prev,
+                              avatarUrl: event.target.value,
+                            }))
+                          : setDraft((prev) => ({
+                              ...prev,
+                              avatarUrl: event.target.value,
+                            }))
                       }
                       placeholder="Or paste avatar URL"
                     />
                   </div>
-                  <Input
+                  {!isCompanyTenant ? (
+                    <Input
                     value={draft.githubUsername}
                     onChange={(event) =>
                       setDraft((prev) => ({
@@ -583,8 +744,10 @@ const ProfilePage = () => {
                       }))
                     }
                     placeholder="GitHub username"
-                  />
-                  <Button
+                    />
+                  ) : null}
+                  {!isCompanyTenant ? (
+                    <Button
                     type="primary"
                     onClick={handleScanGithub}
                     disabled={!draft.githubUsername || isScanning || isPending}
@@ -599,7 +762,8 @@ const ProfilePage = () => {
                   >
                     {isScanning ? "Scanning..." : "Scan GitHub"}
                   </Button>
-                  {scanResult ? (
+                  ) : null}
+                  {!isCompanyTenant && scanResult ? (
                     <div className={styles.scanCard}>
                       <Space>
                         <CheckCircle size={16} />
@@ -622,7 +786,8 @@ const ProfilePage = () => {
               </Card>
             </motion.div>
 
-            <motion.div
+            {!isCompanyTenant ? (
+              <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -669,11 +834,12 @@ const ProfilePage = () => {
                 </Space>
               </Card>
             </motion.div>
+            ) : null}
 
             <Button
               type="primary"
               onClick={handleSaveProfile}
-              loading={isSaving || isPending}
+              loading={isSaving || isPending || isCompanyPending}
               icon={<Save size={14} />}
               block
             >

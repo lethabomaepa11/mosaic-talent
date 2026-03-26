@@ -27,6 +27,11 @@ export const useStyles = createStyles(({ token, css }) => ({
       overflow: visible;
     }
   `,
+  desktopSidebar: css`
+    @media (max-width: 991px) {
+      display: none;
+    }
+  `,
   content: css`
     flex: 1;
     padding: ${token.paddingLG}px;
@@ -34,6 +39,15 @@ export const useStyles = createStyles(({ token, css }) => ({
 
     @media (max-width: 767px) {
       padding: ${token.padding}px;
+    }
+  `,
+  mobileDrawer: css`
+    @media (min-width: 992px) {
+      display: none;
+    }
+
+    :global(.ant-drawer-body) {
+      padding: 0;
     }
   `,
   pageTitle: css`

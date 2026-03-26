@@ -44,6 +44,13 @@ export const useStyles = createStyles(({ token, css }) => ({
       justify-content: flex-end;
     }
   `,
+  menuButton: css`
+    color: ${token.colorTextSecondary};
+
+    @media (min-width: 992px) {
+      display: none;
+    }
+  `,
   iconButton: css`
     color: ${token.colorTextSecondary};
   `,

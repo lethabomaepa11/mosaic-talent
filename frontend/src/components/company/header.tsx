@@ -1,13 +1,57 @@
 "use client";
 
+import { useMemo } from "react";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Search, Settings } from "lucide-react";
+import { Bell, Menu, Search, Settings } from "lucide-react";
+import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useStyles } from "./header.styles";
 
-export const CompanyHeader = () => {
+interface ICompanyHeaderProps {
+  onMenuClick?: () => void;
+}
+
+export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
   const { styles } = useStyles();
+  const { profile } = useCompanyProfileState();
+
+  const displayName = useMemo(() => {
+    const fullName = `${profile?.name ?? ""} ${profile?.surname ?? ""}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+
+    if (profile?.userName) {
+      return profile.userName;
+    }
+
+    return "Employee";
+  }, [profile?.name, profile?.surname, profile?.userName]);
+
+  const initials = useMemo(
+    () =>
+      displayName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((item) => item[0])
+        .join("")
+        .toUpperCase(),
+    [displayName],
+  );
 
   const menuItems: MenuProps["items"] = [
+    {
+      key: "meta",
+      label: (
+        <div className={styles.userMeta}>
+          <p className={styles.userName}>{displayName}</p>
+          <p className={styles.userEmail}>
+            {profile?.emailAddress || "No email loaded in session"}
+          </p>
+        </div>
+      ),
+    },
+    { type: "divider" },
     { key: "profile", label: "Profile Settings" },
     { key: "team", label: "Team Members" },
     { key: "billing", label: "Billing" },
@@ -26,6 +70,14 @@ export const CompanyHeader = () => {
       </div>
 
       <div className={styles.actions}>
+        <Button
+          type="text"
+          shape="circle"
+          icon={<Menu size={18} />}
+          className={styles.menuButton}
+          aria-label="Open company navigation menu"
+          onClick={onMenuClick}
+        />
         <Badge dot color="gold">
           <Button
             type="text"
@@ -45,10 +97,10 @@ export const CompanyHeader = () => {
 
         <Dropdown trigger={["click"]} menu={{ items: menuItems }} placement="bottomRight">
           <Button type="text" className={styles.userButton}>
-            <Avatar size={26} className={styles.avatar}>
-              HR
+            <Avatar size={26} src={profile?.avatarUrl || undefined} className={styles.avatar}>
+              {initials}
             </Avatar>
-            HR Manager
+            {displayName}
           </Button>
         </Dropdown>
       </div>

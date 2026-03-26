@@ -32,6 +32,13 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     gap: ${token.marginXS}px;
   `,
+  menuButton: css`
+    color: ${token.colorTextSecondary};
+
+    @media (min-width: 992px) {
+      display: none;
+    }
+  `,
   iconButton: css`
     color: ${token.colorTextSecondary};
   `,
@@ -39,10 +46,29 @@ export const useStyles = createStyles(({ token, css }) => ({
     height: 36px;
     padding-inline: ${token.paddingSM}px;
     border: 1px solid color-mix(in srgb, ${token.colorPrimary} 30%, transparent);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   `,
   avatar: css`
     background: ${token.colorPrimary};
     color: ${token.colorBgBase};
     font-weight: ${token.fontWeightStrong};
+  `,
+  userMeta: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginXXS}px;
+  `,
+  userName: css`
+    margin: 0;
+    font-weight: ${token.fontWeightStrong};
+    color: ${token.colorText};
+  `,
+  userEmail: css`
+    margin: 0;
+    font-size: ${token.fontSizeSM}px;
+    color: ${token.colorTextSecondary};
   `,
 }));

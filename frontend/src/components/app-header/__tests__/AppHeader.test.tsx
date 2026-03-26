@@ -5,10 +5,20 @@ import { AppHeader } from "@/components/app-header";
 
 const mocks = vi.hoisted(() => ({
   useDeveloperState: vi.fn(),
+  useCompanyProfileState: vi.fn(),
+  useTenantResolutionState: vi.fn(),
 }));
 
 vi.mock("@/providers/developer-provider", () => ({
   useDeveloperState: mocks.useDeveloperState,
+}));
+
+vi.mock("@/providers/company-profile-provider", () => ({
+  useCompanyProfileState: mocks.useCompanyProfileState,
+}));
+
+vi.mock("@/providers/tenant-provider", () => ({
+  useTenantResolutionState: mocks.useTenantResolutionState,
 }));
 
 describe("AppHeader", () => {
@@ -16,6 +26,12 @@ describe("AppHeader", () => {
     mocks.useDeveloperState.mockReturnValue({
       currentUser: undefined,
       profile: { avatarUrl: "" },
+    });
+    mocks.useCompanyProfileState.mockReturnValue({
+      profile: undefined,
+    });
+    mocks.useTenantResolutionState.mockReturnValue({
+      tenancyName: "",
     });
   });
 

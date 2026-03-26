@@ -2,32 +2,51 @@
 
 import { useMemo, useState } from "react";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Search, Settings } from "lucide-react";
+import { Bell, Menu, Search, Settings } from "lucide-react";
 import { useAuthState } from "@/providers/auth-provider";
+import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useDeveloperState } from "@/providers/developer-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
   onSearchChange?: (value: string) => void;
+  onMenuClick?: () => void;
 }
 
 export const AppHeader = ({
   onSearchChange,
+  onMenuClick,
 }: IAppHeaderProps) => {
   const [searchValue, setSearchValue] = useState("");
 
   const { styles } = useStyles();
   const { user } = useAuthState();
+  const { tenancyName } = useTenantResolutionState();
   const { currentUser, profile } = useDeveloperState();
+  const { profile: companyProfile } = useCompanyProfileState();
+  const isCompanyTenant = Boolean(tenancyName);
+
+  const selectedName = isCompanyTenant
+    ? `${companyProfile?.name ?? ""} ${companyProfile?.surname ?? ""}`.trim()
+    : `${currentUser?.name ?? ""} ${currentUser?.surname ?? ""}`.trim();
+  const selectedUserName = isCompanyTenant
+    ? companyProfile?.userName
+    : currentUser?.userName;
+  const selectedEmail = isCompanyTenant
+    ? companyProfile?.emailAddress
+    : currentUser?.emailAddress;
+  const selectedAvatarUrl = isCompanyTenant
+    ? companyProfile?.avatarUrl
+    : profile.avatarUrl;
 
   const displayName = useMemo(() => {
-    const fullName = `${currentUser?.name ?? ""} ${currentUser?.surname ?? ""}`.trim();
-    if (fullName) {
-      return fullName;
+    if (selectedName) {
+      return selectedName;
     }
 
-    if (currentUser?.userName) {
-      return currentUser.userName;
+    if (selectedUserName) {
+      return selectedUserName;
     }
 
     if (!user?.userId) {
@@ -35,7 +54,7 @@ export const AppHeader = ({
     }
 
     return `User ${user.userId}`;
-  }, [currentUser?.name, currentUser?.surname, currentUser?.userName, user?.userId]);
+  }, [selectedName, selectedUserName, user?.userId]);
 
   const initials = useMemo(
     () =>
@@ -57,7 +76,7 @@ export const AppHeader = ({
           <div className={styles.userMeta}>
             <p className={styles.userName}>{displayName}</p>
             <p className={styles.userEmail}>
-              {currentUser?.emailAddress || "No email loaded in session"}
+              {selectedEmail || "No email loaded in session"}
             </p>
           </div>
         ),
@@ -79,8 +98,8 @@ export const AppHeader = ({
       },
     ],
     [
-      currentUser?.emailAddress,
       displayName,
+      selectedEmail,
       styles.userEmail,
       styles.userMeta,
       styles.userName,
@@ -104,6 +123,14 @@ export const AppHeader = ({
       </div>
 
       <div className={styles.actions}>
+        <Button
+          type="text"
+          shape="circle"
+          icon={<Menu size={18} />}
+          className={styles.menuButton}
+          aria-label="Open navigation menu"
+          onClick={onMenuClick}
+        />
         <Badge dot color="gold">
           <Button
             type="text"
@@ -129,7 +156,7 @@ export const AppHeader = ({
           classNames={{ root: styles.dropdown }}
         >
           <Button type="text" className={styles.avatarButton} aria-label="User menu">
-            <Avatar size={30} src={profile.avatarUrl || undefined} className={styles.avatar}>
+            <Avatar size={30} src={selectedAvatarUrl || undefined} className={styles.avatar}>
               {initials}
             </Avatar>
           </Button>

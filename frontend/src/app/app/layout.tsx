@@ -1,10 +1,13 @@
 "use client";
 
-import { PropsWithChildren, useEffect } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Drawer } from "antd";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CompanyHeader, CompanySidebar } from "@/components/company";
 import { useAuthState } from "@/providers/auth-provider";
+import { useCompanyProfileAction } from "@/providers/company-profile-provider";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { getAuthToken } from "@/utils/axiosInstance";
@@ -14,9 +17,12 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
   const router = useRouter();
   const { styles } = useStyles();
   const { isAuthenticated } = useAuthState();
+  const { fetchMyEmployeeProfile } = useCompanyProfileAction();
   const { tenancyName } = useTenantResolutionState();
   const { fetchCurrentUser, fetchMyProfile } = useDeveloperAction();
   const hasToken = Boolean(getAuthToken());
+  const isCompanyTenant = Boolean(tenancyName);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated && !hasToken) {
@@ -25,19 +31,18 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
   }, [hasToken, isAuthenticated, router]);
 
   useEffect(() => {
-    if (isAuthenticated && tenancyName) {
-      router.replace("/company");
-    }
-  }, [isAuthenticated, router, tenancyName]);
-
-  useEffect(() => {
     if (!isAuthenticated) {
+      return;
+    }
+
+    if (isCompanyTenant) {
+      fetchMyEmployeeProfile();
       return;
     }
 
     fetchCurrentUser();
     fetchMyProfile();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isCompanyTenant]);
 
   if (!isAuthenticated && hasToken) {
     return (
@@ -47,21 +52,28 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
     );
   }
 
-  if (isAuthenticated && tenancyName) {
-    return (
-      <div className={styles.loadingState}>
-        Redirecting to company dashboard...
-      </div>
-    );
-  }
-
   return (
     <div className={styles.shell}>
-      <AppSidebar />
+      <div className={styles.desktopSidebar}>
+        {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}
+      </div>
       <div className={styles.main}>
-        <AppHeader />
+        {isCompanyTenant ? (
+          <CompanyHeader onMenuClick={() => setIsMenuOpen(true)} />
+        ) : (
+          <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+        )}
         <main className={styles.content}>{children}</main>
       </div>
+      <Drawer
+        open={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        placement="left"
+        width={280}
+        className={styles.mobileDrawer}
+      >
+        {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}
+      </Drawer>
     </div>
   );
 };

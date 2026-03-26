@@ -6,15 +6,16 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  User,
   Briefcase,
   Users,
   FileText,
   Settings,
-  ChevronLeft,
   LogOut,
 } from "lucide-react";
 import { Button } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./sidebar.styles";
 
 interface INavItem {
@@ -24,11 +25,12 @@ interface INavItem {
 }
 
 const navigation: INavItem[] = [
-  { href: "/company", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/company/jobs", label: "Job Postings", icon: Briefcase },
-  { href: "/company/candidates", label: "Candidates", icon: Users },
-  { href: "/company/reports", label: "Reports", icon: FileText },
-  { href: "/company/settings", label: "Settings", icon: Settings },
+  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/profile", label: "My Profile", icon: User },
+  { href: "/app/jobs", label: "Job Postings", icon: Briefcase },
+  { href: "/app/candidates", label: "Candidates", icon: Users },
+  { href: "/app/reports", label: "Reports", icon: FileText },
+  { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 const cx = (...values: Array<string | false | undefined>) =>
@@ -39,7 +41,7 @@ const isItemActive = (pathname: string, href: string) => {
     return true;
   }
 
-  if (href === "/company") {
+  if (href === "/app") {
     return false;
   }
 
@@ -50,6 +52,7 @@ export const CompanySidebar = () => {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { logout } = useAuthAction();
+  const { companyLogoUrl, companyName, tenancyName } = useTenantResolutionState();
   const { styles } = useStyles();
 
   const handleLogout = async () => {
@@ -60,14 +63,22 @@ export const CompanySidebar = () => {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}>
-        <Image
-          src="/text-logo.svg"
-          alt="Mosaic Talent"
-          width={144}
-          height={28}
-          className={styles.logoImage}
-          priority
-        />
+        {companyLogoUrl ? (
+          <img
+            src={companyLogoUrl}
+            alt={`${companyName || tenancyName || "Company"} logo`}
+            className={styles.companyLogo}
+          />
+        ) : (
+          <Image
+            src="/text-logo.svg"
+            alt="Mosaic Talent"
+            width={144}
+            height={28}
+            className={styles.logoImage}
+            priority
+          />
+        )}
       </div>
 
       <div className={styles.body}>
@@ -89,11 +100,6 @@ export const CompanySidebar = () => {
       </div>
 
       <div className={styles.footer}>
-        <Link href="/app">
-          <Button type="default" className={styles.footerButton} icon={<ChevronLeft size={16} />}>
-            Switch to Developer
-          </Button>
-        </Link>
         <Button
           type="text"
           className={styles.footerButton}

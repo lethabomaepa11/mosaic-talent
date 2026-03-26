@@ -33,6 +33,12 @@ export const useStyles = createStyles(({ token, css }) => ({
     max-width: 100%;
     height: 26px;
   `,
+  companyLogo: css`
+    width: auto;
+    max-width: 100%;
+    max-height: 36px;
+    object-fit: contain;
+  `,
   body: css`
     flex: 1;
     padding: ${token.paddingMD}px ${token.paddingSM}px;

@@ -18,3 +18,8 @@ export {
   useDeveloperAction,
   useDeveloperState,
 } from "./developer-provider";
+export {
+  CompanyProfileProvider,
+  useCompanyProfileAction,
+  useCompanyProfileState,
+} from "./company-profile-provider";
