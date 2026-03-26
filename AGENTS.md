@@ -21,4 +21,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Use breakpoint-aware spacing/typography/layout (stack on mobile, expand to multi-column on tablet/desktop).
 - Ensure primary actions remain visible and usable on mobile without horizontal scrolling.
 - Validate responsiveness before handoff (at minimum: narrow mobile width and desktop width).
+
+# Documentation Rules
+
+- Always document important implementation decisions and behavior changes for every feature/fix.
+- Add feature documentation under `docs/feature/<filename>.md` (for example: `docs/feature/ai-matching.md`).
+- Always add or update links in the root `README.md` so new documentation is discoverable.
+- If multiple docs are added for one feature, keep them grouped under `docs/feature/`.
 <!-- END:nextjs-agent-rules -->

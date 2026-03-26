@@ -2,12 +2,16 @@
 using Abp.Extensions;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace MosaicTalent.Authorization.Users;
 
 public class User : AbpUser<User>
 {
     public const string DefaultPassword = "123qwe";
+
+    [MaxLength(512)]
+    public string AvatarUrl { get; set; }
 
     public static string CreateRandomPassword()
     {

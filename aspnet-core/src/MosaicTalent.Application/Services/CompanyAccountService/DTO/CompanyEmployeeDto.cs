@@ -19,5 +19,7 @@ public class CompanyEmployeeDto
 
     public string UserName { get; set; }
 
+    public string AvatarUrl { get; set; }
+
     public CompanyRole Role { get; set; }
 }

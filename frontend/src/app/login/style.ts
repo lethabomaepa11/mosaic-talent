@@ -48,22 +48,17 @@ export const useStyles = createStyles(({ token, css }) => ({
   logoRow: css`
     display: inline-flex;
     align-items: center;
-    gap: ${token.marginSM}px;
     margin-bottom: ${token.marginSM}px;
   `,
-  logoIcon: css`
-    width: 40px;
-    height: 40px;
-    border-radius: ${token.borderRadiusLG}px;
-    background: ${token.colorPrimary};
-    color: ${token.colorBgBase};
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  logoImage: css`
+    width: auto;
+    max-width: 100%;
+    height: 30px;
   `,
-  logoText: css`
-    font-family: var(--font-syne), ${token.fontFamily};
-    font-size: ${token.fontSizeHeading3}px;
+  tenantLabel: css`
+    margin: 0 0 ${token.marginXS}px;
+    color: ${token.colorText};
+    font-size: ${token.fontSizeLG}px;
     font-weight: ${token.fontWeightStrong};
   `,
   subtitle: css`

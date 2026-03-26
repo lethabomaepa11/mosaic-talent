@@ -26,6 +26,10 @@ export const metadata: Metadata = {
   title: "mosaictalent | AI-Powered Hiring Intelligence",
   description:
     "Discover the full picture of developer talent. AI-driven soft skill assessment, peer reviews, and team simulation for smarter hiring.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+  },
   keywords: [
     "hiring",
     "developer assessment",

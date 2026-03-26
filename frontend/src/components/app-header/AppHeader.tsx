@@ -2,55 +2,71 @@
 
 import { useMemo, useState } from "react";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { ArrowLeftRight, Bell, Search, Settings } from "lucide-react";
+import { Bell, Menu, Search, Settings } from "lucide-react";
 import { useAuthState } from "@/providers/auth-provider";
+import { useCompanyProfileState } from "@/providers/company-profile-provider";
+import { useDeveloperState } from "@/providers/developer-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./styles";
 
-type ViewMode = "developer" | "company";
-
 interface IAppHeaderProps {
-  initialViewMode?: ViewMode;
-  onToggleViewMode?: (nextMode: ViewMode) => void;
   onSearchChange?: (value: string) => void;
+  onMenuClick?: () => void;
 }
 
 export const AppHeader = ({
-  initialViewMode = "developer",
-  onToggleViewMode,
   onSearchChange,
+  onMenuClick,
 }: IAppHeaderProps) => {
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [searchValue, setSearchValue] = useState("");
 
   const { styles } = useStyles();
   const { user } = useAuthState();
+  const { tenancyName } = useTenantResolutionState();
+  const { currentUser, profile } = useDeveloperState();
+  const { profile: companyProfile } = useCompanyProfileState();
+  const isCompanyTenant = Boolean(tenancyName);
 
-  const fallbackName = useMemo(() => {
+  const selectedName = isCompanyTenant
+    ? `${companyProfile?.name ?? ""} ${companyProfile?.surname ?? ""}`.trim()
+    : `${currentUser?.name ?? ""} ${currentUser?.surname ?? ""}`.trim();
+  const selectedUserName = isCompanyTenant
+    ? companyProfile?.userName
+    : currentUser?.userName;
+  const selectedEmail = isCompanyTenant
+    ? companyProfile?.emailAddress
+    : currentUser?.emailAddress;
+  const selectedAvatarUrl = isCompanyTenant
+    ? companyProfile?.avatarUrl
+    : profile.avatarUrl;
+
+  const displayName = useMemo(() => {
+    if (selectedName) {
+      return selectedName;
+    }
+
+    if (selectedUserName) {
+      return selectedUserName;
+    }
+
     if (!user?.userId) {
       return "User";
     }
 
     return `User ${user.userId}`;
-  }, [user?.userId]);
+  }, [selectedName, selectedUserName, user?.userId]);
 
   const initials = useMemo(
     () =>
-      fallbackName
+      displayName
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)
         .map((item) => item[0])
         .join("")
         .toUpperCase(),
-    [fallbackName],
+    [displayName],
   );
-
-  const handleToggleViewMode = () => {
-    const nextMode = viewMode === "developer" ? "company" : "developer";
-
-    setViewMode(nextMode);
-    onToggleViewMode?.(nextMode);
-  };
 
   const menuItems = useMemo<MenuProps["items"]>(
     () => [
@@ -58,8 +74,10 @@ export const AppHeader = ({
         key: "meta",
         label: (
           <div className={styles.userMeta}>
-            <p className={styles.userName}>{fallbackName}</p>
-            <p className={styles.userEmail}>No email loaded in session</p>
+            <p className={styles.userName}>{displayName}</p>
+            <p className={styles.userEmail}>
+              {selectedEmail || "No email loaded in session"}
+            </p>
           </div>
         ),
       },
@@ -79,7 +97,13 @@ export const AppHeader = ({
         label: "Help & Support",
       },
     ],
-    [fallbackName, styles.userEmail, styles.userMeta, styles.userName],
+    [
+      displayName,
+      selectedEmail,
+      styles.userEmail,
+      styles.userMeta,
+      styles.userName,
+    ],
   );
 
   return (
@@ -100,22 +124,13 @@ export const AppHeader = ({
 
       <div className={styles.actions}>
         <Button
-          type="default"
-          onClick={handleToggleViewMode}
-          className={styles.modeButton}
-          icon={<ArrowLeftRight size={16} />}
-          aria-label="Toggle view mode"
-        >
-          <span className={styles.modeLabel}>
-            Switch to {viewMode === "developer" ? "Company" : "Developer"} View
-          </span>
-          <Badge
-            count={viewMode === "developer" ? "Dev" : "Co"}
-            color="transparent"
-            className={styles.badge}
-          />
-        </Button>
-
+          type="text"
+          shape="circle"
+          icon={<Menu size={18} />}
+          className={styles.menuButton}
+          aria-label="Open navigation menu"
+          onClick={onMenuClick}
+        />
         <Badge dot color="gold">
           <Button
             type="text"
@@ -141,7 +156,7 @@ export const AppHeader = ({
           classNames={{ root: styles.dropdown }}
         >
           <Button type="text" className={styles.avatarButton} aria-label="User menu">
-            <Avatar size={30} className={styles.avatar}>
+            <Avatar size={30} src={selectedAvatarUrl || undefined} className={styles.avatar}>
               {initials}
             </Avatar>
           </Button>

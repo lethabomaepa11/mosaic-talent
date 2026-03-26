@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
@@ -54,7 +55,7 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      router.push("/");
+      router.push("/app/projects/open");
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +92,7 @@ const LoginPage = () => {
 
       <motion.div
         className={styles.shell}
-        initial={{ opacity: 0, y: 20 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
@@ -102,17 +103,22 @@ const LoginPage = () => {
               alt={`${companyName || tenancyName} logo`}
               className={styles.companyLogo}
             />
+          ) : (
+            <div className={styles.logoRow}>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={168}
+                height={32}
+                className={styles.logoImage}
+                priority
+              />
+            </div>
+          )}
+
+          {isCompanyTenant ? (
+            <p className={styles.tenantLabel}>{companyName || tenancyName}</p>
           ) : null}
-          <div className={styles.logoRow}>
-            {isCompanyTenant ? null : (
-              <div className={styles.logoIcon}>
-                <Sparkles size={18} />
-              </div>
-            )}
-            <span className={styles.logoText}>
-              {isCompanyTenant ? companyName || tenancyName : "mosaictalent"}
-            </span>
-          </div>
           <p className={styles.subtitle}>
             {companyName ? `Sign in to ${companyName}` : "Sign in to continue"}
           </p>

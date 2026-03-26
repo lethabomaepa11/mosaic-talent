@@ -12,9 +12,6 @@ public class Developer : FullAuditedEntity<Guid>
     [MaxLength(64)]
     public string GithubUsername { get; set; }
 
-    [MaxLength(512)]
-    public string AvatarUrl { get; set; }
-
     [Range(0, 80)]
     public int? YearsOfExperience { get; set; }
 

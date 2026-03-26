@@ -3,7 +3,10 @@
 import { PropsWithChildren, useEffect } from "react";
 import { AuthProvider } from "@/providers/auth-provider";
 import { CompanyAccountProvider } from "@/providers/company-account-provider";
-import { DeveloperOnboardingProvider } from "@/providers/developer-onboarding-provider";
+import { CompanyProfileProvider } from "@/providers/company-profile-provider";
+import { DeveloperProvider } from "@/providers/developer-provider";
+import { ProjectProvider } from "@/providers/project-provider";
+import { SimulationProvider } from "@/providers/simulation-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -29,12 +32,18 @@ export function AppProviders({ children }: PropsWithChildren) {
       <TenantBootstrap>
         <CompanyAccountProvider>
           <AuthProvider>
-            <DeveloperOnboardingProvider>
-              <AntdProvider>
-                <AntdToastViewport />
-                {children}
-              </AntdProvider>
-            </DeveloperOnboardingProvider>
+            <CompanyProfileProvider>
+              <DeveloperProvider>
+                <ProjectProvider>
+                  <SimulationProvider>
+                    <AntdProvider>
+                      <AntdToastViewport />
+                      {children}
+                    </AntdProvider>
+                  </SimulationProvider>
+                </ProjectProvider>
+              </DeveloperProvider>
+            </CompanyProfileProvider>
           </AuthProvider>
         </CompanyAccountProvider>
       </TenantBootstrap>

@@ -39,7 +39,7 @@ const CompanyLoginPage = () => {
 
     try {
       await login(userNameOrEmailAddress, password);
-      router.push("/");
+      router.push("/app");
     } finally {
       setIsSubmitting(false);
     }

@@ -56,6 +56,20 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Image upload endpoints and frontend upload UX:
   - company logo upload
   - developer avatar upload
+- AI project matching:
+  - open projects sorted by match score
+  - AI Match redirect to best-fit project
+  - match insight + likely learning outcomes on project details
+- Teamwork simulator:
+  - scenario-based sessions with role bots
+  - turn-based conversation with assessor feedback
+  - communication dimension scoring per turn
+
+## Documentation
+
+- [Docs Index](docs/README.md)
+- [AI Matching](docs/feature/ai-matching.md)
+- [AI Simulator](docs/feature/ai-simulator.md)
 
 ## Tenant Resolution Rules
 
@@ -101,6 +115,28 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
 - `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
+
+### Developer projects
+
+- `GET /api/services/app/DeveloperProject/GetMyProjects`
+- `GET /api/services/app/DeveloperProject/GetOpenProjects`
+- `GET /api/services/app/DeveloperProject/GetProject`
+- `POST /api/services/app/DeveloperProject/CreateProject`
+- `POST /api/services/app/DeveloperProject/JoinProject`
+- `POST /api/services/app/DeveloperProject/AiMatchProject`
+- `POST /api/services/app/DeveloperProject/AiFillTeam`
+- `POST /api/services/app/DeveloperProject/AddProjectTask`
+- `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
+- `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
+- `POST /api/services/app/DeveloperProject/CompleteProject`
+
+### AI simulator
+
+- `GET /api/services/app/SimulationScenario/GetScenarios`
+- `POST /api/services/app/SimulationScenario/CreateScenario`
+- `POST /api/services/app/SimulationScenario/StartSession`
+- `GET /api/services/app/SimulationScenario/GetSession`
+- `POST /api/services/app/SimulationScenario/SendMessage`
 
 ### Company account
 

@@ -2,6 +2,7 @@
 
 import { useState, type ComponentType } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -119,10 +120,14 @@ const LandingPage = () => {
         <div className={styles.container}>
           <div className={styles.navInner}>
             <Link href="/" className={styles.brand}>
-              <div className={styles.brandIcon}>
-                <Sparkles size={16} />
-              </div>
-              <span className={styles.brandText}>mosaictalent</span>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={156}
+                height={30}
+                className={styles.brandLogo}
+                priority
+              />
             </Link>
 
             <div className={styles.navLinks}>
@@ -160,7 +165,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.heroContent}
-            initial="initial"
+            initial={false}
             animate="animate"
             variants={stagger}
           >
@@ -224,7 +229,7 @@ const LandingPage = () => {
               <motion.div
                 key={stat.label}
                 className={styles.statItem}
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
@@ -241,7 +246,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -269,7 +274,7 @@ const LandingPage = () => {
               <motion.div
                 key={item.title}
                 className={styles.featureCard}
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
@@ -295,7 +300,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -309,7 +314,7 @@ const LandingPage = () => {
           <div className={styles.simulatorGrid}>
             <motion.div
               className={styles.simulatorCard}
-              initial={{ opacity: 0, x: -20 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
@@ -347,7 +352,7 @@ const LandingPage = () => {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
@@ -379,7 +384,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -398,7 +403,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.ctaBox}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -430,10 +435,13 @@ const LandingPage = () => {
         <div className={styles.container}>
           <div className={styles.footerInner}>
             <Link href="/" className={styles.brand}>
-              <div className={styles.brandIcon}>
-                <Sparkles size={16} />
-              </div>
-              <span className={styles.brandText}>mosaictalent</span>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={156}
+                height={30}
+                className={styles.brandLogo}
+              />
             </Link>
 
             <div className={styles.footerLinks}>
@@ -454,3 +462,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+

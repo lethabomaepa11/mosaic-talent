@@ -44,22 +44,12 @@ export const useStyles = createStyles(({ token, css }) => ({
       justify-content: flex-end;
     }
   `,
-  modeButton: css`
-    display: inline-flex;
-    align-items: center;
-    gap: ${token.marginXXS}px;
-    max-width: 100%;
-  `,
-  modeLabel: css`
-    display: none;
+  menuButton: css`
+    color: ${token.colorTextSecondary};
 
-    @media (min-width: 900px) {
-      display: inline;
+    @media (min-width: 992px) {
+      display: none;
     }
-  `,
-  badge: css`
-    border-color: color-mix(in srgb, ${token.colorPrimary} 30%, transparent);
-    color: ${token.colorPrimary};
   `,
   iconButton: css`
     color: ${token.colorTextSecondary};

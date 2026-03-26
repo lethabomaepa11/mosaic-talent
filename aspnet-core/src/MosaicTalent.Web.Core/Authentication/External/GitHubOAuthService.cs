@@ -59,7 +59,7 @@ namespace MosaicTalent.Authentication.External
 
         public string GetClientRootAddress()
         {
-            return _appConfiguration["App:ClientRootAddress"] + "/onboarding";
+            return _appConfiguration["App:ClientRootAddress"] + "/app";
         }
 
         public string BuildAuthorizationUrl(string state)
@@ -218,6 +218,7 @@ namespace MosaicTalent.Authentication.External
                     Name = names.Item1,
                     Surname = names.Item2,
                     EmailAddress = emailAddress,
+                    AvatarUrl = gitHubUser?.AvatarUrl,
                     IsActive = true,
                     UserName = uniqueUserName,
                     IsEmailConfirmed = true,
@@ -331,6 +332,14 @@ namespace MosaicTalent.Authentication.External
                 return;
             }
 
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user != null)
+            {
+                user.AvatarUrl = gitHubUser?.AvatarUrl;
+                var updateResult = await _userManager.UpdateAsync(user);
+                updateResult.CheckErrors(LocalizationManager);
+            }
+
             var developer = await _developerRepository.GetAll()
                 .FirstOrDefaultAsync(d => d.UserId == userId);
 
@@ -339,14 +348,12 @@ namespace MosaicTalent.Authentication.External
                 await _developerRepository.InsertAsync(new Developer
                 {
                     UserId = userId,
-                    GithubUsername = githubUsername,
-                    AvatarUrl = gitHubUser?.AvatarUrl
+                    GithubUsername = githubUsername
                 });
                 return;
             }
 
             developer.GithubUsername = githubUsername;
-            developer.AvatarUrl = gitHubUser?.AvatarUrl;
             await _developerRepository.UpdateAsync(developer);
         }
     }

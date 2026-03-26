@@ -62,11 +62,11 @@ public class GitHubOAuthService_Tests : MosaicTalentTestBase
             var savedUser = await context.Users.FirstOrDefaultAsync(x => x.Id == createdUser.Id);
             savedUser.ShouldNotBeNull();
             savedUser.TenantId.ShouldBe(1);
+            savedUser.AvatarUrl.ShouldBe("https://avatars.githubusercontent.com/u/1001?v=4");
 
             var developer = await context.Developers.FirstOrDefaultAsync(d => d.UserId == createdUser.Id);
             developer.ShouldNotBeNull();
             developer.GithubUsername.ShouldBe("oauth-new-dev");
-            developer.AvatarUrl.ShouldBe("https://avatars.githubusercontent.com/u/1001?v=4");
         });
     }
 
@@ -94,8 +94,7 @@ public class GitHubOAuthService_Tests : MosaicTalentTestBase
             await context.Developers.AddAsync(new Developer
             {
                 UserId = existingUser.Id,
-                GithubUsername = "old-username",
-                AvatarUrl = "https://old.example/avatar.png"
+                GithubUsername = "old-username"
             });
         });
 
@@ -116,9 +115,11 @@ public class GitHubOAuthService_Tests : MosaicTalentTestBase
         await UsingDbContextAsync(1, async context =>
         {
             var developer = await context.Developers.FirstOrDefaultAsync(d => d.UserId == existingUser.Id);
+            var user = await context.Users.FirstOrDefaultAsync(x => x.Id == existingUser.Id);
             developer.ShouldNotBeNull();
+            user.ShouldNotBeNull();
             developer.GithubUsername.ShouldBe("new-username");
-            developer.AvatarUrl.ShouldBe("https://avatars.githubusercontent.com/u/2002?v=4");
+            user.AvatarUrl.ShouldBe("https://avatars.githubusercontent.com/u/2002?v=4");
         });
     }
 
@@ -146,8 +147,7 @@ public class GitHubOAuthService_Tests : MosaicTalentTestBase
             await context.Developers.AddAsync(new Developer
             {
                 UserId = existingUser.Id,
-                GithubUsername = "same-github-login",
-                AvatarUrl = "https://old.example/avatar.png"
+                GithubUsername = "same-github-login"
             });
         });
 

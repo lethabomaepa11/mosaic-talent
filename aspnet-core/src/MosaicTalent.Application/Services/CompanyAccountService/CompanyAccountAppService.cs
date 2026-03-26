@@ -197,6 +197,7 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
                     Surname = user?.Surname,
                     EmailAddress = user?.EmailAddress,
                     UserName = user?.UserName,
+                    AvatarUrl = ResolveAvatarUrl(user),
                 };
             })
             .ToList();
@@ -264,6 +265,7 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
             Surname = user.Surname,
             EmailAddress = user.EmailAddress,
             UserName = user.UserName,
+            AvatarUrl = ResolveAvatarUrl(user),
         };
     }
 
@@ -312,6 +314,82 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
             Surname = user?.Surname,
             EmailAddress = user?.EmailAddress,
             UserName = user?.UserName,
+            AvatarUrl = ResolveAvatarUrl(user),
+        };
+    }
+
+    public async Task<CompanyEmployeeProfileDto> GetMyEmployeeProfile()
+    {
+        var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyEntity(tenantId);
+
+        var employee = await _companyEmployeeRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.CompanyId == company.Id && x.UserId == userId);
+        if (employee == null)
+        {
+            throw new UserFriendlyException("Company employee profile not found.");
+        }
+
+        var user = await _userManager.Users
+            .Where(x => x.TenantId == tenantId && x.Id == userId)
+            .FirstOrDefaultAsync()
+            ?? throw new UserFriendlyException("User not found.");
+
+        return new CompanyEmployeeProfileDto
+        {
+            UserId = user.Id,
+            Name = user.Name,
+            Surname = user.Surname,
+            UserName = user.UserName,
+            EmailAddress = user.EmailAddress,
+            AvatarUrl = ResolveAvatarUrl(user),
+            Role = employee.Role,
+        };
+    }
+
+    public async Task<CompanyEmployeeProfileDto> UpdateMyEmployeeProfile(UpdateCompanyEmployeeProfileInput input)
+    {
+        var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyEntity(tenantId);
+
+        var employee = await _companyEmployeeRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.CompanyId == company.Id && x.UserId == userId);
+        if (employee == null)
+        {
+            throw new UserFriendlyException("Company employee profile not found.");
+        }
+
+        var user = await _userManager.Users
+            .Where(x => x.TenantId == tenantId && x.Id == userId)
+            .FirstOrDefaultAsync()
+            ?? throw new UserFriendlyException("User not found.");
+
+        if (!string.IsNullOrWhiteSpace(input.Name))
+        {
+            user.Name = input.Name.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Surname))
+        {
+            user.Surname = input.Surname.Trim();
+        }
+
+        user.AvatarUrl = input.AvatarUrl?.Trim();
+
+        CheckErrors(await _userManager.UpdateAsync(user));
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        return new CompanyEmployeeProfileDto
+        {
+            UserId = user.Id,
+            Name = user.Name,
+            Surname = user.Surname,
+            UserName = user.UserName,
+            EmailAddress = user.EmailAddress,
+            AvatarUrl = ResolveAvatarUrl(user),
+            Role = employee.Role,
         };
     }
 
@@ -403,5 +481,31 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
             Email = company.Email,
             AccountOwnerUserId = company.AccountOwnerUserId,
         };
+    }
+
+    private static string ResolveAvatarUrl(User user)
+    {
+        if (!string.IsNullOrWhiteSpace(user?.AvatarUrl))
+        {
+            return user.AvatarUrl;
+        }
+
+        if (user == null)
+        {
+            return string.Empty;
+        }
+
+        var displayName = string.Join(" ", new[] { user.Name, user.Surname }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = user.UserName;
+        }
+
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return string.Empty;
+        }
+
+        return $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(displayName)}&background=random";
     }
 }
