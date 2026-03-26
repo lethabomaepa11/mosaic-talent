@@ -6,6 +6,7 @@ import { CompanyAccountProvider } from "@/providers/company-account-provider";
 import { CompanyProfileProvider } from "@/providers/company-profile-provider";
 import { DeveloperProvider } from "@/providers/developer-provider";
 import { ProjectProvider } from "@/providers/project-provider";
+import { SimulationProvider } from "@/providers/simulation-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -34,10 +35,12 @@ export function AppProviders({ children }: PropsWithChildren) {
             <CompanyProfileProvider>
               <DeveloperProvider>
                 <ProjectProvider>
-                  <AntdProvider>
-                    <AntdToastViewport />
-                    {children}
-                  </AntdProvider>
+                  <SimulationProvider>
+                    <AntdProvider>
+                      <AntdToastViewport />
+                      {children}
+                    </AntdProvider>
+                  </SimulationProvider>
                 </ProjectProvider>
               </DeveloperProvider>
             </CompanyProfileProvider>

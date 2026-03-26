@@ -60,11 +60,16 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - open projects sorted by match score
   - AI Match redirect to best-fit project
   - match insight + likely learning outcomes on project details
+- Teamwork simulator:
+  - scenario-based sessions with role bots
+  - turn-based conversation with assessor feedback
+  - communication dimension scoring per turn
 
 ## Documentation
 
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
+- [AI Simulator](docs/feature/ai-simulator.md)
 
 ## Tenant Resolution Rules
 
@@ -124,6 +129,14 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
+
+### AI simulator
+
+- `GET /api/services/app/SimulationScenario/GetScenarios`
+- `POST /api/services/app/SimulationScenario/CreateScenario`
+- `POST /api/services/app/SimulationScenario/StartSession`
+- `GET /api/services/app/SimulationScenario/GetSession`
+- `POST /api/services/app/SimulationScenario/SendMessage`
 
 ### Company account
 
