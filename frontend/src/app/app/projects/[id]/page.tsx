@@ -284,7 +284,7 @@ const ProjectDetailPage = () => {
       </Link>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         className={styles.header}
       >
@@ -593,3 +593,4 @@ const ProjectDetailPage = () => {
 };
 
 export default ProjectDetailPage;
+

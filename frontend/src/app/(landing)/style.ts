@@ -5,6 +5,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     min-height: 100vh;
     color: ${token.colorText};
     background: ${token.colorBgLayout};
+
+    @media (max-width: 767px) {
+      overflow: visible;
+    }
   `,
   nav: css`
     position: fixed;
@@ -95,6 +99,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     @media (min-width: 768px) {
       padding-top: 152px;
       padding-bottom: 96px;
+    }
+
+    @media (max-width: 767px) {
+      overflow: visible;
     }
   `,
   heroGlowPrimary: css`
@@ -289,6 +297,10 @@ export const useStyles = createStyles(({ token, css }) => ({
       transform: translateY(-4px);
       box-shadow: 0 10px 40px color-mix(in srgb, ${token.colorPrimary} 15%, transparent);
     }
+
+    @media (max-width: 767px) {
+      overflow: visible;
+    }
   `,
   iconBox: css`
     display: inline-flex;
@@ -451,6 +463,10 @@ export const useStyles = createStyles(({ token, css }) => ({
       right: 16px;
       height: 1px;
       background: linear-gradient(90deg, transparent, ${token.colorPrimary}, transparent);
+    }
+
+    @media (max-width: 767px) {
+      overflow: visible;
     }
   `,
   footer: css`

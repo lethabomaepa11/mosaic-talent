@@ -106,7 +106,7 @@ const MyProjectsPage = () => {
     <div className={styles.page}>
       <motion.div
         className={styles.header}
-        initial={{ opacity: 0, y: 20 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
       >
         <div>
@@ -149,13 +149,13 @@ const MyProjectsPage = () => {
         {isMatching ? (
           <motion.div
             className={styles.matchingOverlay}
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
               className={styles.matchingContent}
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
             >
@@ -222,3 +222,4 @@ const MyProjectsPage = () => {
 };
 
 export default MyProjectsPage;
+

@@ -165,7 +165,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.heroContent}
-            initial="initial"
+            initial={false}
             animate="animate"
             variants={stagger}
           >
@@ -229,7 +229,7 @@ const LandingPage = () => {
               <motion.div
                 key={stat.label}
                 className={styles.statItem}
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
@@ -246,7 +246,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -274,7 +274,7 @@ const LandingPage = () => {
               <motion.div
                 key={item.title}
                 className={styles.featureCard}
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
@@ -300,7 +300,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -314,7 +314,7 @@ const LandingPage = () => {
           <div className={styles.simulatorGrid}>
             <motion.div
               className={styles.simulatorCard}
-              initial={{ opacity: 0, x: -20 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
@@ -352,7 +352,7 @@ const LandingPage = () => {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
@@ -384,7 +384,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.sectionHeader}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -403,7 +403,7 @@ const LandingPage = () => {
         <div className={styles.container}>
           <motion.div
             className={styles.ctaBox}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
@@ -462,3 +462,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+

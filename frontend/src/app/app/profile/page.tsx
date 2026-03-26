@@ -340,7 +340,7 @@ const ProfilePage = () => {
   return (
     <div className={styles.page}>
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
       >
         <Typography.Title level={2} className={styles.pageTitle}>
@@ -355,7 +355,7 @@ const ProfilePage = () => {
         <Col xs={24} lg={16}>
           <Space direction="vertical" size={16} className={styles.fullWidth}>
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card>
@@ -401,7 +401,7 @@ const ProfilePage = () => {
 
             {isCompanyTenant ? (
               <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
@@ -448,7 +448,7 @@ const ProfilePage = () => {
             ) : (
               <>
                 <motion.div
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <Card
@@ -554,7 +554,7 @@ const ProfilePage = () => {
                   </Card>
                 </motion.div>
                 <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
@@ -618,7 +618,7 @@ const ProfilePage = () => {
               </Card>
             </motion.div>
                 <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
@@ -689,7 +689,7 @@ const ProfilePage = () => {
         <Col xs={24} lg={8}>
           <Space direction="vertical" size={16} className={styles.fullWidth}>
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
@@ -788,7 +788,7 @@ const ProfilePage = () => {
 
             {!isCompanyTenant ? (
               <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card
@@ -853,3 +853,4 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
+
