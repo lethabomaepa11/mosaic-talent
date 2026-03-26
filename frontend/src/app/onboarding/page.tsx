@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { Button, Input, InputNumber, Select, Slider } from "antd";
+import { Button, Input, InputNumber, Select, Slider, Upload } from "antd";
 import { toast } from "@/components/providers";
 import {
   useDeveloperOnboardingAction,
   useDeveloperOnboardingState,
 } from "@/providers/developer-onboarding-provider";
 import { useAuthState } from "@/providers/auth-provider";
+import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
 
 const OnboardingPage = () => {
@@ -26,6 +27,7 @@ const OnboardingPage = () => {
   const [skills, setSkills] = useState<string[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const router = useRouter();
   const { styles } = useStyles();
@@ -97,6 +99,20 @@ const OnboardingPage = () => {
     }
   };
 
+  const handleAvatarUpload = async (file: File) => {
+    setIsUploadingAvatar(true);
+
+    try {
+      const uploaded = await uploadFile(file, "avatars");
+      setAvatarUrl(uploaded.url);
+      toast.success("Avatar uploaded", "Avatar image has been attached.");
+    } catch {
+      toast.error("Upload failed", "Unable to upload avatar right now.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
@@ -124,14 +140,32 @@ const OnboardingPage = () => {
               </div>
               <div className={styles.field}>
                 <label htmlFor="avatarUrl" className={styles.label}>
-                  Avatar URL
+                  Avatar
                 </label>
-                <Input
-                  id="avatarUrl"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  className={styles.input}
-                />
+                <div className={styles.uploadActions}>
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    beforeUpload={(file) => {
+                      handleAvatarUpload(file);
+                      return false;
+                    }}
+                  >
+                    <Button loading={isUploadingAvatar} block>
+                      Upload Avatar
+                    </Button>
+                  </Upload>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar preview" className={styles.avatarPreview} />
+                  ) : null}
+                  <Input
+                    id="avatarUrl"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    className={styles.input}
+                    placeholder="Or paste avatar URL"
+                  />
+                </div>
               </div>
             </div>
 

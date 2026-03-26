@@ -26,6 +26,7 @@ import {
   IUser,
 } from "./context";
 import { AuthReducer } from "./reducer";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 
 interface IAuthResponse {
   accessToken: string;
@@ -36,8 +37,13 @@ interface IAuthResponse {
 export function AuthProvider({ children }: PropsWithChildren) {
   const instance = getAxiosInstance();
   const [state, dispatch] = useReducer(AuthReducer, INITIAL_STATE);
+  const { isResolved } = useTenantResolutionState();
 
   useEffect(() => {
+    if (!isResolved) {
+      return;
+    }
+
     const token = getAuthToken();
 
     if (!token) {
@@ -70,7 +76,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
 
     restoreSession();
-  }, []);
+  }, [isResolved]);
 
   const login = async (userNameOrEmailAddress: string, password: string) => {
     dispatch(loginPending());

@@ -1,6 +1,7 @@
 using Abp.Zero.EntityFrameworkCore;
 using MosaicTalent.Authorization.Roles;
 using MosaicTalent.Authorization.Users;
+using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.MultiTenancy;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,8 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<DeveloperProfile> DeveloperProfiles { get; set; }
     public DbSet<DeveloperProfileSkill> DeveloperProfileSkills { get; set; }
     public DbSet<DeveloperProfileGoal> DeveloperProfileGoals { get; set; }
+    public DbSet<Company> Companies { get; set; }
+    public DbSet<CompanyEmployee> CompanyEmployees { get; set; }
 
     public MosaicTalentDbContext(DbContextOptions<MosaicTalentDbContext> options)
         : base(options)
@@ -41,6 +44,19 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         modelBuilder.Entity<DeveloperProfileGoal>(builder =>
         {
             builder.HasIndex(x => new { x.ProfileId, x.Goal }).IsUnique();
+        });
+
+        modelBuilder.Entity<Company>(builder =>
+        {
+            builder.HasIndex(x => x.TenantId).IsUnique();
+            builder.HasIndex(x => x.TenancyName).IsUnique();
+            builder.HasIndex(x => x.AccountOwnerUserId);
+        });
+
+        modelBuilder.Entity<CompanyEmployee>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
+            builder.HasIndex(x => new { x.CompanyId, x.Role });
         });
     }
 }

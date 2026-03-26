@@ -36,6 +36,15 @@ export const useStyles = createStyles(({ token, css }) => ({
     text-align: center;
     margin-bottom: ${token.marginXL}px;
   `,
+  companyLogo: css`
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: ${token.borderRadiusLG}px;
+    border: 1px solid ${token.colorBorder};
+    margin: 0 auto ${token.marginSM}px;
+    display: block;
+  `,
   logoRow: css`
     display: inline-flex;
     align-items: center;

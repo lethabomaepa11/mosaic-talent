@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Button, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { toast } from "@/components/providers";
 import { useStyles } from "./style";
 
@@ -21,12 +22,20 @@ const SignupPage = () => {
   const { styles } = useStyles();
   const { register } = useAuthAction();
   const { isAuthenticated, isError, isPending } = useAuthState();
+  const { isResolved, tenancyName } = useTenantResolutionState();
 
   useEffect(() => {
     if (isAuthenticated) {
       router.push("/onboarding");
     }
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (isResolved && tenancyName) {
+      toast.error("Signup disabled", "Company tenant users cannot self-register.");
+      router.push("/login");
+    }
+  }, [isResolved, tenancyName, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

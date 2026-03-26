@@ -65,6 +65,17 @@ export const useStyles = createStyles(({ token, css }) => ({
     background: color-mix(in srgb, ${token.colorText} 7%, transparent);
     border-color: ${token.colorBorder};
   `,
+  uploadActions: css`
+    display: grid;
+    gap: ${token.marginSM}px;
+  `,
+  avatarPreview: css`
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 999px;
+    border: 1px solid ${token.colorBorder};
+  `,
   fullWidthInputNumber: css`
     width: 100%;
   `,

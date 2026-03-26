@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { toast } from "@/components/providers";
 import { useStyles } from "./style";
 
@@ -19,6 +20,15 @@ const LoginPage = () => {
   const { styles } = useStyles();
   const { login } = useAuthAction();
   const { isAuthenticated, isError, isPending } = useAuthState();
+  const {
+    isResolved,
+    isPending: isTenantPending,
+    isError: isTenantError,
+    tenancyName,
+    companyName,
+    companyLogoUrl,
+  } = useTenantResolutionState();
+  const isCompanyTenant = Boolean(tenancyName);
 
   const githubAuthUrl = process.env.NEXT_PUBLIC_API_BASE_URL
     ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/TokenAuth/GitHubAuth`
@@ -27,6 +37,11 @@ const LoginPage = () => {
   const handleLogin = async () => {
     if (!email || !password) {
       toast.error("Missing credentials", "Enter email/username and password.");
+      return;
+    }
+
+    if (!isResolved || (isTenantError && tenancyName)) {
+      toast.error("Tenant not ready", "Tenant context is not available for login.");
       return;
     }
 
@@ -65,13 +80,26 @@ const LoginPage = () => {
         transition={{ duration: 0.45 }}
       >
         <div className={styles.logoWrap}>
+          {companyLogoUrl ? (
+            <img
+              src={companyLogoUrl}
+              alt={`${companyName || tenancyName} logo`}
+              className={styles.companyLogo}
+            />
+          ) : null}
           <div className={styles.logoRow}>
-            <div className={styles.logoIcon}>
-              <Sparkles size={18} />
-            </div>
-            <span className={styles.logoText}>mosaictalent</span>
+            {isCompanyTenant ? null : (
+              <div className={styles.logoIcon}>
+                <Sparkles size={18} />
+              </div>
+            )}
+            <span className={styles.logoText}>
+              {isCompanyTenant ? companyName || tenancyName : "mosaictalent"}
+            </span>
           </div>
-          <p className={styles.subtitle}>Sign in to continue</p>
+          <p className={styles.subtitle}>
+            {companyName ? `Sign in to ${companyName}` : "Sign in to continue"}
+          </p>
         </div>
 
         <div className={styles.card}>
@@ -116,9 +144,10 @@ const LoginPage = () => {
               <Button
                 type="primary"
                 htmlType="submit"
-                loading={isLoading || isPending}
+                loading={isLoading || isPending || isTenantPending}
                 icon={<ArrowRight size={16} />}
                 iconPosition="end"
+                disabled={!isResolved || (isTenantError && !!tenancyName)}
                 block
               >
                 Sign In
@@ -129,13 +158,24 @@ const LoginPage = () => {
               <Button
                 onClick={handleGitHubLogin}
                 icon={<GitBranch size={16} className={styles.buttonIcon} />}
+                disabled={!isResolved || (isTenantError && !!tenancyName)}
                 block
               >
                 Continue with GitHub
               </Button>
-              <div className={styles.helper}>
-                Don&apos;t have an account? <Link href="/signup">Create one</Link>
-              </div>
+              {!isResolved || isTenantPending ? (
+                <div className={styles.helper}>Resolving tenant context...</div>
+              ) : null}
+              {isTenantError && tenancyName ? (
+                <div className={styles.statusError}>
+                  Tenant &quot;{tenancyName}&quot; is unavailable for this domain.
+                </div>
+              ) : null}
+              {!tenancyName ? (
+                <div className={styles.helper}>
+                  Don&apos;t have an account? <Link href="/signup">Create one</Link>
+                </div>
+              ) : null}
             </div>
           </form>
         </div>

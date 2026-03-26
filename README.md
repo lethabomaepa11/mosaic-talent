@@ -1,307 +1,224 @@
 # Mosaic Talent
 
-MosaicTalent is an AI-Powered Hiring Intelligence and talent development platform.
+MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 
-## Overview
+## Design Links
 
-Mosaic Talent combines a Next.js frontend with an ASP.NET Boilerplate (ABP) backend to support authentication, user management foundations, and API-driven product development. The repository currently includes the core platform scaffolding, auth provider state management on the frontend, and ABP application services on the backend.
+- Figma: https://www.figma.com/design/ANQBVj5jIaFdaiaPcfCEqR/Untitled?node-id=2-879&t=Q1Kvsj8jSpJYwYOp-1
+- Frontend (Vercel): https://mosaic-talent.vercel.app
+- Backend API (Render): https://api-mosaic-talent.onrender.com
 
-The product direction is broader: AI-assisted hiring decisions, team simulation, peer review intelligence, growth insights, and company-side assessment workflows. This README documents both the current implementation and the agreed roadmap items.
+## Current Architecture
 
-## Design
+- Frontend: Next.js App Router + Ant Design + `antd-style`
+- Backend: ASP.NET Boilerplate (ABP) on ASP.NET Core
+- Multi-tenancy: ABP tenant model with tenant resolution on frontend
+- Storage: Cloudflare R2 (S3-compatible) for image uploads (company logos + avatars)
 
-| Resource | Link |
-| --- | --- |
-| Figma Design | [View Designs](https://www.figma.com/design/ANQBVj5jIaFdaiaPcfCEqR/Untitled?node-id=2-879&t=Q1Kvsj8jSpJYwYOp-1) |
-| Frontend Live Demo | [mosaic-talent.vercel.app](https://mosaic-talent.vercel.app) |
-| Backend Base URL | [api-mosaic-talent.onrender.com](https://api-mosaic-talent.onrender.com) |
+## Tech Stack (Actual)
 
-## Tech Stack
+### Frontend
 
-| Tool | Purpose |
-| --- | --- |
-| Next.js 16.2.1 | Frontend app framework |
-| React 19.2.4 | UI runtime |
-| TypeScript 5.x | Type-safe frontend development |
-| Axios 1.13.6 | HTTP client for API calls |
-| redux-actions 3.0.3 | Provider action/reducer pattern |
-| Vitest 4.1.1 + Testing Library | Frontend unit/integration tests |
-| ASP.NET Core (.NET 9) | Backend web host |
-| ASP.NET Boilerplate 10.2.0 | Application/service architecture |
-| Entity Framework Core 9 | Data access and migrations |
-| PostgreSQL provider (Npgsql) | Primary relational DB provider |
-| Swashbuckle 8.1.2 | Swagger/OpenAPI docs |
-| Docker Compose | Containerized backend runtime |
+- `next` 16.2.1
+- `react` 19.2.4
+- `react-dom` 19.2.4
+- `typescript` 5.x
+- `antd` 6.3.4
+- `antd-style` 4.1.0
+- `axios` 1.13.6
+- `framer-motion` 12.38.0
+- `redux-actions` 3.0.3
+- Testing: `vitest` 4.1.1 + Testing Library
 
-## Roles
+### Backend
 
-### Current backend roles and permissions
+- .NET 9
+- ASP.NET Boilerplate 10.2.0
+- Entity Framework Core (via ABP stack)
+- PostgreSQL (Npgsql provider)
+- `AWSSDK.S3` 3.7.413.3 (used for Cloudflare R2)
+- Swagger (`Swashbuckle.AspNetCore` 8.1.2)
 
-| Feature/Permission | Host Admin | Tenant Admin |
-| --- | :---: | :---: |
-| `Pages.Tenants` | Yes | No |
-| `Pages.Users` | Yes | Yes |
-| `Pages.Users.Activation` | Yes | Yes |
-| `Pages.Roles` | Yes | Yes |
+## Implemented Features
 
-### Product roadmap roles
+- Tenant-aware auth and session restore.
+- Shared `/login` page with tenant branding:
+  - company logo + company name shown when tenant is resolved.
+  - self-signup link hidden on company tenant login.
+- User signup + developer onboarding flow.
+- Company account creation flow (creates tenant + owner admin).
+- Company employee model and management service groundwork.
+- Domain-based tenant resolution on frontend:
+  - `company-mosaic-talent.vercel.app` -> `company`
+  - `company.localhost` -> `company`
+  - generic domains use last subdomain segment before the base domain
+- Automatic `Abp-TenantId` header management.
+- Image upload endpoints and frontend upload UX:
+  - company logo upload
+  - developer avatar upload
 
-| Capability | Developer/Candidate | HR | Company Admin |
-| --- | :---: | :---: | :---: |
-| Profile and skill goals | Yes | No | No |
-| Team/project participation | Yes | No | No |
-| Job posting and assessments | No | Yes | Yes |
-| Hiring review workflows | No | Yes | Yes |
+## Tenant Resolution Rules
 
-## Features
+Frontend resolves tenant before auth calls:
 
-### Implemented in repository
+1. Vercel pattern:
+   - Host contains `mosaic-talent.vercel.app`
+   - Reads prefix before `-mosaic-talent`
+   - Example: `acme-mosaic-talent.vercel.app` -> `acme`
+2. Localhost pattern:
+   - `acme.localhost` -> `acme`
+3. Generic multi-subdomain pattern:
+   - Uses the last subdomain before registrable domain
+   - Example: `company.app.domain.com` -> `app`
 
-- Frontend auth provider with `login`, `register`, and `logout` actions.
-- Token and auth user persistence via cookies + `localStorage`.
-- Axios instance with bearer token interceptor.
-- ABP backend with JWT authentication endpoint (`TokenAuthController`).
-- Account registration app service and core CRUD-style ABP modules for users, roles, tenants.
-- Swagger UI enabled at `/swagger` in backend host.
-- Frontend and backend test projects present.
+Then frontend calls:
 
-### Planned product features (Roadmap)
+- `POST /api/services/app/Account/IsTenantAvailable`
 
-- Company-specific authentication experience and onboarding flow.
-- GitHub OAuth during candidate application.
-- GitHub profile and repository analysis using:
-- `https://profile-summary-for-github.com/api/user/`
-- `https://api.github.com/users/`
-- AI-assisted profile enrichment when users trigger GitHub sync.
-- AI candidate insights: code quality scoring, growth potential, and interview question suggestions.
-- Team matchmaking (user-selected team or AI-assigned team).
-- AI-managed project membership with creator email notifications.
-- AI-generated peer review forms based on skills and goals.
-- AI teammate simulator for scenario-based behavioral assessment and coaching.
-- AI-selected team leader recommendations.
-- Company hiring assessments based on collaborative ticket execution.
-- Candidate simulation assessments focused on teamwork dynamics.
-- HR-facing behavior and teamwork rating visibility.
+If tenant is available, resolved `tenantId` is attached as `Abp-TenantId` to API requests.
 
-### Extended roadmap modules
+## Authentication and Account Flows
 
-- AI Coach / Personal Growth Agent.
-- Team Health Dashboard.
-- Skill Gap Analysis and Learning Paths.
-- Multi-Person Simulator.
-- Code Review Simulator.
-- Meeting Role-Play Simulator.
-- Portfolio / Exportable Growth Profile.
-- Integration Hub (GitHub and additional tooling).
-- Gamification Layer.
-- AI Project Idea Generator.
-- Smart Ticket Suggestions.
-- Progress Pulse Checks.
-- Learning roadmap engine.
-- Mentor matching.
-- Role-specific simulation scenarios.
+- Developer login: `/login`
+- Developer signup: `/signup`
+- Developer onboarding: `/onboarding`
+- Company signup: `/company/signup`
+- Company login: `/company/login` (legacy route retained), shared login branding now handled on `/login`
 
-## Domain Model (Planned)
+After successful company creation, frontend redirects user to tenant login URL.
 
-| Entity / Aggregate | Key Attributes | Relationships | Prototype Note |
-| --- | --- | --- | --- |
-| User (Root) | `id`, `name`, `email`, `avatar`, `role`, `githubUsername` | Owns Profile | Persist as `currentUser` in localStorage |
-| Profile (VO) | `skills[]`, `goals[]`, `bio`, `location`, `teamworkRating`, `visibilityToHR` | Belongs to User | Editable in profile area |
-| Project (Root) | `id`, `title`, `description`, `status`, `creatorId`, `maxMembers`, `memberCount`, `createdAt` | Has ProjectMembers + Tickets | Main project workspace entity |
-| ProjectMember | `projectId`, `userId`, `role`, `joinedAt` | Links User and Project | AI matchmaking can add members |
-| Ticket | `id`, `title`, `description`, `status`, `assigneeId` | Belongs to Project | Kanban-style workflow |
-| PeerReview | `id`, `projectId`, `reviewerId`, `revieweeId`, `formAnswers`, `submittedAt` | Links users in project context | Generated post-project |
-| ReviewFeedback (VO) | `strengths[]`, `improvementAreas[]`, `actionableSteps[]`, `growthScore` | Attached to PeerReview | AI synthesized |
-| SimulationSession | `id`, `userId`, `scenarioType`, `messages[]`, `finalScore`, `feedback`, `completedAt` | Belongs to User | Multi-turn AI simulation |
-| Job | `id`, `companyName`, `title`, `description`, `assessmentType`, `status` | Has many Assessments | Company-side hiring module |
-| Assessment (Root) | `id`, `jobId`, `candidateId`, `ticketId`, `status`, `githubScanResult`, `scores`, `insightReport` | Links Job and candidate | Orchestrates evaluation flow |
-| GitHubScanResult (VO) | `reposAnalyzed`, `codeQualityScore`, `strengths[]`, `suggestedQuestions[]` | Attached to Assessment/Profile | Triggered by GitHub scan |
-| InsightReport (VO) | `codeQuality`, `teamworkScore`, `growthTrend`, `potentialProjection`, `developmentAreas[]`, `recommendation` | Attached to Assessment | Final AI insight artifact |
+## API Surface (Current)
 
-## Project Structure
+### Auth / session / tenancy
 
-```text
-mosaic-talent/
-|-- .agents/
-|-- .github/
-|-- AGENTS.md
-|-- LICENSE
-|-- README.md
-|-- rename.ps1
-|-- frontend/
-|   |-- AGENTS.md
-|   |-- CLAUDE.md
-|   |-- package.json
-|   |-- next.config.ts
-|   |-- eslint.config.mjs
-|   |-- tsconfig.json
-|   |-- vitest.config.ts
-|   |-- public/
-|   `-- src/
-|       |-- app/
-|       |   |-- layout.tsx
-|       |   `-- page.tsx
-|       |-- providers/
-|       |   |-- index.tsx
-|       |   `-- auth-provider/
-|       |       |-- actions.tsx
-|       |       |-- context.tsx
-|       |       |-- index.tsx
-|       |       |-- reducer.tsx
-|       |       `-- __tests__/
-|       `-- utils/
-|           `-- axiosInstance.ts
-`-- aspnet-core/
-    |-- MosaicTalent.sln
-    |-- build/
-    |-- docker/
-    |   |-- docker-compose.yml
-    |   `-- up.ps1
-    |-- src/
-    |   |-- MosaicTalent.Application/
-    |   |-- MosaicTalent.Core/
-    |   |-- MosaicTalent.EntityFrameworkCore/
-    |   |-- MosaicTalent.Migrator/
-    |   |-- MosaicTalent.Web.Core/
-    |   `-- MosaicTalent.Web.Host/
-    `-- test/
-        |-- MosaicTalent.Tests/
-        `-- MosaicTalent.Web.Tests/
-```
+- `POST /api/TokenAuth/Authenticate`
+- `POST /api/services/app/Account/Register`
+- `POST /api/services/app/Account/IsTenantAvailable`
+- `GET /api/services/app/Session/GetCurrentLoginInformations`
 
-## API Integration
+### Developer onboarding
 
-**Backend Base URL (prod):** `https://api-mosaic-talent.onrender.com`
+- `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
+- `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
 
-**Frontend env key for API base URL:** `NEXT_PUBLIC_API_BASE_URL`
+### Company account
 
-### Internal API modules (ABP)
+- `POST /api/services/app/CompanyAccount/CreateCompanyAccount`
+- `GET /api/services/app/CompanyAccount/GetCompanyBrandingByTenancyName`
+- `GET /api/services/app/CompanyAccount/GetMyCompany`
+- `GET /api/services/app/CompanyAccount/GetMyCompanyEmployees`
+- `POST /api/services/app/CompanyAccount/AddCompanyEmployee`
+- `POST /api/services/app/CompanyAccount/UpdateEmployeeRole`
 
-| Module | Example Endpoint(s) |
-| --- | --- |
-| Token Auth | `POST /api/TokenAuth/Authenticate` |
-| Account | `POST /api/services/app/Account/Register`, `POST /api/services/app/Account/IsTenantAvailable` |
-| Session | `GET /api/services/app/Session/GetCurrentLoginInformations` |
-| User | `/api/services/app/User/*` |
-| Role | `/api/services/app/Role/*` |
-| Tenant | `/api/services/app/Tenant/*` |
-| Configuration | `POST /api/services/app/Configuration/ChangeUiTheme` |
+### File upload (R2)
 
-### Planned external integrations
+- `POST /api/files/upload` (authorized)
+- `POST /api/files/upload-public` (public upload endpoint currently used by company signup)
 
-| Integration | Endpoint |
-| --- | --- |
-| GitHub profile summary | `https://profile-summary-for-github.com/api/user/` |
-| GitHub users API | `https://api.github.com/users/` |
+## Environment Configuration
 
-## State Management
+## Frontend (`frontend/.env`)
 
-Frontend state currently uses a provider pattern under `frontend/src/providers`.
+- `NEXT_PUBLIC_API_BASE_URL` (required)
+- `NEXT_PUBLIC_DEFAULT_ABP_TENANT_ID` (optional, default `1`)
 
-- `AuthProvider` composes React Context + reducer state.
-- Actions are created with `redux-actions`.
-- Reducer transitions are handled with `handleActions`.
-- Auth token/user are persisted in browser storage and attached to requests via Axios interceptor.
+## Backend (`aspnet-core/src/MosaicTalent.Web.Host/.env`)
 
-## Getting Started
+Minimum required:
 
-### Prerequisites
+- `ConnectionStrings__Default`
+- `Authentication__JwtBearer__SecurityKey`
 
-- Node.js 20+
-- npm 10+
-- .NET SDK 9.0+
-- PostgreSQL (recommended by current backend `.env.example`)
-- Git
+Cloudflare R2 (required for uploads):
 
-### Installation
+- `R2__AccountId`
+- `R2__AccessKeyId`
+- `R2__SecretAccessKey`
+- `R2__BucketName`
+- `R2__PublicBaseUrl` (recommended)
+
+Also supported:
+
+- `GitHub__ClientId`
+- `GitHub__ClientSecret`
+- `GitHub__RedirectUri`
+- `GitHubOAuth__ClientId`
+- `GitHubOAuth__ClientSecret`
+- `GitHubOAuth__RedirectUri`
+- `GitHubApp__AppId`
+- `GitHubApp__Name`
+- `GitHubApp__PrivateKeyPem`
+- `GitHubApp__WebhookSecret`
+- `Groq__ApiKey`
+- `Vercel__Token`
+- `Brevo__ApiKey`
+
+See example file:
+
+- `aspnet-core/src/MosaicTalent.Web.Host/.env.example`
+
+## Docker Compose
+
+Backend compose file:
+
+- `aspnet-core/docker/docker-compose.yml`
+
+It now passes through all key env vars including JWT, GitHub, Groq, Brevo, Vercel, and R2 settings.
+
+## Local Development
+
+### 1) Install dependencies
 
 ```bash
-# 1) Clone
-git clone <repository-url>
-cd mosaic-talent
-
-# 2) Frontend deps
+# frontend
 cd frontend
 npm install
-cd ..
 
-# 3) Backend restore
-cd aspnet-core
+# backend
+cd ../aspnet-core
 dotnet restore
-cd ..
 ```
 
-### Environment Variables
-
-Frontend currently relies on a local `.env` file. Backend has an example file at `aspnet-core/src/MosaicTalent.Web.Host/.env.example`.
-
-| Variable | Description | Required |
-| --- | --- | :---: |
-| `NEXT_PUBLIC_API_BASE_URL` | Frontend API base URL | Yes |
-| `ConnectionStrings__Default` | Backend DB connection string | Yes |
-| `Authentication__JwtBearer__SecurityKey` | JWT signing key | Yes |
-| `GitHub__ClientId` | GitHub app client id | Optional (GitHub features) |
-| `GitHub__ClientSecret` | GitHub app client secret | Optional (GitHub features) |
-| `GitHubOAuth__ClientId` | GitHub OAuth client id | Optional (OAuth login) |
-| `GitHubOAuth__ClientSecret` | GitHub OAuth client secret | Optional (OAuth login) |
-| `GitHubOAuth__RedirectUri` | OAuth callback URL | Optional (OAuth login) |
-| `GitHubApp__AppId` | GitHub App id | Optional (GitHub App flows) |
-| `GitHubApp__PrivateKeyPem` | GitHub App private key | Optional (GitHub App flows) |
-| `GitHubApp__WebhookSecret` | Webhook signature validation secret | Optional (Webhooks) |
-| `Groq__ApiKey` | AI inference API key | Optional (AI features) |
-| `Vercel__Token` | Vercel integration token | Optional (deployment integration) |
-| `Brevo__ApiKey` | Email delivery key | Optional (email notifications) |
-
-### Running Locally
+### 2) Run services
 
 ```bash
-# Terminal 1: backend
+# backend
 cd aspnet-core/src/MosaicTalent.Web.Host
 dotnet run
 
-# Terminal 2: frontend
+# frontend
 cd frontend
 npm run dev
 ```
 
-- Frontend default: `http://localhost:3000`
-- Backend default profile: `https://localhost:44311`
-- Swagger: `https://localhost:44311/swagger`
+Defaults:
 
-### Test Credentials
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:44311` (or profile-specific)
+- Swagger: `http://localhost:44311/swagger`
 
-Not yet defined.
+### 3) Test tenant locally
 
-## Testing
+Add hosts entries as needed and test, for example:
+
+- `acme.localhost:3000`
+
+Tenant branding should appear on `/login` if tenancy is resolvable and company branding exists.
+
+## Testing and Build
 
 ```bash
-# Frontend
+# frontend tests
 cd frontend
 npm test
 
-# Backend
+# frontend build
+npm run build
+
+# backend tests
 cd ../aspnet-core
 dotnet test
-```
-
-## Building for Production
-
-```bash
-# Frontend
-cd frontend
-npm run build
-npm start
-
-# Backend
-cd ../aspnet-core/src/MosaicTalent.Web.Host
-dotnet build -c Release
-```
-
-### Docker (backend)
-
-```bash
-cd aspnet-core/docker
-docker compose up --build
 ```
 
 ## License
