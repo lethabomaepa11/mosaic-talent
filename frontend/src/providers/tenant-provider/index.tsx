@@ -24,6 +24,7 @@ interface IIsTenantAvailableResult {
 interface ICompanyBrandingResult {
   name?: string;
   logoStoredFileId?: string;
+  websiteUrl?: string;
 }
 
 interface ITenantCandidate {
@@ -33,7 +34,8 @@ interface ITenantCandidate {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
-const normalizeHost = (hostname: string) => hostname.toLowerCase().split(":")[0];
+const normalizeHost = (hostname: string) =>
+  hostname.toLowerCase().split(":")[0];
 
 const parseVercelTenancy = (host: string) => {
   if (!host.endsWith(".mosaic-talent.vercel.app")) {
@@ -115,9 +117,12 @@ const resolveTenantWithApi = async (tenancyName: string) => {
     baseURL: API_BASE_URL,
   });
 
-  const response = await rawClient.post("/api/services/app/Account/IsTenantAvailable", {
-    tenancyName,
-  });
+  const response = await rawClient.post(
+    "/api/services/app/Account/IsTenantAvailable",
+    {
+      tenancyName,
+    },
+  );
 
   return response.data?.result as IIsTenantAvailableResult | undefined;
 };
@@ -156,6 +161,7 @@ export const TenantResolutionProvider = ({ children }: PropsWithChildren) => {
             companyName: "",
             companyLogoUrl: "",
             source: "default",
+            websiteUrl: "",
           }),
         );
         return;
@@ -189,6 +195,7 @@ export const TenantResolutionProvider = ({ children }: PropsWithChildren) => {
           companyName: branding?.name ?? "",
           companyLogoUrl: branding?.logoStoredFileId ?? "",
           source: candidate.source,
+          websiteUrl: branding?.websiteUrl ?? "",
         }),
       );
     } catch {

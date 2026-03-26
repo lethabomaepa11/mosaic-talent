@@ -10,6 +10,7 @@ import { useAuthAction, useAuthState } from "@/providers/auth-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { toast } from "@/components/providers";
 import { useStyles } from "./style";
+import { GithubOutlined } from "@ant-design/icons";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -27,6 +28,7 @@ const LoginPage = () => {
     tenancyName,
     companyName,
     companyLogoUrl,
+    websiteUrl,
   } = useTenantResolutionState();
   const isCompanyTenant = Boolean(tenancyName);
 
@@ -41,7 +43,10 @@ const LoginPage = () => {
     }
 
     if (!isResolved || (isTenantError && tenancyName)) {
-      toast.error("Tenant not ready", "Tenant context is not available for login.");
+      toast.error(
+        "Tenant not ready",
+        "Tenant context is not available for login.",
+      );
       return;
     }
 
@@ -62,11 +67,22 @@ const LoginPage = () => {
 
   const handleGitHubLogin = () => {
     if (!githubAuthUrl) {
-      toast.error("GitHub auth unavailable", "Configure NEXT_PUBLIC_API_BASE_URL first.");
+      toast.error(
+        "GitHub auth unavailable",
+        "Configure NEXT_PUBLIC_API_BASE_URL first.",
+      );
       return;
     }
 
     window.location.href = githubAuthUrl;
+  };
+
+  const getDomain = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return new URL(`https://${url}`).hostname;
+    }
   };
 
   return (
@@ -112,7 +128,7 @@ const LoginPage = () => {
                 id="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="thabo@example.com"
+                placeholder={`thabo@${websiteUrl ? getDomain(websiteUrl) : "example.com"}`}
                 className={styles.input}
                 autoComplete="username"
               />
@@ -133,11 +149,15 @@ const LoginPage = () => {
             </div>
 
             {isError ? (
-              <div className={styles.statusError}>Unable to sign in with those credentials.</div>
+              <div className={styles.statusError}>
+                Unable to sign in with those credentials.
+              </div>
             ) : null}
 
             {isAuthenticated ? (
-              <div className={styles.statusSuccess}>Authenticated. Redirecting...</div>
+              <div className={styles.statusSuccess}>
+                Authenticated. Redirecting...
+              </div>
             ) : null}
 
             <div className={styles.actions}>
@@ -153,28 +173,31 @@ const LoginPage = () => {
                 Sign In
               </Button>
 
-              <Divider className={styles.divider}>or continue with</Divider>
-
-              <Button
-                onClick={handleGitHubLogin}
-                icon={<GitBranch size={16} className={styles.buttonIcon} />}
-                disabled={!isResolved || (isTenantError && !!tenancyName)}
-                block
-              >
-                Continue with GitHub
-              </Button>
               {!isResolved || isTenantPending ? (
                 <div className={styles.helper}>Resolving tenant context...</div>
               ) : null}
               {isTenantError && tenancyName ? (
                 <div className={styles.statusError}>
-                  Tenant &quot;{tenancyName}&quot; is unavailable for this domain.
+                  Tenant &quot;{tenancyName}&quot; is unavailable for this
+                  domain.
                 </div>
               ) : null}
               {!tenancyName ? (
-                <div className={styles.helper}>
-                  Don&apos;t have an account? <Link href="/signup">Create one</Link>
-                </div>
+                <>
+                  <Divider className={styles.divider}>or continue with</Divider>
+                  <Button
+                    onClick={handleGitHubLogin}
+                    icon={<GithubOutlined />}
+                    disabled={!isResolved || (isTenantError && !!tenancyName)}
+                    block
+                  >
+                    Continue with GitHub
+                  </Button>
+                  <div className={styles.helper}>
+                    Don&apos;t have an account?{" "}
+                    <Link href="/signup">Create one</Link>
+                  </div>
+                </>
               ) : null}
             </div>
           </form>
