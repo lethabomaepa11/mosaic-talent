@@ -21,6 +21,7 @@ describe("simulation actions", () => {
       scenarioTitle: "Scenario",
       sessionType: "MeetingSimulation",
       orchestratorNeeded: true,
+      awaitingUserInput: false,
       messages: [],
       bots: [],
       observations: [],

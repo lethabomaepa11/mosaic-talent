@@ -21,6 +21,7 @@ describe("simulation reducer", () => {
         scenarioTitle: "T",
         sessionType: "OneOnOne",
         orchestratorNeeded: false,
+        awaitingUserInput: true,
         messages: [],
         bots: [],
         observations: [],
