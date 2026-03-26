@@ -55,7 +55,7 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      router.push("/");
+      router.push("/app");
     } finally {
       setIsLoading(false);
     }
@@ -103,17 +103,19 @@ const LoginPage = () => {
               alt={`${companyName || tenancyName} logo`}
               className={styles.companyLogo}
             />
-          ) : null}
-          <div className={styles.logoRow}>
-            <Image
-              src="/text-logo.svg"
-              alt="Mosaic Talent"
-              width={168}
-              height={32}
-              className={styles.logoImage}
-              priority
-            />
-          </div>
+          ) : (
+            <div className={styles.logoRow}>
+              <Image
+                src="/text-logo.svg"
+                alt="Mosaic Talent"
+                width={168}
+                height={32}
+                className={styles.logoImage}
+                priority
+              />
+            </div>
+          )}
+
           {isCompanyTenant ? (
             <p className={styles.tenantLabel}>{companyName || tenancyName}</p>
           ) : null}

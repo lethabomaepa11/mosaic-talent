@@ -1,14 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "@/components/app-sidebar";
 
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
+  replace: vi.fn(),
   logout: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   usePathname: mocks.usePathname,
+  useRouter: () => ({
+    replace: mocks.replace,
+  }),
 }));
 
 vi.mock("@/providers/auth-provider", () => ({
@@ -40,13 +44,16 @@ describe("AppSidebar", () => {
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
   });
 
-  it("calls logout when sign out is clicked", () => {
+  it("calls logout and redirects when sign out is clicked", async () => {
     mocks.usePathname.mockReturnValue("/app");
     mocks.logout.mockResolvedValue(undefined);
 
     render(<AppSidebar />);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Sign Out" })[0]);
-    expect(mocks.logout).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mocks.logout).toHaveBeenCalledTimes(1);
+      expect(mocks.replace).toHaveBeenCalledWith("/login");
+    });
   });
 });

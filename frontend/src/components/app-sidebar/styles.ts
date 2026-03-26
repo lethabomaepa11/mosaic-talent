@@ -7,10 +7,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     width: 260px;
     min-width: 260px;
     height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
     border-right: 1px solid ${token.colorBorder};
     background: color-mix(in srgb, ${token.colorBgContainer} 92%, ${token.colorBgBase});
 
     @media (max-width: 991px) {
+      position: static;
       width: 100%;
       min-width: 100%;
       height: auto;

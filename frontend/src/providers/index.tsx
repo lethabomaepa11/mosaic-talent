@@ -4,11 +4,6 @@ export {
   useAuthState,
 } from "./auth-provider";
 export {
-  DeveloperOnboardingProvider,
-  useDeveloperOnboardingAction,
-  useDeveloperOnboardingState,
-} from "./developer-onboarding-provider";
-export {
   TenantResolutionProvider,
   useTenantResolutionAction,
   useTenantResolutionState,
@@ -18,3 +13,8 @@ export {
   useCompanyAccountAction,
   useCompanyAccountState,
 } from "./company-account-provider";
+export {
+  DeveloperProvider,
+  useDeveloperAction,
+  useDeveloperState,
+} from "./developer-provider";

@@ -3,7 +3,22 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { AuthStateContext, INITIAL_STATE } from "@/providers/auth-provider/context";
 import { AppHeader } from "@/components/app-header";
 
+const mocks = vi.hoisted(() => ({
+  useDeveloperState: vi.fn(),
+}));
+
+vi.mock("@/providers/developer-provider", () => ({
+  useDeveloperState: mocks.useDeveloperState,
+}));
+
 describe("AppHeader", () => {
+  beforeAll(() => {
+    mocks.useDeveloperState.mockReturnValue({
+      currentUser: undefined,
+      profile: { avatarUrl: "" },
+    });
+  });
+
   beforeAll(() => {
     Object.defineProperty(window, "matchMedia", {
       writable: true,

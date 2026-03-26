@@ -59,7 +59,7 @@ namespace MosaicTalent.Authentication.External
 
         public string GetClientRootAddress()
         {
-            return _appConfiguration["App:ClientRootAddress"] + "/onboarding";
+            return _appConfiguration["App:ClientRootAddress"] + "/app";
         }
 
         public string BuildAuthorizationUrl(string state)

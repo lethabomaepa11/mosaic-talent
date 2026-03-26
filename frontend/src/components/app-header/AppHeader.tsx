@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
 import { Bell, Search, Settings } from "lucide-react";
 import { useAuthState } from "@/providers/auth-provider";
+import { useDeveloperState } from "@/providers/developer-provider";
 import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
@@ -17,25 +18,35 @@ export const AppHeader = ({
 
   const { styles } = useStyles();
   const { user } = useAuthState();
+  const { currentUser, profile } = useDeveloperState();
 
-  const fallbackName = useMemo(() => {
+  const displayName = useMemo(() => {
+    const fullName = `${currentUser?.name ?? ""} ${currentUser?.surname ?? ""}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+
+    if (currentUser?.userName) {
+      return currentUser.userName;
+    }
+
     if (!user?.userId) {
       return "User";
     }
 
     return `User ${user.userId}`;
-  }, [user?.userId]);
+  }, [currentUser?.name, currentUser?.surname, currentUser?.userName, user?.userId]);
 
   const initials = useMemo(
     () =>
-      fallbackName
+      displayName
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)
         .map((item) => item[0])
         .join("")
         .toUpperCase(),
-    [fallbackName],
+    [displayName],
   );
 
   const menuItems = useMemo<MenuProps["items"]>(
@@ -44,8 +55,10 @@ export const AppHeader = ({
         key: "meta",
         label: (
           <div className={styles.userMeta}>
-            <p className={styles.userName}>{fallbackName}</p>
-            <p className={styles.userEmail}>No email loaded in session</p>
+            <p className={styles.userName}>{displayName}</p>
+            <p className={styles.userEmail}>
+              {currentUser?.emailAddress || "No email loaded in session"}
+            </p>
           </div>
         ),
       },
@@ -65,7 +78,13 @@ export const AppHeader = ({
         label: "Help & Support",
       },
     ],
-    [fallbackName, styles.userEmail, styles.userMeta, styles.userName],
+    [
+      currentUser?.emailAddress,
+      displayName,
+      styles.userEmail,
+      styles.userMeta,
+      styles.userName,
+    ],
   );
 
   return (
@@ -110,7 +129,7 @@ export const AppHeader = ({
           classNames={{ root: styles.dropdown }}
         >
           <Button type="text" className={styles.avatarButton} aria-label="User menu">
-            <Avatar size={30} className={styles.avatar}>
+            <Avatar size={30} src={profile.avatarUrl || undefined} className={styles.avatar}>
               {initials}
             </Avatar>
           </Button>

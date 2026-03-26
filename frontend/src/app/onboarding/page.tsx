@@ -6,9 +6,9 @@ import { ArrowRight } from "lucide-react";
 import { Button, Input, InputNumber, Select, Slider, Upload } from "antd";
 import { toast } from "@/components/providers";
 import {
-  useDeveloperOnboardingAction,
-  useDeveloperOnboardingState,
-} from "@/providers/developer-onboarding-provider";
+  useDeveloperAction,
+  useDeveloperState,
+} from "@/providers/developer-provider";
 import { useAuthState } from "@/providers/auth-provider";
 import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
@@ -33,9 +33,9 @@ const OnboardingPage = () => {
   const { styles } = useStyles();
   const { isAuthenticated } = useAuthState();
   const { isError, isSuccess, isPending, profile, studyLevels } =
-    useDeveloperOnboardingState();
+    useDeveloperState();
   const { fetchMyProfile, fetchStudyLevels, upsertMyProfile } =
-    useDeveloperOnboardingAction();
+    useDeveloperAction();
 
   useEffect(() => {
     if (!isAuthenticated) {

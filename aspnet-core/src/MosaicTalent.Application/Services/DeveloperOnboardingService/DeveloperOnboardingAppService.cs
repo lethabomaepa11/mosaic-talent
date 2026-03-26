@@ -1,5 +1,6 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Domain.Uow;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Services.DeveloperOnboardingService.DTO;
@@ -147,50 +148,89 @@ public class DeveloperOnboardingAppService : MosaicTalentAppServiceBase, IDevelo
             await _profileRepository.UpdateAsync(profile);
         }
 
-        var existingSkills = await _profileSkillRepository.GetAll()
-            .Where(x => x.ProfileId == profile.Id)
-            .ToListAsync();
-        foreach (var skill in existingSkills)
-        {
-            await _profileSkillRepository.DeleteAsync(skill);
-        }
-
-        var normalizedSkills = input.Skills
+        var normalizedSkills = (input.Skills ?? new List<string>())
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var skill in normalizedSkills)
-        {
-            await _profileSkillRepository.InsertAsync(new DeveloperProfileSkill
-            {
-                ProfileId = profile.Id,
-                Name = skill,
-            });
-        }
-
-        var existingGoals = await _profileGoalRepository.GetAll()
-            .Where(x => x.ProfileId == profile.Id)
-            .ToListAsync();
-        foreach (var goal in existingGoals)
-        {
-            await _profileGoalRepository.DeleteAsync(goal);
-        }
-
-        var normalizedGoals = input.Goals
+        var normalizedGoals = (input.Goals ?? new List<string>())
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var goal in normalizedGoals)
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.SoftDelete))
         {
-            await _profileGoalRepository.InsertAsync(new DeveloperProfileGoal
+            var allSkills = await _profileSkillRepository.GetAll()
+                .Where(x => x.ProfileId == profile.Id)
+                .ToListAsync();
+            var skillLookup = normalizedSkills.ToDictionary(x => x, x => x, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var skillRow in allSkills)
             {
-                ProfileId = profile.Id,
-                Goal = goal,
-            });
+                if (skillLookup.TryGetValue(skillRow.Name, out var normalizedName))
+                {
+                    if (skillRow.IsDeleted || !string.Equals(skillRow.Name, normalizedName, StringComparison.Ordinal))
+                    {
+                        skillRow.IsDeleted = false;
+                        skillRow.DeleterUserId = null;
+                        skillRow.DeletionTime = null;
+                        skillRow.Name = normalizedName;
+                        await _profileSkillRepository.UpdateAsync(skillRow);
+                    }
+
+                    skillLookup.Remove(normalizedName);
+                }
+                else if (!skillRow.IsDeleted)
+                {
+                    await _profileSkillRepository.DeleteAsync(skillRow);
+                }
+            }
+
+            foreach (var skill in skillLookup.Values)
+            {
+                await _profileSkillRepository.InsertAsync(new DeveloperProfileSkill
+                {
+                    ProfileId = profile.Id,
+                    Name = skill,
+                });
+            }
+
+            var allGoals = await _profileGoalRepository.GetAll()
+                .Where(x => x.ProfileId == profile.Id)
+                .ToListAsync();
+            var goalLookup = normalizedGoals.ToDictionary(x => x, x => x, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var goalRow in allGoals)
+            {
+                if (goalLookup.TryGetValue(goalRow.Goal, out var normalizedGoal))
+                {
+                    if (goalRow.IsDeleted || !string.Equals(goalRow.Goal, normalizedGoal, StringComparison.Ordinal))
+                    {
+                        goalRow.IsDeleted = false;
+                        goalRow.DeleterUserId = null;
+                        goalRow.DeletionTime = null;
+                        goalRow.Goal = normalizedGoal;
+                        await _profileGoalRepository.UpdateAsync(goalRow);
+                    }
+
+                    goalLookup.Remove(normalizedGoal);
+                }
+                else if (!goalRow.IsDeleted)
+                {
+                    await _profileGoalRepository.DeleteAsync(goalRow);
+                }
+            }
+
+            foreach (var goal in goalLookup.Values)
+            {
+                await _profileGoalRepository.InsertAsync(new DeveloperProfileGoal
+                {
+                    ProfileId = profile.Id,
+                    Goal = goal,
+                });
+            }
         }
 
         await CurrentUnitOfWork.SaveChangesAsync();

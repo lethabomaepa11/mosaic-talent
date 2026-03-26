@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
@@ -47,8 +48,14 @@ const isItemActive = (pathname: string, href: string) => {
 
 export const CompanySidebar = () => {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const { logout } = useAuthAction();
   const { styles } = useStyles();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <aside className={styles.sidebar}>
@@ -91,7 +98,7 @@ export const CompanySidebar = () => {
           type="text"
           className={styles.footerButton}
           icon={<LogOut size={16} />}
-          onClick={logout}
+          onClick={handleLogout}
         >
           Sign Out
         </Button>
