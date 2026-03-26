@@ -7,6 +7,7 @@ using Abp.Zero.Configuration;
 using MosaicTalent.Authentication.JwtBearer;
 using MosaicTalent.Configuration;
 using MosaicTalent.EntityFrameworkCore;
+using MosaicTalent.Files;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.Extensions.Configuration;
@@ -53,6 +54,7 @@ namespace MosaicTalent
         private void ConfigureTokenAuth()
         {
             IocManager.Register<TokenAuthConfiguration>();
+            IocManager.Register<IR2StorageService, R2StorageService>(Abp.Dependency.DependencyLifeStyle.Transient);
             var tokenAuthConfig = IocManager.Resolve<TokenAuthConfiguration>();
 
             tokenAuthConfig.SecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_appConfiguration["Authentication:JwtBearer:SecurityKey"]));

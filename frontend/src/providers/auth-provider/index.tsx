@@ -2,12 +2,10 @@
 
 import { PropsWithChildren, useContext, useEffect, useReducer } from "react";
 import {
-  getAuthUser,
+  getAuthToken,
   getAxiosInstance,
   removeAuthToken,
-  removeAuthUser,
   setAuthToken,
-  setAuthUser,
 } from "@/utils/axiosInstance";
 import {
   loginError,
@@ -28,6 +26,7 @@ import {
   IUser,
 } from "./context";
 import { AuthReducer } from "./reducer";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 
 interface IAuthResponse {
   accessToken: string;
@@ -38,15 +37,46 @@ interface IAuthResponse {
 export function AuthProvider({ children }: PropsWithChildren) {
   const instance = getAxiosInstance();
   const [state, dispatch] = useReducer(AuthReducer, INITIAL_STATE);
+  const { isResolved } = useTenantResolutionState();
 
   useEffect(() => {
-    const storedUser = getAuthUser<IUser>();
-
-    if (storedUser) {
-      setAuthToken(storedUser.accessToken);
-      dispatch(loginSuccess(storedUser));
+    if (!isResolved) {
+      return;
     }
-  }, []);
+
+    const token = getAuthToken();
+
+    if (!token) {
+      return;
+    }
+
+    const restoreSession = async () => {
+      try {
+        const res = await instance.get(
+          "/api/services/app/Session/GetCurrentLoginInformations",
+        );
+        const sessionUser = res.data?.result?.user;
+        const userId = Number(sessionUser?.id ?? 0);
+
+        if (!userId) {
+          throw new Error("Invalid session user");
+        }
+
+        dispatch(
+          loginSuccess({
+            accessToken: token,
+            expireInSeconds: 0,
+            userId,
+          }),
+        );
+      } catch {
+        removeAuthToken();
+        dispatch(logoutSuccess());
+      }
+    };
+
+    restoreSession();
+  }, [isResolved]);
 
   const login = async (userNameOrEmailAddress: string, password: string) => {
     dispatch(loginPending());
@@ -64,11 +94,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         userId: user.userId,
       };
       setAuthToken(authUser.accessToken);
-      setAuthUser(authUser);
-      dispatch(loginSuccess(user));
+      dispatch(loginSuccess(authUser));
     } catch {
       removeAuthToken();
-      removeAuthUser();
       dispatch(loginError());
     }
   };
@@ -90,11 +118,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         userId: user.userId,
       };
       setAuthToken(authUser.accessToken);
-      setAuthUser(authUser);
       dispatch(registerSuccess(authUser));
     } catch {
       removeAuthToken();
-      removeAuthUser();
       dispatch(registerError());
     }
   };
@@ -104,7 +130,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       removeAuthToken();
-      removeAuthUser();
       dispatch(logoutSuccess());
     } catch {
       dispatch(logoutError());

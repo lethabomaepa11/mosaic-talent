@@ -92,7 +92,7 @@ Rules:
 
 ---
 
-### 3. Application Layer Rules (`mosaic-talentApi.Application`)
+### 3. Application Layer Rules (`MosaicTalent.Application`)
 
 Place services in:
 
@@ -102,6 +102,7 @@ Services/{EntityName}Service/
 
 Rules:
 
+- all app services MUST be placed under `aspnet-core/src/MosaicTalent.Application/Services/...`
 - each service must have an interface
 - use `AsyncCrudAppService<TEntity, TDto, Guid>` for standard CRUD
 - use `ApplicationService` for custom workflows
@@ -149,9 +150,9 @@ mosaic-talentApi.Core/Domains/{ModuleName}/{EntityName}.cs
 ### Application
 
 ```
-mosaic-talentApi.Application/Services/{EntityName}Service/I{EntityName}AppService.cs
-mosaic-talentApi.Application/Services/{EntityName}Service/{EntityName}AppService.cs
-mosaic-talentApi.Application/Services/{EntityName}Service/DTO/{EntityName}Dto.cs
+MosaicTalent.Application/Services/{EntityName}Service/I{EntityName}AppService.cs
+MosaicTalent.Application/Services/{EntityName}Service/{EntityName}AppService.cs
+MosaicTalent.Application/Services/{EntityName}Service/DTO/{EntityName}Dto.cs
 ```
 
 ### EF Core
