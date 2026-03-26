@@ -2,24 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { ArrowLeftRight, Bell, Search, Settings } from "lucide-react";
+import { Bell, Search, Settings } from "lucide-react";
 import { useAuthState } from "@/providers/auth-provider";
 import { useStyles } from "./styles";
 
-type ViewMode = "developer" | "company";
-
 interface IAppHeaderProps {
-  initialViewMode?: ViewMode;
-  onToggleViewMode?: (nextMode: ViewMode) => void;
   onSearchChange?: (value: string) => void;
 }
 
 export const AppHeader = ({
-  initialViewMode = "developer",
-  onToggleViewMode,
   onSearchChange,
 }: IAppHeaderProps) => {
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [searchValue, setSearchValue] = useState("");
 
   const { styles } = useStyles();
@@ -44,13 +37,6 @@ export const AppHeader = ({
         .toUpperCase(),
     [fallbackName],
   );
-
-  const handleToggleViewMode = () => {
-    const nextMode = viewMode === "developer" ? "company" : "developer";
-
-    setViewMode(nextMode);
-    onToggleViewMode?.(nextMode);
-  };
 
   const menuItems = useMemo<MenuProps["items"]>(
     () => [
@@ -99,23 +85,6 @@ export const AppHeader = ({
       </div>
 
       <div className={styles.actions}>
-        <Button
-          type="default"
-          onClick={handleToggleViewMode}
-          className={styles.modeButton}
-          icon={<ArrowLeftRight size={16} />}
-          aria-label="Toggle view mode"
-        >
-          <span className={styles.modeLabel}>
-            Switch to {viewMode === "developer" ? "Company" : "Developer"} View
-          </span>
-          <Badge
-            count={viewMode === "developer" ? "Dev" : "Co"}
-            color="transparent"
-            className={styles.badge}
-          />
-        </Button>
-
         <Badge dot color="gold">
           <Button
             type="text"
