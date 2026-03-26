@@ -151,6 +151,7 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
             Name = company.Name,
             TenancyName = company.TenancyName,
             LogoStoredFileId = company.LogoStoredFileId,
+            WebsiteUrl = company.Website,
         };
     }
 

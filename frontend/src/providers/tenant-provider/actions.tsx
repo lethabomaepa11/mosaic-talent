@@ -30,6 +30,7 @@ export const tenantResolutionSuccess = createAction<
     source: TenantResolutionSource;
     companyName?: string;
     companyLogoUrl?: string;
+    websiteUrl?: string;
   }
 >(TenantResolutionStateEnums.TENANT_RESOLUTION_SUCCESS, (payload) => ({
   isPending: false,

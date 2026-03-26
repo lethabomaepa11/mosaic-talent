@@ -2,7 +2,11 @@
 
 import { createContext } from "react";
 
-export type TenantResolutionSource = "default" | "vercel" | "subdomain" | "none";
+export type TenantResolutionSource =
+  | "default"
+  | "vercel"
+  | "subdomain"
+  | "none";
 
 export interface ITenantResolutionStateContext {
   isPending: boolean;
@@ -13,6 +17,7 @@ export interface ITenantResolutionStateContext {
   tenancyName: string;
   companyName: string;
   companyLogoUrl: string;
+  websiteUrl: string;
   source: TenantResolutionSource;
 }
 
@@ -29,6 +34,7 @@ export const INITIAL_STATE: ITenantResolutionStateContext = {
   tenancyName: "",
   companyName: "",
   companyLogoUrl: "",
+  websiteUrl: "",
   source: "default",
 };
 

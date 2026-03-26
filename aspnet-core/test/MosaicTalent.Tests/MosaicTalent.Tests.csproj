@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MosaicTalent.Application\MosaicTalent.Application.csproj" />
     <ProjectReference Include="..\..\src\MosaicTalent.EntityFrameworkCore\MosaicTalent.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\MosaicTalent.Web.Core\MosaicTalent.Web.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
