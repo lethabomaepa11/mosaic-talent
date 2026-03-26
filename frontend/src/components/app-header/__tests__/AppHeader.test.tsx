@@ -33,7 +33,6 @@ describe("AppHeader", () => {
       }
     }
 
-    // @ts-expect-error test-only polyfill
     window.ResizeObserver = ResizeObserverMock;
   });
 
