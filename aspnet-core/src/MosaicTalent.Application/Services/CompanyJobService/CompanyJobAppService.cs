@@ -4,6 +4,7 @@ using Abp.Domain.Uow;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
@@ -37,6 +38,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     private readonly IGroqChatService _groqChatService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public CompanyJobAppService(
         IRepository<Company, Guid> companyRepository,
@@ -49,7 +51,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         IRepository<User, long> userRepository,
         IGroqChatService groqChatService,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor)
     {
         _companyRepository = companyRepository;
         _companyEmployeeRepository = companyEmployeeRepository;
@@ -62,6 +65,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         _groqChatService = groqChatService;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     [AbpAllowAnonymous]
@@ -401,6 +405,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             AiVerdict = aiAssessment.Verdict,
             AiExtractedSkills = aiAssessment.ExtractedSkills,
             AiGithubRepo = aiAssessment.GithubRepo,
+            AiProjects = ToProjectDtos(aiAssessment.Projects),
+            AiMosaic = aiAssessment.Mosaic,
         };
     }
 
@@ -503,18 +509,124 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
 
     public async Task<JobApplicationDto> UpdateJobApplicationStatus(UpdateJobApplicationStatusInput input)
     {
-        var application = await _jobApplicationRepository.FirstOrDefaultAsync(input.JobApplicationId)
-            ?? throw new UserFriendlyException("Job application not found.");
-        var job = await _jobRepository.FirstOrDefaultAsync(application.JobId)
+        var status = ParseApplicationStatus(input.Status);
+        var application = await _jobApplicationRepository.FirstOrDefaultAsync(input.JobApplicationId);
+        if (application != null)
+        {
+            var job = await _jobRepository.FirstOrDefaultAsync(application.JobId)
+                ?? throw new UserFriendlyException("Job not found.");
+            await EnsureJobAdmin(job);
+
+            application.Status = status;
+            await _jobApplicationRepository.UpdateAsync(application);
+            await CurrentUnitOfWork.SaveChangesAsync();
+            if (status == ApplicationStatus.Assessment)
+            {
+                await TrySendAssessmentInviteForMemberApplication(job, application);
+            }
+
+            var mapped = await MapApplications(new List<JobApplication> { application });
+            return mapped.First();
+        }
+
+        PublicJobApplication publicApplication = null;
+        try
+        {
+            publicApplication = await _publicJobApplicationRepository.FirstOrDefaultAsync(input.JobApplicationId);
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            publicApplication = null;
+        }
+
+        if (publicApplication != null)
+        {
+            var job = await _jobRepository.FirstOrDefaultAsync(publicApplication.JobId)
+                ?? throw new UserFriendlyException("Job not found.");
+            await EnsureJobAdmin(job);
+
+            publicApplication.Status = status;
+            await _publicJobApplicationRepository.UpdateAsync(publicApplication);
+            await CurrentUnitOfWork.SaveChangesAsync();
+            if (status == ApplicationStatus.Assessment)
+            {
+                await TrySendAssessmentInviteForPublicApplication(job, publicApplication);
+            }
+
+            var mappedPublic = await MapPublicApplications(new List<PublicJobApplication> { publicApplication });
+            return mappedPublic.First();
+        }
+
+        throw new UserFriendlyException("Job application not found.");
+    }
+
+    public async Task<int> BulkMoveApplicationsToAssessment(BulkMoveApplicationsToAssessmentInput input)
+    {
+        var job = await _jobRepository.FirstOrDefaultAsync(input.JobId)
             ?? throw new UserFriendlyException("Job not found.");
         await EnsureJobAdmin(job);
 
-        application.Status = ParseApplicationStatus(input.Status);
-        await _jobApplicationRepository.UpdateAsync(application);
-        await CurrentUnitOfWork.SaveChangesAsync();
+        var statusFilter = BuildStatusFilter(input.CurrentStatuses);
+        var minimumScore = Math.Max(0, Math.Min(100, input.MinimumMatchScore ?? 0));
+        var updatedCount = 0;
 
-        var mapped = await MapApplications(new List<JobApplication> { application });
-        return mapped.First();
+        if (input.IncludeMemberApplications)
+        {
+            var memberQuery = _jobApplicationRepository.GetAll()
+                .Where(x => x.JobId == input.JobId && x.MatchScore >= minimumScore);
+            if (statusFilter.Count > 0)
+            {
+                memberQuery = memberQuery.Where(x => statusFilter.Contains(x.Status));
+            }
+
+            var memberApplications = await memberQuery.ToListAsync();
+            foreach (var app in memberApplications)
+            {
+                if (app.Status == ApplicationStatus.Assessment)
+                {
+                    continue;
+                }
+
+                app.Status = ApplicationStatus.Assessment;
+                await _jobApplicationRepository.UpdateAsync(app);
+                updatedCount++;
+                await TrySendAssessmentInviteForMemberApplication(job, app);
+            }
+        }
+
+        if (input.IncludePublicApplications)
+        {
+            try
+            {
+                var publicQuery = _publicJobApplicationRepository.GetAll()
+                    .Where(x => x.JobId == input.JobId && x.MatchScore >= minimumScore);
+                if (statusFilter.Count > 0)
+                {
+                    publicQuery = publicQuery.Where(x => statusFilter.Contains(x.Status));
+                }
+
+                var publicApplications = await publicQuery.ToListAsync();
+                foreach (var app in publicApplications)
+                {
+                    if (app.Status == ApplicationStatus.Assessment)
+                    {
+                        continue;
+                    }
+
+                    app.Status = ApplicationStatus.Assessment;
+                    await _publicJobApplicationRepository.UpdateAsync(app);
+                    updatedCount++;
+                    await TrySendAssessmentInviteForPublicApplication(job, app);
+                }
+            }
+            catch (Exception ex) when (IsMissingRelation(ex))
+            {
+                // no-op for environments without the public applications table.
+            }
+        }
+
+        await CurrentUnitOfWork.SaveChangesAsync();
+        return updatedCount;
     }
 
     private async Task<List<JobDto>> MapJobs(List<Job> jobs)
@@ -625,6 +737,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 AiVerdict = string.Empty,
                 AiExtractedSkills = new List<string>(),
                 AiGithubRepo = string.Empty,
+                AiProjects = new List<AiProjectDto>(),
+                AiMosaic = new Dictionary<string, double>(),
             };
         }).ToList();
     }
@@ -700,6 +814,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 AiVerdict = assessment.Verdict,
                 AiExtractedSkills = assessment.ExtractedSkills,
                 AiGithubRepo = assessment.GithubRepo,
+                AiProjects = ToProjectDtos(assessment.Projects),
+                AiMosaic = assessment.Mosaic,
             };
         }).ToList();
     }
@@ -1258,6 +1374,112 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
     }
 
+    private async Task TrySendAssessmentInviteForMemberApplication(Job job, JobApplication application)
+    {
+        try
+        {
+            var recipient = await ResolveMemberApplicationRecipientAsync(application);
+            if (string.IsNullOrWhiteSpace(recipient.Email))
+            {
+                return;
+            }
+
+            var link = BuildAssessmentUrl(application.Id);
+            var subject = $"Assessment invitation: {job.Title}";
+            var body =
+                $"Hi {recipient.Name},\n\n" +
+                $"You have been moved to the assessment stage for {job.Title}.\n" +
+                $"Please complete your assessment here:\n{link}\n\n" +
+                "Regards,\nHiring Team";
+            var company = await GetCompanyByTenant(job.TenantId);
+            var html = BuildBrandedEmailHtml(
+                subject,
+                body,
+                "#D4AF37",
+                company.Name ?? "Mosaic Talent",
+                company.Website,
+                company.Email);
+            await SendEmailWithBrevoAsync(recipient.Email, recipient.Name, subject, html);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Assessment invite email failed for member application.", ex);
+        }
+    }
+
+    private async Task TrySendAssessmentInviteForPublicApplication(Job job, PublicJobApplication application)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(application.Email))
+            {
+                return;
+            }
+
+            var link = BuildAssessmentUrl(application.Id);
+            var subject = $"Assessment invitation: {job.Title}";
+            var body =
+                $"Hi {application.FullName},\n\n" +
+                $"You have been moved to the assessment stage for {job.Title}.\n" +
+                $"Please complete your assessment here:\n{link}\n\n" +
+                "Regards,\nHiring Team";
+            var company = await GetCompanyByTenant(job.TenantId);
+            var html = BuildBrandedEmailHtml(
+                subject,
+                body,
+                "#D4AF37",
+                company.Name ?? "Mosaic Talent",
+                company.Website,
+                company.Email);
+            await SendEmailWithBrevoAsync(application.Email.Trim(), application.FullName, subject, html);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Assessment invite email failed for public application.", ex);
+        }
+    }
+
+    private string BuildAssessmentUrl(Guid applicationId)
+    {
+        var request = _httpContextAccessor.HttpContext?.Request;
+        if (request != null && request.Host.HasValue)
+        {
+            return $"{request.Scheme}://{request.Host}/assessment/{applicationId}";
+        }
+
+        var clientRoot = _configuration["App:ClientRootAddress"] ?? _configuration["App__ClientRootAddress"] ?? string.Empty;
+        clientRoot = (clientRoot ?? string.Empty).Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(clientRoot))
+        {
+            return $"/assessment/{applicationId}";
+        }
+
+        return $"{clientRoot}/assessment/{applicationId}";
+    }
+
+    private static HashSet<ApplicationStatus> BuildStatusFilter(List<int> values)
+    {
+        var output = new HashSet<ApplicationStatus>();
+        if (values == null || values.Count == 0)
+        {
+            return output;
+        }
+
+        foreach (var value in values)
+        {
+            try
+            {
+                output.Add(ParseApplicationStatus(value));
+            }
+            catch
+            {
+                // ignore invalid filters
+            }
+        }
+
+        return output;
+    }
+
     private static EmploymentType ParseEmploymentType(int value)
     {
         return value switch
@@ -1292,6 +1514,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             2 => ApplicationStatus.Interview,
             3 => ApplicationStatus.Rejected,
             4 => ApplicationStatus.Approved,
+            5 => ApplicationStatus.Assessment,
             _ => throw new UserFriendlyException("Invalid application status."),
         };
     }
@@ -1327,6 +1550,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         {
             ApplicationStatus.Applied => "applied",
             ApplicationStatus.Shortlisted => "shortlisted",
+            ApplicationStatus.Assessment => "assessment",
             ApplicationStatus.Interview => "interview",
             ApplicationStatus.Rejected => "rejected",
             ApplicationStatus.Approved => "approved",
@@ -1498,7 +1722,10 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
 
         var systemPrompt =
-            "You are a strict hiring assistant. Return JSON only with keys: score (0-100), summary, verdict, strengths (array), weaknesses (array), skills (array), githubRepo.";
+            "You are a strict hiring assistant. Return JSON only with keys: " +
+            "score (0-100), summary, verdict, strengths (array), weaknesses (array), skills (array), githubRepo, " +
+            "projects (array of objects with name, description, technologies array, score), " +
+            "mosaic (object with technical, problemSolving, collaboration, communication between 0 and 100).";
         var userPrompt =
             $"Job title: {job.Title}\n" +
             $"Job description: {job.Description}\n" +
@@ -1528,6 +1755,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             var weaknesses = root.TryGetProperty("weaknesses", out var weaknessesNode) ? ReadStringArray(weaknessesNode) : fallback.Weaknesses;
             var skills = root.TryGetProperty("skills", out var skillsNode) ? ReadStringArray(skillsNode) : fallback.ExtractedSkills;
             var githubRepo = root.TryGetProperty("githubRepo", out var repoNode) ? repoNode.GetString() : fallback.GithubRepo;
+            var projects = root.TryGetProperty("projects", out var projectsNode) ? ReadProjectArray(projectsNode) : fallback.Projects;
+            var mosaic = root.TryGetProperty("mosaic", out var mosaicNode) ? ReadMosaicScores(mosaicNode) : fallback.Mosaic;
 
             return new ApplicationAssessment
             {
@@ -1538,6 +1767,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 Weaknesses = weaknesses.Count == 0 ? fallback.Weaknesses : weaknesses.Take(5).ToList(),
                 ExtractedSkills = skills.Take(12).ToList(),
                 GithubRepo = githubRepo ?? string.Empty,
+                Projects = projects.Count == 0 ? fallback.Projects : projects.Take(6).ToList(),
+                Mosaic = mosaic.Count == 0 ? fallback.Mosaic : mosaic,
             };
         }
         catch
@@ -1577,6 +1808,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             },
             ExtractedSkills = extractedSkills,
             GithubRepo = ExtractGithubRepo(text),
+            Projects = BuildFallbackProjects(text, extractedSkills),
+            Mosaic = BuildFallbackMosaic(score),
         };
     }
 
@@ -1611,6 +1844,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         root["__ai_weaknesses"] = assessment.Weaknesses;
         root["__ai_skills"] = assessment.ExtractedSkills;
         root["__ai_github_repo"] = assessment.GithubRepo;
+        root["__ai_projects"] = assessment.Projects;
+        root["__ai_mosaic"] = assessment.Mosaic;
         root["__resume_extracted"] = !string.IsNullOrWhiteSpace(resumeText);
 
         return JsonSerializer.Serialize(root);
@@ -1647,6 +1882,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             fallback.Weaknesses = doc.RootElement.TryGetProperty("__ai_weaknesses", out var weaknessesNode) ? ReadStringArray(weaknessesNode) : new List<string>();
             fallback.ExtractedSkills = doc.RootElement.TryGetProperty("__ai_skills", out var skillsNode) ? ReadStringArray(skillsNode) : new List<string>();
             fallback.GithubRepo = doc.RootElement.TryGetProperty("__ai_github_repo", out var repoNode) ? repoNode.GetString() ?? string.Empty : string.Empty;
+            fallback.Projects = doc.RootElement.TryGetProperty("__ai_projects", out var projectsNode) ? ReadProjectArray(projectsNode) : new List<ProjectInsight>();
+            fallback.Mosaic = doc.RootElement.TryGetProperty("__ai_mosaic", out var mosaicNode) ? ReadMosaicScores(mosaicNode) : new Dictionary<string, double>();
             return fallback;
         }
         catch
@@ -1668,6 +1905,108 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
             .ToList();
+    }
+
+    private static List<ProjectInsight> ReadProjectArray(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            return new List<ProjectInsight>();
+        }
+
+        var output = new List<ProjectInsight>();
+        foreach (var node in element.EnumerateArray())
+        {
+            if (node.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var name = node.TryGetProperty("name", out var nameNode) ? SafeTrim(nameNode.GetString()) : string.Empty;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var description = node.TryGetProperty("description", out var descNode) ? SafeTrim(descNode.GetString()) : string.Empty;
+            var score = node.TryGetProperty("score", out var scoreNode) && scoreNode.TryGetDouble(out var parsedScore)
+                ? ClampScore(parsedScore)
+                : 0;
+            var technologies = node.TryGetProperty("technologies", out var techNode) ? ReadStringArray(techNode).Take(8).ToList() : new List<string>();
+
+            output.Add(new ProjectInsight
+            {
+                Name = name,
+                Description = description,
+                Score = score,
+                Technologies = technologies,
+            });
+        }
+
+        return output;
+    }
+
+    private static Dictionary<string, double> ReadMosaicScores(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var output = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var keys = new[] { "technical", "problemSolving", "collaboration", "communication" };
+        foreach (var key in keys)
+        {
+            if (!element.TryGetProperty(key, out var valueNode))
+            {
+                continue;
+            }
+
+            if (!valueNode.TryGetDouble(out var value))
+            {
+                continue;
+            }
+
+            output[key] = ClampScore(value);
+        }
+
+        return output;
+    }
+
+    private static List<ProjectInsight> BuildFallbackProjects(string text, List<string> extractedSkills)
+    {
+        var output = new List<ProjectInsight>();
+        var segments = Regex.Split(text ?? string.Empty, @"[\r\n]+|(?<=[.])\s+")
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => SafeTrim(x))
+            .Where(x => x.Length > 30)
+            .Take(3)
+            .ToList();
+        var idx = 1;
+        foreach (var segment in segments)
+        {
+            output.Add(new ProjectInsight
+            {
+                Name = $"CV Project {idx}",
+                Description = segment,
+                Score = Math.Max(50, 80 - (idx * 5)),
+                Technologies = extractedSkills.Take(4).ToList(),
+            });
+            idx++;
+        }
+
+        return output;
+    }
+
+    private static Dictionary<string, double> BuildFallbackMosaic(double score)
+    {
+        return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["technical"] = ClampScore(score),
+            ["problemSolving"] = ClampScore(score * 0.96),
+            ["collaboration"] = ClampScore(score * 0.92),
+            ["communication"] = ClampScore(score * 0.90),
+        };
     }
 
     private static double ClampScore(double score)
@@ -1707,6 +2046,22 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         return normalized.Length > 25000 ? normalized.Substring(0, 25000) : normalized;
     }
 
+    private static List<AiProjectDto> ToProjectDtos(List<ProjectInsight> projects)
+    {
+        if (projects == null || projects.Count == 0)
+        {
+            return new List<AiProjectDto>();
+        }
+
+        return projects.Select(x => new AiProjectDto
+        {
+            Name = x.Name,
+            Description = x.Description,
+            Score = x.Score,
+            Technologies = x.Technologies ?? new List<string>(),
+        }).ToList();
+    }
+
     private static void EnsurePdfResumeReference(string resumeReference)
     {
         if (string.IsNullOrWhiteSpace(resumeReference))
@@ -1730,6 +2085,16 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         public List<string> Weaknesses { get; set; } = new();
         public List<string> ExtractedSkills { get; set; } = new();
         public string GithubRepo { get; set; } = string.Empty;
+        public List<ProjectInsight> Projects { get; set; } = new();
+        public Dictionary<string, double> Mosaic { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class ProjectInsight
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public double Score { get; set; }
+        public List<string> Technologies { get; set; } = new();
     }
 
     private sealed class EmailTemplateSettings

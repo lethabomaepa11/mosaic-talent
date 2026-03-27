@@ -155,6 +155,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     border-color: rgba(168, 85, 247, 0.35);
     color: #a855f7;
   `,
+  statusAssessment: css`
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+  `,
   applicationItem: css`
     border: 1px solid ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusLG}px;

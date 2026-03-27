@@ -40,4 +40,19 @@ public class JobApplicationDto
     public List<string> AiExtractedSkills { get; set; } = new();
 
     public string AiGithubRepo { get; set; } = string.Empty;
+
+    public List<AiProjectDto> AiProjects { get; set; } = new();
+
+    public Dictionary<string, double> AiMosaic { get; set; } = new();
+}
+
+public class AiProjectDto
+{
+    public string Name { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public double Score { get; set; }
+
+    public List<string> Technologies { get; set; } = new();
 }

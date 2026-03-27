@@ -23,7 +23,7 @@ Implemented in `aspnet-core/src/MosaicTalent.Core/Domains/Companies`:
   - `MatchScore` (0-100)
   - `MatchReason`
   - `Source` (`LinkedIn`, `Facebook`, `Referral`, `Website`, `Google`, `Other`)
-  - `Status` (`Applied`, `Shortlisted`, `Interview`, `Rejected`, `Approved`)
+  - `Status` (`Applied`, `Shortlisted`, `Assessment`, `Interview`, `Rejected`, `Approved`)
 
 ## Backend Service
 
@@ -47,6 +47,7 @@ Endpoints:
 - `PUT /api/services/app/CompanyJob/UpdateMyJobsPageSettings`
 - `POST /api/services/app/CompanyJob/GenerateMyJobsPageSettingsWithAi`
 - `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
+- `POST /api/services/app/CompanyJob/BulkMoveApplicationsToAssessment`
 
 Authorization behavior:
 
@@ -73,6 +74,8 @@ Route:
 - `frontend/src/app/app/jobs/style.ts`
 - `frontend/src/app/app/jobs/[id]/page.tsx`
 - `frontend/src/app/app/jobs/[id]/style.ts`
+- `frontend/src/app/app/jobs/[id]/application/[applicationId]/page.tsx`
+- `frontend/src/app/app/jobs/[id]/application/[applicationId]/style.ts`
 - `frontend/src/app/jobs/page.tsx`
 - `frontend/src/app/jobs/style.ts`
 - `frontend/src/app/app/settings/page-builder/page.tsx`
@@ -84,6 +87,7 @@ UI capabilities:
 - create/edit job postings
 - open/close jobs
 - view job applications per job under `/app/jobs/[id]`
+- view full application detail under `/app/jobs/[id]/application/[applicationId]`
 - browse tenant-scoped open jobs publicly under `/jobs`
 - apply from `/jobs` with a dynamic anonymous form
 - anonymous resume upload via `POST /api/files/upload-public` (no login required, PDF-only for resumes)
@@ -100,6 +104,7 @@ UI capabilities:
   - requires valid Brevo sender config (`Brevo:SenderEmail`, optional `Brevo:SenderName`)
 - view shared tenant-1 candidate directory inside `/app/jobs/[id]`
 - update application status
+- bulk move candidates to assessment based on criteria + send assessment invite emails
 - company page-builder in `/app/settings/page-builder`:
   - drag/drop-like block composition (hero, text, image, button, form, jobs list)
   - value editing panel + image upload

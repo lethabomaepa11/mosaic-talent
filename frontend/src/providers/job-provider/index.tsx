@@ -63,6 +63,26 @@ const normalizeApplication = (input: Partial<IJobApplication>): IJobApplication 
   aiVerdict: input.aiVerdict ?? "",
   aiExtractedSkills: Array.isArray(input.aiExtractedSkills) ? input.aiExtractedSkills.filter((x): x is string => typeof x === "string") : [],
   aiGithubRepo: input.aiGithubRepo ?? "",
+  aiProjects: Array.isArray(input.aiProjects)
+    ? input.aiProjects
+        .filter((x) => typeof x === "object" && x !== null)
+        .map((x) => ({
+          name: typeof (x as { name?: unknown }).name === "string" ? ((x as { name: string }).name) : "",
+          description: typeof (x as { description?: unknown }).description === "string" ? ((x as { description: string }).description) : "",
+          score: typeof (x as { score?: unknown }).score === "number" ? ((x as { score: number }).score) : 0,
+          technologies: Array.isArray((x as { technologies?: unknown }).technologies)
+            ? ((x as { technologies: unknown[] }).technologies.filter((t): t is string => typeof t === "string"))
+            : [],
+        }))
+    : [],
+  aiMosaic:
+    input.aiMosaic && typeof input.aiMosaic === "object"
+      ? Object.fromEntries(
+          Object.entries(input.aiMosaic as Record<string, unknown>).filter(
+            (entry): entry is [string, number] => typeof entry[1] === "number",
+          ),
+        )
+      : {},
 });
 
 const normalizeCandidate = (input: Partial<IJobCandidate>): IJobCandidate => ({
@@ -328,6 +348,28 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const bulkMoveToAssessment = async (input: { jobId: string; minimumMatchScore?: number; currentStatuses?: number[] }) => {
+    dispatch(updateJobPending());
+
+    try {
+      const res = await instance.post(`${ENDPOINT}/BulkMoveApplicationsToAssessment`, {
+        jobId: input.jobId,
+        minimumMatchScore: input.minimumMatchScore ?? 0,
+        currentStatuses: input.currentStatuses ?? [],
+        includeMemberApplications: true,
+        includePublicApplications: true,
+      });
+      const updated = Number(res.data?.result ?? 0);
+      dispatch(updateJobSuccess());
+      await fetchJobApplications(input.jobId);
+      await fetchMyJobs();
+      return updated;
+    } catch (error) {
+      dispatch(updateJobError());
+      throw new Error(readApiErrorMessage(error, "Failed to move applications to assessment."));
+    }
+  };
+
   const sendApplicationEmail = async (jobApplicationId: string, subject: string, message: string) => {
     dispatch(updateJobPending());
 
@@ -442,6 +484,7 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
           applyToJob,
           applyToPublicJob,
           updateApplicationStatus,
+          bulkMoveToAssessment,
           sendApplicationEmail,
         }}
       >

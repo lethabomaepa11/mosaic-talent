@@ -21,6 +21,13 @@ export interface IJobApplication {
   aiVerdict?: string;
   aiExtractedSkills?: string[];
   aiGithubRepo?: string;
+  aiProjects?: Array<{
+    name: string;
+    description: string;
+    score: number;
+    technologies: string[];
+  }>;
+  aiMosaic?: Record<string, number>;
 }
 
 export interface IJobCandidate {
@@ -127,6 +134,7 @@ export interface IJobActionContext {
   applyToJob: (jobId: string, payload?: { source?: number; resumeStoredFileId?: string }) => Promise<IJobApplication | undefined>;
   applyToPublicJob: (input: IApplyToPublicJobInput) => Promise<IJobApplication | undefined>;
   updateApplicationStatus: (jobApplicationId: string, status: number) => Promise<IJobApplication | undefined>;
+  bulkMoveToAssessment: (input: { jobId: string; minimumMatchScore?: number; currentStatuses?: number[] }) => Promise<number>;
   sendApplicationEmail: (jobApplicationId: string, subject: string, message: string) => Promise<void>;
 }
 
@@ -156,5 +164,6 @@ export const JobActionContext = createContext<IJobActionContext>({
   applyToJob: async () => undefined,
   applyToPublicJob: async () => undefined,
   updateApplicationStatus: async () => undefined,
+  bulkMoveToAssessment: async () => 0,
   sendApplicationEmail: async () => undefined,
 });

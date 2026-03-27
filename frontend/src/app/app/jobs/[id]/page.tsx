@@ -48,6 +48,7 @@ const statusOptions = [
   { label: "Interview", value: 2 },
   { label: "Rejected", value: 3 },
   { label: "Approved", value: 4 },
+  { label: "Assessment", value: 5 },
 ];
 
 const statusLabelToValue: Record<string, number> = {
@@ -56,6 +57,7 @@ const statusLabelToValue: Record<string, number> = {
   interview: 2,
   rejected: 3,
   approved: 4,
+  assessment: 5,
 };
 
 const getStatusClassName = (status: string, styles: ReturnType<typeof useStyles>["styles"]) => {
@@ -66,6 +68,8 @@ const getStatusClassName = (status: string, styles: ReturnType<typeof useStyles>
       return styles.statusShortlisted;
     case "interview":
       return styles.statusInterviewing;
+    case "assessment":
+      return styles.statusAssessment;
     case "approved":
       return styles.statusShortlisted;
     case "rejected":
@@ -112,6 +116,7 @@ const JobApplicationsPage = () => {
     fetchMyJobs,
     fetchJobApplications,
     updateApplicationStatus,
+    bulkMoveToAssessment,
     sendApplicationEmail,
   } = useJobAction();
 
@@ -125,6 +130,7 @@ const JobApplicationsPage = () => {
   const [emailDraft, setEmailDraft] = useState({ subject: "", message: "" });
   const [emailTarget, setEmailTarget] = useState<IJobApplication | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [bulkMoving, setBulkMoving] = useState(false);
 
   useEffect(() => {
     if (!isCompanyTenant) {
@@ -196,10 +202,32 @@ const JobApplicationsPage = () => {
       applied: applications.filter((item) => item.status === "applied").length,
       shortlisted: applications.filter((item) => item.status === "shortlisted")
         .length,
+      assessment: applications.filter((item) => item.status === "assessment")
+        .length,
       interview: applications.filter((item) => item.status === "interview")
         .length,
     };
   }, [applications]);
+
+  const handleBulkAssessment = async () => {
+    setBulkMoving(true);
+    try {
+      const updated = await bulkMoveToAssessment({
+        jobId,
+        minimumMatchScore: 60,
+        currentStatuses: [0, 1],
+      });
+      const refreshed = await fetchJobApplications(jobId);
+      setApplications(refreshed);
+      toast.success("Bulk transition complete", `${updated} application(s) moved to assessment.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to move applications.";
+      toast.error("Bulk update failed", message);
+    } finally {
+      setBulkMoving(false);
+    }
+  };
 
   const handleStatusChange = async (
     application: IJobApplication,
@@ -313,6 +341,13 @@ const JobApplicationsPage = () => {
             prefix={<Calendar size={14} />}
           />
         </Card>
+        <Card>
+          <Statistic
+            title="Assessment"
+            value={stats.assessment}
+            prefix={<TrendingUp size={14} />}
+          />
+        </Card>
       </div>
 
       <Card>
@@ -338,11 +373,15 @@ const JobApplicationsPage = () => {
               { label: "All Statuses", value: "all" },
               { label: "Applied", value: "applied" },
               { label: "Shortlisted", value: "shortlisted" },
+              { label: "Assessment", value: "assessment" },
               { label: "Interview", value: "interview" },
               { label: "Rejected", value: "rejected" },
               { label: "Approved", value: "approved" },
             ]}
           />
+          <Button loading={bulkMoving} onClick={() => void handleBulkAssessment()}>
+            Move Qualified To Assessment
+          </Button>
         </div>
       </Card>
 
@@ -437,9 +476,11 @@ const JobApplicationsPage = () => {
                   </Space>
                 </div>
                 <div className={styles.appActions}>
-                  <Button icon={<Eye size={14} />} block>
-                    View Application
-                  </Button>
+                  <Link href={`/app/jobs/${jobId}/application/${application.id}`}>
+                    <Button icon={<Eye size={14} />} block>
+                      View Application
+                    </Button>
+                  </Link>
                   <Button
                     icon={<MessageSquare size={14} />}
                     block

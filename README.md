@@ -75,7 +75,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - anonymous resume upload (PDF-only) + CV parsing (skills/GitHub extraction)
   - AI application assessment (match score, strengths, weaknesses, verdict)
   - branded applicant emails with configurable template mode (manual/AI) from jobs page settings
-  - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
+  - job application review pipeline (applied -> shortlisted -> assessment -> interview -> rejected/approved) + bulk assessment transition
 
 ## Documentation
 
