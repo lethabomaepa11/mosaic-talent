@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MosaicTalent.Services.CompanyJobService.DTO;
 
@@ -29,4 +30,14 @@ public class JobApplicationDto
     public bool IsPublicApplication { get; set; }
 
     public string ApplicationResponseJson { get; set; }
+
+    public List<string> AiStrengths { get; set; } = new();
+
+    public List<string> AiWeaknesses { get; set; } = new();
+
+    public string AiVerdict { get; set; } = string.Empty;
+
+    public List<string> AiExtractedSkills { get; set; } = new();
+
+    public string AiGithubRepo { get; set; } = string.Empty;
 }

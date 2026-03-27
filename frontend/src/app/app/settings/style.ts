@@ -10,49 +10,34 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: 0 !important;
   `,
   subtitle: css`
-    margin: 0;
+    margin: 0 !important;
     color: ${token.colorTextSecondary};
   `,
-  twoCol: css`
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: ${token.marginMD}px;
+  cardLink: css`
+    display: block;
+    text-decoration: none;
+  `,
+  optionCard: css`
+    height: 100%;
+    border: 1px solid ${token.colorBorderSecondary};
+    transition: border-color 0.2s ease, transform 0.2s ease;
 
-    @media (min-width: 992px) {
-      grid-template-columns: minmax(0, 1fr) 360px;
+    &:hover {
+      border-color: ${token.colorPrimary};
+      transform: translateY(-2px);
     }
   `,
-  dragList: css`
+  optionHeader: css`
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: ${token.marginXS}px;
+    margin-bottom: ${token.marginXS}px;
   `,
-  dragItem: css`
-    border: 1px solid ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadiusLG}px;
-    padding: ${token.paddingSM}px;
-    background: ${token.colorBgContainer};
-    cursor: grab;
-    user-select: none;
+  optionTitle: css`
+    margin: 0 !important;
   `,
-  actions: css`
-    display: flex;
-    gap: ${token.marginSM}px;
-    flex-wrap: wrap;
-  `,
-  previewCard: css`
-    border: 1px dashed ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadiusLG}px;
-    padding: ${token.paddingMD}px;
-    display: flex;
-    flex-direction: column;
-    gap: ${token.marginSM}px;
-  `,
-  previewImage: css`
-    width: 100%;
-    max-height: 180px;
-    object-fit: cover;
-    border-radius: ${token.borderRadiusLG}px;
-    border: 1px solid ${token.colorBorderSecondary};
+  optionDescription: css`
+    margin: 0 !important;
+    color: ${token.colorTextSecondary};
   `,
 }));

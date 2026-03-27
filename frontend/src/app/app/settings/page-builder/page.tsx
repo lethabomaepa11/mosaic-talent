@@ -130,6 +130,7 @@ const parseFormFields = (json?: string): IFormField[] => {
   }
 };
 
+
 const readDragPayload = (event: React.DragEvent): DragPayload | null => {
   const raw = event.dataTransfer.getData(dragType);
   if (!raw) {
@@ -306,6 +307,7 @@ const PageBuilder = () => {
         primaryColor: themeColor,
         layoutJson: JSON.stringify({ blocks }),
         applicationFormJson: JSON.stringify({ fields: formFields }),
+        emailTemplateSettingsJson: publicJobsPage?.emailTemplateSettingsJson || "",
       });
       toast.success("Published", "Your page builder changes are live.");
     } catch (error) {

@@ -8,6 +8,8 @@ import {
   Card,
   Empty,
   Input,
+  Modal,
+  Progress,
   Select,
   Space,
   Spin,
@@ -20,20 +22,25 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  Code,
+  Eye,
+  MapPin,
+  MessageSquare,
+  Briefcase,
   Search,
+  Star,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import { toast } from "@/components/providers";
 import {
   IJob,
   IJobApplication,
-  IJobCandidate,
   useJobAction,
   useJobState,
 } from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
-import { GithubOutlined } from "@ant-design/icons";
 
 const statusOptions = [
   { label: "Applied", value: 0 },
@@ -51,6 +58,29 @@ const statusLabelToValue: Record<string, number> = {
   approved: 4,
 };
 
+const getStatusClassName = (status: string, styles: ReturnType<typeof useStyles>["styles"]) => {
+  switch (status) {
+    case "applied":
+      return styles.statusNew;
+    case "shortlisted":
+      return styles.statusShortlisted;
+    case "interview":
+      return styles.statusInterviewing;
+    case "approved":
+      return styles.statusShortlisted;
+    case "rejected":
+      return styles.statusReviewing;
+    default:
+      return styles.statusReviewing;
+  }
+};
+
+const getScoreClassName = (score: number, styles: ReturnType<typeof useStyles>["styles"]) => {
+  if (score >= 90) return styles.scoreValueHigh;
+  if (score >= 80) return styles.scoreValueMid;
+  return styles.scoreValueLow;
+};
+
 const parseApplicationResponses = (json?: string) => {
   if (!json) {
     return [] as Array<{ key: string; value: string }>;
@@ -60,6 +90,7 @@ const parseApplicationResponses = (json?: string) => {
     const parsed = JSON.parse(json) as Record<string, unknown>;
     return Object.entries(parsed)
       .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim().length > 0)
+      .filter(([key]) => !key.startsWith("__ai_") && key !== "__resume_extracted")
       .map(([key, value]) => ({
         key,
         value,
@@ -81,16 +112,19 @@ const JobApplicationsPage = () => {
     fetchMyJobs,
     fetchJobApplications,
     updateApplicationStatus,
-    fetchCandidatesDirectory,
+    sendApplicationEmail,
   } = useJobAction();
 
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [applications, setApplications] = useState<IJobApplication[]>([]);
-  const [candidates, setCandidates] = useState<IJobCandidate[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [skillFilter, setSkillFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState({ subject: "", message: "" });
+  const [emailTarget, setEmailTarget] = useState<IJobApplication | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (!isCompanyTenant) {
@@ -125,31 +159,18 @@ const JobApplicationsPage = () => {
     void loadApplications();
   }, [isCompanyTenant, jobId]);
 
-  useEffect(() => {
-    if (!isCompanyTenant) {
-      return;
-    }
-
-    const loadCandidates = async () => {
-      setLoadingCandidates(true);
-      try {
-        const result = await fetchCandidatesDirectory();
-        setCandidates(result);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unable to load candidates.";
-        toast.error("Load failed", message);
-      } finally {
-        setLoadingCandidates(false);
-      }
-    };
-
-    void loadCandidates();
-  }, [isCompanyTenant]);
-
   const selectedJob = useMemo<IJob | undefined>(() => {
     return jobs.find((job) => job.id === jobId);
   }, [jobs, jobId]);
+
+  const skillOptions = useMemo(() => {
+    const set = new Set<string>();
+    applications.forEach((item) => {
+      (item.aiExtractedSkills ?? []).forEach((skill) => set.add(skill));
+    });
+
+    return ["all", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [applications]);
 
   const filteredApplications = useMemo(() => {
     return applications.filter((application) => {
@@ -158,11 +179,16 @@ const JobApplicationsPage = () => {
         q.length === 0 ||
         application.candidateName.toLowerCase().includes(q) ||
         application.candidateEmail.toLowerCase().includes(q);
+      const matchesSkill =
+        skillFilter === "all" ||
+        (application.aiExtractedSkills ?? []).some(
+          (skill) => skill.toLowerCase() === skillFilter.toLowerCase(),
+        );
       const matchesStatus =
         statusFilter === "all" || application.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesSkill;
     });
-  }, [applications, searchQuery, statusFilter]);
+  }, [applications, searchQuery, skillFilter, statusFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -194,6 +220,43 @@ const JobApplicationsPage = () => {
     }
   };
 
+  const openEmailModal = (application: IJobApplication) => {
+    setEmailTarget(application);
+    setEmailDraft({
+      subject: `Regarding your application for ${selectedJob?.title ?? "this role"}`,
+      message: `Hi ${application.candidateName},\n\nThank you for your application. We would like to discuss the next step with you.\n\nRegards,\nHiring Team`,
+    });
+    setIsEmailModalOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailTarget) {
+      return;
+    }
+
+    if (!emailDraft.subject.trim() || !emailDraft.message.trim()) {
+      toast.error("Missing fields", "Subject and message are required.");
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      await sendApplicationEmail(
+        emailTarget.id,
+        emailDraft.subject.trim(),
+        emailDraft.message.trim(),
+      );
+      toast.success("Email sent", `Message sent to ${emailTarget.candidateName}.`);
+      setIsEmailModalOpen(false);
+      setEmailTarget(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send email.";
+      toast.error("Send failed", message);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   if (!isCompanyTenant) {
     return null;
   }
@@ -207,6 +270,7 @@ const JobApplicationsPage = () => {
   }
 
   return (
+    <>
     <div className={styles.page}>
       <div className={styles.header}>
         <Link href="/app/jobs">
@@ -257,7 +321,15 @@ const JobApplicationsPage = () => {
             prefix={<Search size={14} />}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search by candidate name or email..."
+            placeholder="Search candidates by name or skill..."
+          />
+          <Select
+            value={skillFilter}
+            onChange={setSkillFilter}
+            options={skillOptions.map((skill) => ({
+              label: skill === "all" ? "All Skills" : skill,
+              value: skill,
+            }))}
           />
           <Select
             value={statusFilter}
@@ -285,122 +357,179 @@ const JobApplicationsPage = () => {
           <Card key={application.id}>
             {(() => {
               const responseEntries = parseApplicationResponses(application.applicationResponseJson);
+              const score = Number.isFinite(application.matchScore) ? application.matchScore : 0;
+              const technical = Math.round(score);
+              const problemSolving = Math.max(0, Math.min(100, Math.round(score * 0.96)));
+              const collaboration = Math.max(0, Math.min(100, Math.round((application.aiStrengths?.length ?? 0) > 0 ? score * 0.92 : score * 0.84)));
+              const communication = Math.max(0, Math.min(100, Math.round((application.aiWeaknesses?.length ?? 0) > 0 ? score * 0.88 : score * 0.9)));
+              const initials = (application.candidateName || "Candidate")
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join("")
+                .toUpperCase();
               return (
             <div className={styles.sidePanel}>
-              <div>
-                <div className={styles.cardHeader}>
-                  <div>
-                    <Typography.Title level={4}>
-                      {application.candidateName}
-                    </Typography.Title>
-                    <Typography.Text className={styles.meta}>
-                      {application.candidateEmail}
-                    </Typography.Text>
-                  </div>
-                  <Space wrap>
-                    <Tag>{application.source}</Tag>
-                    <Tag color="blue">{application.status}</Tag>
-                    <Tag color={application.isPublicApplication ? "purple" : "default"}>
-                      {application.isPublicApplication ? "Public form" : "Member form"}
-                    </Tag>
-                    <Typography.Text className={styles.score}>
-                      Match {application.matchScore.toFixed(1)}%
-                    </Typography.Text>
-                  </Space>
-                </div>
-                <Typography.Paragraph
-                  style={{ marginTop: 12, marginBottom: 0 }}
-                >
-                  {application.matchReason || "No match reason provided yet."}
-                </Typography.Paragraph>
-                {responseEntries.length > 0 ? (
-                  <div style={{ marginTop: 12 }}>
-                    <Typography.Text strong>Custom Responses</Typography.Text>
-                    <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 8 }}>
-                      {responseEntries.map((entry) => (
-                        <div key={`${application.id}-${entry.key}`} className={styles.applicationItem}>
-                          <Typography.Text strong>{entry.key}</Typography.Text>
-                          <Typography.Paragraph style={{ marginBottom: 0 }}>
-                            {entry.value}
-                          </Typography.Paragraph>
-                        </div>
-                      ))}
+              <div className={styles.appRow}>
+                <div className={styles.avatar}>{initials}</div>
+                <div className={styles.appMain}>
+                  <div className={styles.cardHeader}>
+                    <div>
+                      <Typography.Title level={4}>
+                        {application.candidateName}
+                      </Typography.Title>
+                      <Typography.Text className={styles.meta}>
+                        {application.candidateEmail}
+                      </Typography.Text>
+                    </div>
+                    <Space wrap>
+                      <Tag className={getStatusClassName(application.status, styles)}>
+                        {application.status}
+                      </Tag>
+                      <Tag color={application.isPublicApplication ? "purple" : "default"}>
+                        {application.isPublicApplication ? "Public form" : "Member form"}
+                      </Tag>
                     </Space>
                   </div>
-                ) : null}
-              </div>
-              <div>
-                <Select
-                  style={{ width: "100%" }}
-                  value={statusLabelToValue[application.status] ?? 0}
-                  options={statusOptions}
-                  loading={updatingApplicationId === application.id}
-                  onChange={(value) =>
-                    void handleStatusChange(application, value)
-                  }
-                />
-                {application.resumeStoredFileId ? (
-                  <Button style={{ marginTop: 8 }} block>
-                    Resume: {application.resumeStoredFileId}
+                  <div className={styles.appMeta}>
+                    <span><MapPin size={12} /> Remote / Not set</span>
+                    <span><Briefcase size={12} /> Applied via {application.source}</span>
+                    <span><Code size={12} /> {(application.aiExtractedSkills ?? []).length} skills</span>
+                    <span><Star size={12} /> {application.aiStrengths?.length ?? 0} strengths</span>
+                  </div>
+                  <Typography.Paragraph
+                    style={{ marginTop: 12, marginBottom: 0 }}
+                  >
+                    {application.matchReason || "No match reason provided yet."}
+                  </Typography.Paragraph>
+                  <div className={styles.appSkills}>
+                    <Typography.Text type="secondary">Skills:</Typography.Text>
+                    {(application.aiExtractedSkills ?? []).map((skill) => (
+                      <Tag key={`${application.id}-skill-${skill}`}>{skill}</Tag>
+                    ))}
+                    <Typography.Text className={styles.meta} style={{ marginLeft: "auto" }}>
+                      Applied {new Date(application.createdAt).toLocaleDateString()}
+                    </Typography.Text>
+                  </div>
+                </div>
+                <div className={styles.scorePanel}>
+                  <Typography.Text type="secondary">Match Score</Typography.Text>
+                  <div className={getScoreClassName(score, styles)}>
+                    {score.toFixed(1)}%
+                  </div>
+                </div>
+                <div className={styles.breakdownPanel}>
+                  <Typography.Text type="secondary">Mosaic Breakdown</Typography.Text>
+                  <Space direction="vertical" size={6} style={{ width: "100%", marginTop: 8 }}>
+                    {[
+                      { key: "technical", label: "Technical", value: technical },
+                      { key: "problemSolving", label: "Problem Solving", value: problemSolving },
+                      { key: "collaboration", label: "Collaboration", value: collaboration },
+                      { key: "communication", label: "Communication", value: communication },
+                    ].map((metric) => (
+                      <div key={`${application.id}-${metric.key}`} className={styles.breakdownRow}>
+                        <span className={styles.breakdownLabel}>{metric.label}</span>
+                        <Progress percent={metric.value} showInfo={false} size="small" style={{ flex: 1 }} />
+                        <span className={styles.breakdownValue}>{metric.value}</span>
+                      </div>
+                    ))}
+                  </Space>
+                </div>
+                <div className={styles.appActions}>
+                  <Button icon={<Eye size={14} />} block>
+                    View Application
                   </Button>
-                ) : null}
+                  <Button
+                    icon={<MessageSquare size={14} />}
+                    block
+                    onClick={() => openEmailModal(application)}
+                  >
+                    Message
+                  </Button>
+                  <Button icon={<Calendar size={14} />} block>
+                    Schedule
+                  </Button>
+                  <Select
+                    style={{ width: "100%" }}
+                    value={statusLabelToValue[application.status] ?? 0}
+                    options={statusOptions}
+                    loading={updatingApplicationId === application.id}
+                    onChange={(value) =>
+                      void handleStatusChange(application, value)
+                    }
+                  />
+                  {application.resumeStoredFileId ? (
+                    <a href={application.resumeStoredFileId} target="_blank" rel="noreferrer">
+                      <Button block>
+                        Open Resume
+                      </Button>
+                    </a>
+                  ) : null}
+                </div>
               </div>
+              {application.isPublicApplication && (application.aiVerdict || responseEntries.length > 0) ? (
+                <div>
+                  <Typography.Text strong>Application Insights</Typography.Text>
+                  <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 8 }}>
+                    {application.aiVerdict ? (
+                      <div className={styles.applicationItem}>
+                        <Typography.Text strong>Verdict</Typography.Text>
+                        <Typography.Paragraph style={{ marginBottom: 0 }}>
+                          <TrendingUp size={12} style={{ marginRight: 6 }} />
+                          {application.aiVerdict}
+                        </Typography.Paragraph>
+                      </div>
+                    ) : null}
+                    {responseEntries.map((entry) => (
+                      <div key={`${application.id}-${entry.key}`} className={styles.applicationItem}>
+                        <Typography.Text strong>{entry.key}</Typography.Text>
+                        <Typography.Paragraph style={{ marginBottom: 0 }}>
+                          {entry.value}
+                        </Typography.Paragraph>
+                      </div>
+                    ))}
+                  </Space>
+                </div>
+              ) : null}
             </div>
               );
             })()}
           </Card>
         ))}
       </Space>
-
-      <Card>
-        <div className={styles.cardHeader}>
-          <div>
-            <Typography.Title level={4}>Candidate Directory</Typography.Title>
-            <Typography.Text className={styles.meta}>
-              Shared developer pool from tenant 1, visible to every company
-              tenant.
-            </Typography.Text>
-          </div>
-          <Tag>{candidates.length} candidates</Tag>
-        </div>
-
-        {loadingCandidates ? <Spin style={{ marginTop: 16 }} /> : null}
-        {!loadingCandidates && candidates.length === 0 ? (
-          <Empty description="No candidates found." />
-        ) : null}
-
-        <div className={styles.candidateGrid}>
-          {candidates.map((candidate) => (
-            <div key={candidate.developerId} className={styles.candidateCard}>
-              <div className={styles.candidateAvatar}>
-                {(candidate.fullName || "Candidate")
-                  .split(" ")
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((part) => part[0])
-                  .join("")
-                  .toUpperCase()}
-              </div>
-              <div>
-                <Typography.Text strong>
-                  {candidate.fullName || "Candidate"}
-                </Typography.Text>
-                <Typography.Paragraph className={styles.meta}>
-                  {candidate.email || "No email"}
-                </Typography.Paragraph>
-                <Space size={4} wrap>
-                  {candidate.githubUsername ? (
-                    <Tag icon={<GithubOutlined size={12} />}>
-                      {candidate.githubUsername}
-                    </Tag>
-                  ) : null}
-                </Space>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
     </div>
+    <Modal
+      title={emailTarget ? `Email ${emailTarget.candidateName}` : "Email Applicant"}
+      open={isEmailModalOpen}
+      onCancel={() => setIsEmailModalOpen(false)}
+      onOk={() => void handleSendEmail()}
+      okText="Send Email"
+      confirmLoading={sendingEmail}
+      destroyOnClose
+    >
+      <Space direction="vertical" size={10} style={{ width: "100%" }}>
+        <Typography.Text type="secondary">
+          To: {emailTarget?.candidateEmail || "No email"}
+        </Typography.Text>
+        <Input
+          value={emailDraft.subject}
+          onChange={(event) =>
+            setEmailDraft((prev) => ({ ...prev, subject: event.target.value }))
+          }
+          placeholder="Email subject"
+        />
+        <Input.TextArea
+          rows={8}
+          value={emailDraft.message}
+          onChange={(event) =>
+            setEmailDraft((prev) => ({ ...prev, message: event.target.value }))
+          }
+          placeholder="Write your message..."
+        />
+      </Space>
+    </Modal>
+    </>
   );
 };
 

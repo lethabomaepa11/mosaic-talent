@@ -16,6 +16,11 @@ export interface IJobApplication {
   createdAt: string;
   isPublicApplication?: boolean;
   applicationResponseJson?: string;
+  aiStrengths?: string[];
+  aiWeaknesses?: string[];
+  aiVerdict?: string;
+  aiExtractedSkills?: string[];
+  aiGithubRepo?: string;
 }
 
 export interface IJobCandidate {
@@ -58,6 +63,7 @@ export interface IPublicJobsPage {
   primaryColor: string;
   layoutJson: string;
   applicationFormJson: string;
+  emailTemplateSettingsJson: string;
 }
 
 export interface IUpdateJobsPageSettingsInput {
@@ -67,6 +73,7 @@ export interface IUpdateJobsPageSettingsInput {
   primaryColor: string;
   layoutJson: string;
   applicationFormJson: string;
+  emailTemplateSettingsJson: string;
 }
 
 export interface IApplyToPublicJobInput {
@@ -120,6 +127,7 @@ export interface IJobActionContext {
   applyToJob: (jobId: string, payload?: { source?: number; resumeStoredFileId?: string }) => Promise<IJobApplication | undefined>;
   applyToPublicJob: (input: IApplyToPublicJobInput) => Promise<IJobApplication | undefined>;
   updateApplicationStatus: (jobApplicationId: string, status: number) => Promise<IJobApplication | undefined>;
+  sendApplicationEmail: (jobApplicationId: string, subject: string, message: string) => Promise<void>;
 }
 
 export const INITIAL_STATE: IJobStateContext = {
@@ -148,4 +156,5 @@ export const JobActionContext = createContext<IJobActionContext>({
   applyToJob: async () => undefined,
   applyToPublicJob: async () => undefined,
   updateApplicationStatus: async () => undefined,
+  sendApplicationEmail: async () => undefined,
 });

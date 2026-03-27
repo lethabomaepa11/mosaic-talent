@@ -22,4 +22,5 @@ public interface ICompanyJobAppService : IApplicationService
     Task<JobApplicationDto> ApplyToPublicJob(ApplyToPublicJobInput input);
     Task<JobApplicationDto> ApplyToJob(ApplyToJobInput input);
     Task<JobApplicationDto> UpdateJobApplicationStatus(UpdateJobApplicationStatusInput input);
+    Task SendApplicationEmail(SendApplicationEmailInput input);
 }

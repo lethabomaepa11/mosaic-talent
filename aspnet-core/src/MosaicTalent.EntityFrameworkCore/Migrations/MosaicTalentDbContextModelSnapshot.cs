@@ -1727,6 +1727,10 @@ namespace MosaicTalent.Migrations
                     b.Property<DateTime?>("DeletionTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("EmailTemplateSettingsJson")
+                        .HasMaxLength(16000)
+                        .HasColumnType("character varying(16000)");
+
                     b.Property<string>("HeroImageUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");

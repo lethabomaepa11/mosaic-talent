@@ -71,7 +71,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project-level AI feedback summary + strengths/improvements/tips + growth score
 - Company jobs:
   - company admin job posting management in `/app/jobs`
-  - developer job applications with source + lifecycle status
+  - developer + public job applications with source + lifecycle status
+  - anonymous resume upload + CV parsing (skills/GitHub extraction)
+  - AI application assessment (match score, strengths, weaknesses, verdict)
+  - branded applicant emails with configurable template mode (manual/AI) from jobs page settings
   - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
 
 ## Documentation
@@ -171,6 +174,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 
 ### Company jobs
 
+- `GET /api/services/app/CompanyJob/GetOpenJobs`
+- `POST /api/services/app/CompanyJob/ApplyToPublicJob`
+- `GET /api/services/app/CompanyJob/GetPublicJobsPage`
 - `GET /api/services/app/CompanyJob/GetMyJobs`
 - `GET /api/services/app/CompanyJob/GetJob`
 - `POST /api/services/app/CompanyJob/CreateJob`
@@ -183,7 +189,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### File upload (R2)
 
 - `POST /api/files/upload` (authorized)
-- `POST /api/files/upload-public` (public upload endpoint currently used by company signup)
+- `POST /api/files/upload-public` (public upload endpoint used by company signup + public job resumes)
 
 ## Environment Configuration
 

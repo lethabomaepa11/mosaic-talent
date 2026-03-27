@@ -20,6 +20,23 @@ namespace MosaicTalent.Files
             "image/png",
             "image/webp",
             "image/gif",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+            "application/octet-stream",
+        };
+        private static readonly string[] AllowedExtensions =
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".gif",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".txt",
         };
 
         private readonly R2StorageOptions _options;
@@ -60,12 +77,15 @@ namespace MosaicTalent.Files
                 throw new UserFriendlyException("File size exceeds the 10MB upload limit.");
             }
 
-            if (!AllowedContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+            var extension = (Path.GetExtension(file.FileName) ?? string.Empty).ToLowerInvariant();
+            var allowedByContentType = AllowedContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase);
+            var allowedByExtension = AllowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
+
+            if (!allowedByContentType && !allowedByExtension)
             {
-                throw new UserFriendlyException("Only image files are supported (jpeg, png, webp, gif).");
+                throw new UserFriendlyException("Unsupported file type. Allowed types: images, pdf, doc, docx, txt.");
             }
 
-            var extension = Path.GetExtension(file.FileName) ?? string.Empty;
             var safeFolder = string.IsNullOrWhiteSpace(folder) ? "general" : folder.Trim().ToLowerInvariant();
             var fileId = Guid.NewGuid().ToString("N");
             var key = string.Format("{0}/{1}{2}", safeFolder, fileId, extension);

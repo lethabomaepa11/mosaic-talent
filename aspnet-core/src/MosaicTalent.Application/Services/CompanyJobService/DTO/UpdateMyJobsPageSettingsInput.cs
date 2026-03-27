@@ -21,4 +21,7 @@ public class UpdateMyJobsPageSettingsInput
 
     [MaxLength(12000)]
     public string ApplicationFormJson { get; set; }
+
+    [MaxLength(16000)]
+    public string EmailTemplateSettingsJson { get; set; }
 }

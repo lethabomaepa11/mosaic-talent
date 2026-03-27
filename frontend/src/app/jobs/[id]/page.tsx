@@ -99,6 +99,10 @@ const JobApplyPage = () => {
     }
 
     const values = await form.validateFields();
+    if (!values.resumeStoredFileId) {
+      toast.error("Resume required", "Please upload your CV before applying.");
+      return;
+    }
     const responses = customFields.reduce<Record<string, string>>((acc, field) => {
       const value = values[field.key];
       if (typeof value === "string" && value.trim().length > 0) {
@@ -137,7 +141,7 @@ const JobApplyPage = () => {
     setUploadingResume(true);
     try {
       const uploaded = await uploadPublicFile(file, "job-resumes");
-      form.setFieldValue("resumeStoredFileId", uploaded.fileId);
+      form.setFieldValue("resumeStoredFileId", uploaded.url);
       setUploadedResumeName(file.name);
       toast.success("Resume uploaded", "Your resume was uploaded successfully.");
     } catch (error) {

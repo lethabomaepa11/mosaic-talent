@@ -58,6 +58,11 @@ const normalizeApplication = (input: Partial<IJobApplication>): IJobApplication 
   createdAt: input.createdAt ?? new Date().toISOString(),
   isPublicApplication: Boolean(input.isPublicApplication),
   applicationResponseJson: input.applicationResponseJson ?? "",
+  aiStrengths: Array.isArray(input.aiStrengths) ? input.aiStrengths.filter((x): x is string => typeof x === "string") : [],
+  aiWeaknesses: Array.isArray(input.aiWeaknesses) ? input.aiWeaknesses.filter((x): x is string => typeof x === "string") : [],
+  aiVerdict: input.aiVerdict ?? "",
+  aiExtractedSkills: Array.isArray(input.aiExtractedSkills) ? input.aiExtractedSkills.filter((x): x is string => typeof x === "string") : [],
+  aiGithubRepo: input.aiGithubRepo ?? "",
 });
 
 const normalizeCandidate = (input: Partial<IJobCandidate>): IJobCandidate => ({
@@ -162,6 +167,14 @@ const normalizePublicJobsPage = (input: Partial<IPublicJobsPage>): IPublicJobsPa
         placeholder: "Describe your collaboration and communication style.",
       },
     ],
+  }),
+  emailTemplateSettingsJson: input.emailTemplateSettingsJson ?? JSON.stringify({
+    applicationReceived: {
+      enabled: true,
+      mode: "manual",
+      subject: "Application received for {jobTitle}",
+      body: "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team",
+    },
   }),
 });
 
@@ -315,6 +328,22 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const sendApplicationEmail = async (jobApplicationId: string, subject: string, message: string) => {
+    dispatch(updateJobPending());
+
+    try {
+      await instance.post(`${ENDPOINT}/SendApplicationEmail`, {
+        jobApplicationId,
+        subject,
+        message,
+      });
+      dispatch(updateJobSuccess());
+    } catch (error) {
+      dispatch(updateJobError());
+      throw new Error(readApiErrorMessage(error, "Failed to send email."));
+    }
+  };
+
   const fetchCandidatesDirectory = async () => {
     try {
       const res = await instance.get(`${ENDPOINT}/GetCandidatesDirectory`);
@@ -413,6 +442,7 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
           applyToJob,
           applyToPublicJob,
           updateApplicationStatus,
+          sendApplicationEmail,
         }}
       >
         {children}

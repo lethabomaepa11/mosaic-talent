@@ -86,6 +86,17 @@ UI capabilities:
 - view job applications per job under `/app/jobs/[id]`
 - browse tenant-scoped open jobs publicly under `/jobs`
 - apply from `/jobs` with a dynamic anonymous form
+- anonymous resume upload via `POST /api/files/upload-public` (no login required)
+- AI-assisted public application scoring:
+  - CV text extraction (pdf/doc/docx/txt)
+  - extracted skills + GitHub repo discovery
+  - fit score (0-100), strengths, weaknesses, and verdict
+  - persisted into application payload and surfaced in HR applications view
+- branded applicant confirmation emails:
+  - shared wrapper with Mosaic Talent logo (`https://mosaic-talent.vercel.app/text-logo.svg`)
+  - color scheme from company jobs-page primary color
+  - configurable email type `applicationReceived` in settings/page-builder
+  - mode can be `manual` (HR template) or `ai` (AI-generated body)
 - view shared tenant-1 candidate directory inside `/app/jobs/[id]`
 - update application status
 - company page-builder in `/app/settings/page-builder`:
@@ -94,6 +105,10 @@ UI capabilities:
   - AI assistant prompt that generates page settings
   - edit/preview toggle
   - persisted layout + form schema in DB
+- settings hub in `/app/settings` with dedicated pages:
+  - `/app/settings/company-details` for company profile/logo/contact updates
+  - `/app/settings/page-builder` for public jobs page design
+  - `/app/settings/email-templates` for applicant email template management
 
 ## Data Layer
 
