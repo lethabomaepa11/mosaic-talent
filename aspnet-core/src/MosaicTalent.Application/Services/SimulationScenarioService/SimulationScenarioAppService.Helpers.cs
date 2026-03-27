@@ -6,6 +6,7 @@ using MosaicTalent.Services.SimulationScenarioService.DTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -13,6 +14,18 @@ namespace MosaicTalent.Services.SimulationScenarioService;
 
 public partial class SimulationScenarioAppService
 {
+    private static readonly Regex PersonaRegex = new(
+        @"(?<name>[A-Z][a-zA-Z]+)\s*(?:,?\s*(?:who|that)\s+is|is)\s+(?<traits>[^.!?\r\n]+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly string[] ManagerKeywords =
+    {
+        "manager",
+        "supervisor",
+        "lead",
+        "team lead",
+    };
+
     private async Task<Developer> EnsureCurrentDeveloper()
     {
         var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
@@ -119,7 +132,7 @@ public partial class SimulationScenarioAppService
             consecutiveBotMessages++;
         }
 
-        return consecutiveBotMessages >= 2;
+        return consecutiveBotMessages >= 1;
     }
 
     private static BotRole ResolveNextRole(List<SimulationBot> bots, int nonUserMessageCount)
@@ -147,7 +160,7 @@ public partial class SimulationScenarioAppService
     {
         var roleName = bot?.Role.ToString() ?? "Teammate";
         var safeParticipantName = string.IsNullOrWhiteSpace(participantName) ? "Participant" : participantName.Trim();
-        var systemPrompt = $"You are acting as {roleName} in a teamwork simulation. Scenario: {scenario.Title}. Base prompt: {scenario.Prompt}. The participant is named {safeParticipantName}. Address them by this name when appropriate and never call them 'user'. Keep responses concise, realistic and professional.";
+        var systemPrompt = $"You are acting as {roleName} in a teamwork simulation. Scenario: {scenario.Title}. Base prompt: {scenario.Prompt}. Personality contract: {bot?.PersonalityPrompt}. Always stay in-character and keep the same tone/attitude as that contract. Do not suddenly become supportive if the personality is difficult, dismissive, condescending or unclear. The participant is named {safeParticipantName}. Address them by this name when appropriate and never call them 'user'. Never impersonate the participant and never write a response that starts with '{safeParticipantName}:'. Speak only as {roleName}. Keep responses concise, realistic and professional.";
         var history = string.Join("\n", recentMessages.Select(x => $"{x.Role}: {x.Content}"));
         var userPrompt = JsonSerializer.Serialize(new
         {
@@ -170,7 +183,7 @@ public partial class SimulationScenarioAppService
                     var parsed = contentElement.GetString();
                     if (!string.IsNullOrWhiteSpace(parsed))
                     {
-                        return parsed.Trim();
+                        return SanitizeBotReply(parsed, safeParticipantName, roleName);
                     }
                 }
             }
@@ -180,6 +193,33 @@ public partial class SimulationScenarioAppService
         }
 
         return $"{roleName}: Thanks for sharing, {safeParticipantName}. Let's break this into a clear next step and align responsibilities before we proceed.";
+    }
+
+    private static string SanitizeBotReply(string reply, string participantName, string roleName)
+    {
+        var value = (reply ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return $"{roleName}: Let's align on the next practical step.";
+        }
+
+        var participantPrefix = $"{participantName}:";
+        if (value.StartsWith(participantPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            value = value[participantPrefix.Length..].Trim();
+        }
+
+        if (value.StartsWith("User:", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["User:".Length..].Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return $"{roleName}: Let's align on the next practical step.";
+        }
+
+        return value;
     }
 
     private async Task<string> ResolveParticipantName()
@@ -299,13 +339,104 @@ public partial class SimulationScenarioAppService
         };
     }
 
-    private static string BuildDefaultPersonality(BotRole role, string scenarioTitle)
+    private static List<(string Name, string Traits)> ExtractPersonaCandidates(string scenarioPrompt, string participantName)
     {
-        return role switch
+        if (string.IsNullOrWhiteSpace(scenarioPrompt))
+        {
+            return new List<(string Name, string Traits)>();
+        }
+
+        var candidates = new List<(string Name, string Traits)>();
+        var safeParticipantName = participantName?.Trim() ?? string.Empty;
+
+        foreach (Match match in PersonaRegex.Matches(scenarioPrompt))
+        {
+            var name = match.Groups["name"].Value.Trim();
+            var traits = match.Groups["traits"].Value.Trim();
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(traits))
+            {
+                continue;
+            }
+
+            if (name.Equals("You", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("User", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("I", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(safeParticipantName) &&
+                name.Equals(safeParticipantName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (candidates.Any(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            candidates.Add((name, traits));
+        }
+
+        return candidates;
+    }
+
+    private static bool PromptImpliesManagerCounterpart(string scenarioPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(scenarioPrompt))
+        {
+            return false;
+        }
+
+        return ManagerKeywords.Any(keyword => scenarioPrompt.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool PromptImpliesDifficultCommunication(string scenarioPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(scenarioPrompt))
+        {
+            return false;
+        }
+
+        return scenarioPrompt.Contains("unclear", StringComparison.OrdinalIgnoreCase) ||
+               scenarioPrompt.Contains("missed deadline", StringComparison.OrdinalIgnoreCase) ||
+               scenarioPrompt.Contains("frustration", StringComparison.OrdinalIgnoreCase) ||
+               scenarioPrompt.Contains("dismissive", StringComparison.OrdinalIgnoreCase) ||
+               scenarioPrompt.Contains("condescending", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildBotPersonality(BotRole role, string scenarioTitle, string scenarioPrompt, string participantName)
+    {
+        var personas = ExtractPersonaCandidates(scenarioPrompt, participantName);
+        var selectedPersona = personas.FirstOrDefault();
+        var personaName = string.IsNullOrWhiteSpace(selectedPersona.Name) ? null : selectedPersona.Name;
+        var personaTraits = string.IsNullOrWhiteSpace(selectedPersona.Traits) ? null : selectedPersona.Traits;
+        var managerCounterpart = PromptImpliesManagerCounterpart(scenarioPrompt);
+        var difficultCommunication = PromptImpliesDifficultCommunication(scenarioPrompt);
+
+        var roleBaseline = role switch
         {
             BotRole.Facilitator => $"You facilitate the {scenarioTitle} discussion and keep action items explicit.",
             BotRole.Stakeholder => $"You represent stakeholder priorities in {scenarioTitle} and ask for risk visibility.",
             _ => $"You are a teammate in {scenarioTitle} and focus on collaboration and practical next steps.",
+        };
+
+        if (role == BotRole.Stakeholder && managerCounterpart && difficultCommunication)
+        {
+            return $"{roleBaseline} You are the manager in this scenario. Your communication is unclear and occasionally dismissive/condescending under pressure, which causes confusion and frustration. Keep that difficult style consistent until the participant actively de-escalates and clarifies expectations.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(personaName) && !string.IsNullOrWhiteSpace(personaTraits))
+        {
+            return $"{roleBaseline} You are '{personaName}' and your communication style is: {personaTraits}. Stay consistent with this style in every response. In the scenario prompt, 'You' refers to participant '{participantName}'.";
+        }
+
+        return role switch
+        {
+            BotRole.Facilitator => $"{roleBaseline} In the scenario prompt, 'You' refers to participant '{participantName}'.",
+            BotRole.Stakeholder => $"{roleBaseline} In the scenario prompt, 'You' refers to participant '{participantName}'.",
+            _ => $"{roleBaseline} In the scenario prompt, 'You' refers to participant '{participantName}'.",
         };
     }
 }

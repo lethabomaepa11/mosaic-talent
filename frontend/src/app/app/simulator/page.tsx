@@ -49,6 +49,13 @@ interface ICompletedFeedback {
   };
 }
 
+interface IOptimisticUserMessage {
+  id: string;
+  role: "User";
+  content: string;
+  createdAt: string;
+}
+
 const getSenderLabel = (role: string) => {
   const normalizedRole = role.toLowerCase();
   if (normalizedRole === "user") {
@@ -77,6 +84,9 @@ export default function SimulatorPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isContributing, setIsContributing] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [optimisticUserMessages, setOptimisticUserMessages] = useState<
+    IOptimisticUserMessage[]
+  >([]);
   const [feedbackView, setFeedbackView] = useState<ICompletedFeedback | null>(
     null,
   );
@@ -108,7 +118,7 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeSession?.messages]);
+  }, [activeSession?.messages, optimisticUserMessages]);
 
   const currentSession =
     activeSession?.id === activeSessionId ? activeSession : null;
@@ -142,12 +152,21 @@ export default function SimulatorPage() {
     [scenarios, selectedScenarioId],
   );
 
+  const renderedMessages = useMemo(() => {
+    if (!currentSession) {
+      return [];
+    }
+
+    return [...currentSession.messages, ...optimisticUserMessages];
+  }, [currentSession, optimisticUserMessages]);
+
   const handleStartSimulation = async (scenarioId: string) => {
     setIsStarting(true);
     try {
       const session = await startSession({ scenarioId });
       if (session?.id) {
         setActiveSessionId(session.id);
+        setOptimisticUserMessages([]);
         setFeedbackView(null);
         toast.success("Simulation started!", "Session is ready.");
       }
@@ -170,11 +189,23 @@ export default function SimulatorPage() {
       return;
     }
     const userMessage = message.trim();
+    const optimisticMessage: IOptimisticUserMessage = {
+      id: `optimistic-${Date.now()}`,
+      role: "User",
+      content: userMessage,
+      createdAt: new Date().toISOString(),
+    };
     setMessage("");
+    setOptimisticUserMessages((prev) => [...prev, optimisticMessage]);
     setIsSending(true);
     try {
       await sendMessage(currentSession.id, userMessage);
+      setOptimisticUserMessages([]);
     } catch (error) {
+      setOptimisticUserMessages((prev) =>
+        prev.filter((item) => item.id !== optimisticMessage.id),
+      );
+      setMessage(userMessage);
       toast.error(
         "Failed to send message",
         error instanceof Error ? error.message : "Try again.",
@@ -240,7 +271,7 @@ export default function SimulatorPage() {
             </Typography.Paragraph>
           </div>
           <div className={styles.actionRow}>
-            <Tag>{currentSession.messages.length} messages</Tag>
+            <Tag>{renderedMessages.length} messages</Tag>
             {currentSession.sessionType === "MeetingSimulation" ? (
               <Tag color={currentSession.awaitingUserInput ? "gold" : "blue"}>
                 {currentSession.awaitingUserInput
@@ -262,7 +293,7 @@ export default function SimulatorPage() {
 
         <Card className={styles.chatCard}>
           <div className={styles.messagePane}>
-            {currentSession.messages.map((msg, index) => {
+            {renderedMessages.map((msg, index) => {
               const isUser = msg.role.toLowerCase() === "user";
               const senderLabel = getSenderLabel(msg.role);
               return (
