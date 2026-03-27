@@ -138,14 +138,20 @@ public partial class SimulationScenarioAppService
         return speakingBots[index].Role;
     }
 
-    private async Task<string> GenerateBotReply(SimulationScenario scenario, SimulationBot bot, List<ScenarioMessage> recentMessages, string userMessage, Guid developerId)
+    private async Task<string> GenerateBotReply(
+        SimulationScenario scenario,
+        SimulationBot bot,
+        List<ScenarioMessage> recentMessages,
+        string userMessage,
+        string participantName)
     {
         var roleName = bot?.Role.ToString() ?? "Teammate";
-        var systemPrompt = $"You are acting as {roleName} in a teamwork simulation. Scenario: {scenario.Title}. Base prompt: {scenario.Prompt}. Keep responses concise, realistic and professional.";
+        var safeParticipantName = string.IsNullOrWhiteSpace(participantName) ? "Participant" : participantName.Trim();
+        var systemPrompt = $"You are acting as {roleName} in a teamwork simulation. Scenario: {scenario.Title}. Base prompt: {scenario.Prompt}. The participant is named {safeParticipantName}. Address them by this name when appropriate and never call them 'user'. Keep responses concise, realistic and professional.";
         var history = string.Join("\n", recentMessages.Select(x => $"{x.Role}: {x.Content}"));
         var userPrompt = JsonSerializer.Serialize(new
         {
-            developerId,
+            participantName = safeParticipantName,
             role = roleName,
             personality = bot?.PersonalityPrompt,
             latestUserMessage = userMessage,
@@ -173,10 +179,33 @@ public partial class SimulationScenarioAppService
             }
         }
 
-        return $"{roleName}: Thanks for sharing. Let's break this into a clear next step and align responsibilities before we proceed.";
+        return $"{roleName}: Thanks for sharing, {safeParticipantName}. Let's break this into a clear next step and align responsibilities before we proceed.";
     }
 
-    private async Task GenerateAndPersistBotTurn(int tenantId, SimulationSession session, SimulationScenario scenario, string triggerText, Guid? developerId = null)
+    private async Task<string> ResolveParticipantName()
+    {
+        var userId = AbpSession.UserId;
+        if (!userId.HasValue)
+        {
+            return "Participant";
+        }
+
+        var user = await UserManager.GetUserByIdAsync(userId.Value);
+        var fullName = $"{user.Name} {user.Surname}".Trim();
+        if (!string.IsNullOrWhiteSpace(fullName))
+        {
+            return fullName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.UserName))
+        {
+            return user.UserName;
+        }
+
+        return "Participant";
+    }
+
+    private async Task GenerateAndPersistBotTurn(int tenantId, SimulationSession session, SimulationScenario scenario, string triggerText)
     {
         var messages = await _messageRepository.GetAll()
             .Where(x => x.SessionId == session.Id)
@@ -202,12 +231,13 @@ public partial class SimulationScenarioAppService
         }
 
         var bot = bots.FirstOrDefault(x => x.Role == nextRole);
+        var participantName = await ResolveParticipantName();
         var botReply = await GenerateBotReply(
             scenario,
             bot,
             messages.TakeLast(10).ToList(),
             triggerText,
-            developerId ?? Guid.Empty);
+            participantName);
 
         await _messageRepository.InsertAsync(new ScenarioMessage
         {

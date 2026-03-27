@@ -49,6 +49,23 @@ interface ICompletedFeedback {
   };
 }
 
+const getSenderLabel = (role: string) => {
+  const normalizedRole = role.toLowerCase();
+  if (normalizedRole === "user") {
+    return "You";
+  }
+  if (normalizedRole === "facilitatorbot") {
+    return "Facilitator Bot";
+  }
+  if (normalizedRole === "stakeholderbot") {
+    return "Stakeholder Bot";
+  }
+  if (normalizedRole === "memberbot") {
+    return "Teammate Bot";
+  }
+  return "AI Bot";
+};
+
 export default function SimulatorPage() {
   const { styles } = useStyles();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -247,6 +264,7 @@ export default function SimulatorPage() {
           <div className={styles.messagePane}>
             {currentSession.messages.map((msg, index) => {
               const isUser = msg.role.toLowerCase() === "user";
+              const senderLabel = getSenderLabel(msg.role);
               return (
                 <motion.div
                   key={msg.id}
@@ -265,7 +283,7 @@ export default function SimulatorPage() {
                   >
                     <p className={styles.bubbleText}>{msg.content}</p>
                     <p className={styles.bubbleMeta}>
-                      {new Date(msg.createdAt).toLocaleTimeString()}
+                      {senderLabel} · {new Date(msg.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
                   {isUser ? (

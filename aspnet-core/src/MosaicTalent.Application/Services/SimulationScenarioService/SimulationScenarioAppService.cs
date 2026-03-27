@@ -222,7 +222,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         });
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        await GenerateAndPersistBotTurn(tenantId, session, scenario, content, user.Id);
+        await GenerateAndPersistBotTurn(tenantId, session, scenario, content);
         await CurrentUnitOfWork.SaveChangesAsync();
 
         return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });

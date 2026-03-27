@@ -38,11 +38,11 @@ const normalizeHost = (hostname: string) =>
   hostname.toLowerCase().split(":")[0];
 
 const parseVercelTenancy = (host: string) => {
-  if (!host.endsWith(".mosaic-talent.vercel.app")) {
+  if (!host.endsWith("-mosaic-talent.vercel.app")) {
     return "";
   }
 
-  const label = host.replace(".mosaic-talent.vercel.app", "");
+  const label = host.replace("-mosaic-talent.vercel.app", "");
   if (!label) {
     return "";
   }
