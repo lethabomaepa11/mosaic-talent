@@ -1,6 +1,7 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
 using Abp.Domain.Uow;
+using Abp.Notifications;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -16,11 +17,14 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using Abp;
 
 namespace MosaicTalent.Services.CompanyJobService;
 
@@ -32,6 +36,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     private readonly IRepository<Job, Guid> _jobRepository;
     private readonly IRepository<JobApplication, Guid> _jobApplicationRepository;
     private readonly IRepository<PublicJobApplication, Guid> _publicJobApplicationRepository;
+    private readonly IRepository<JobAssessment, Guid> _jobAssessmentRepository;
     private readonly IRepository<CompanyJobsPageSettings, Guid> _jobsPageSettingsRepository;
     private readonly IRepository<Developer, Guid> _developerRepository;
     private readonly IRepository<User, long> _userRepository;
@@ -39,6 +44,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly INotificationPublisher _notificationPublisher;
 
     public CompanyJobAppService(
         IRepository<Company, Guid> companyRepository,
@@ -46,19 +52,22 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         IRepository<Job, Guid> jobRepository,
         IRepository<JobApplication, Guid> jobApplicationRepository,
         IRepository<PublicJobApplication, Guid> publicJobApplicationRepository,
+        IRepository<JobAssessment, Guid> jobAssessmentRepository,
         IRepository<CompanyJobsPageSettings, Guid> jobsPageSettingsRepository,
         IRepository<Developer, Guid> developerRepository,
         IRepository<User, long> userRepository,
         IGroqChatService groqChatService,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        INotificationPublisher notificationPublisher)
     {
         _companyRepository = companyRepository;
         _companyEmployeeRepository = companyEmployeeRepository;
         _jobRepository = jobRepository;
         _jobApplicationRepository = jobApplicationRepository;
         _publicJobApplicationRepository = publicJobApplicationRepository;
+        _jobAssessmentRepository = jobAssessmentRepository;
         _jobsPageSettingsRepository = jobsPageSettingsRepository;
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -66,6 +75,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
+        _notificationPublisher = notificationPublisher;
     }
 
     [AbpAllowAnonymous]
@@ -323,6 +333,31 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         await _jobApplicationRepository.InsertAsync(application);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        try
+        {
+            var recipient = await ResolveMemberApplicationRecipientAsync(application);
+            await CreateAssessmentRecordAsync(
+                job,
+                recipient.Name,
+                recipient.Email,
+                application.Id,
+                null,
+                new ApplicationAssessment
+                {
+                    Score = application.MatchScore,
+                    Summary = application.MatchReason ?? string.Empty,
+                    Verdict = "Pending assessment",
+                    Strengths = new List<string>(),
+                    Weaknesses = new List<string>(),
+                },
+                string.Empty);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Member assessment creation failed.", ex);
+        }
+
         var mapped = await MapApplications(new List<JobApplication> { application });
         return mapped.First();
     }
@@ -374,11 +409,30 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             throw new UserFriendlyException("Public applications are not ready yet. Please run the latest database migrations.");
         }
 
+        JobAssessment createdAssessment = null;
+        try
+        {
+            createdAssessment = await CreateAssessmentRecordAsync(
+                job,
+                publicApplication.FullName,
+                publicApplication.Email,
+                null,
+                publicApplication.Id,
+                aiAssessment,
+                resumeText);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Assessment creation failed.", ex);
+        }
+
         try
         {
             var company = await GetCompanyByTenant(tenantId);
             var settings = await TryGetPageSettingsOrNull(tenantId, company.Id);
-            await SendApplicationReceivedEmailAsync(company, settings, job, publicApplication, aiAssessment);
+            var assessmentLink = createdAssessment == null ? string.Empty : BuildAssessmentUrl(createdAssessment.Id);
+            await SendApplicationReceivedEmailAsync(company, settings, job, publicApplication, aiAssessment, assessmentLink);
         }
         catch (Exception ex)
         {
@@ -407,7 +461,114 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             AiGithubRepo = aiAssessment.GithubRepo,
             AiProjects = ToProjectDtos(aiAssessment.Projects),
             AiMosaic = aiAssessment.Mosaic,
+            AssessmentId = createdAssessment?.Id,
+            AssessmentStatus = createdAssessment == null ? string.Empty : ToAssessmentStatusLabel(createdAssessment.Status),
+            AssessmentScore = createdAssessment?.Score,
+            AssessmentVerdict = createdAssessment?.Verdict ?? string.Empty,
+            AssessmentSubmittedAt = createdAssessment?.SubmittedAt,
         };
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<JobAssessmentDto> GetAssessment(GetAssessmentInput input)
+    {
+        var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
+            ?? throw new UserFriendlyException("Assessment not found.");
+        var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
+            ?? throw new UserFriendlyException("Job not found.");
+        var company = await _companyRepository.FirstOrDefaultAsync(job.CompanyId);
+
+        var changed = await EnsureLeetPromptProblemsAsync(job, assessment);
+        if (changed)
+        {
+            await _jobAssessmentRepository.UpdateAsync(assessment);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+
+        return MapAssessmentDto(assessment, job, company);
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<RunAssessmentPromptDto> RunAssessmentPrompt(RunAssessmentPromptInput input)
+    {
+        var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
+            ?? throw new UserFriendlyException("Assessment not found.");
+        var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
+            ?? throw new UserFriendlyException("Job not found.");
+
+        var changed = await EnsureLeetPromptProblemsAsync(job, assessment);
+        if (changed)
+        {
+            await _jobAssessmentRepository.UpdateAsync(assessment);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+
+        var problems = ParseLeetPromptProblems(assessment.ContextJson);
+        var problem = problems.FirstOrDefault(x => string.Equals(x.Id, input.ProblemId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new UserFriendlyException("Assessment problem not found.");
+
+        var prompt = input.Prompt?.Trim() ?? string.Empty;
+        if (prompt.Length < 3)
+        {
+            throw new UserFriendlyException("Prompt is too short.");
+        }
+
+        var completion = await TryCompleteAssessmentPromptWithUsage(job, assessment, problem, prompt);
+        return new RunAssessmentPromptDto
+        {
+            ProblemId = problem.Id,
+            Prompt = prompt,
+            Response = completion.Response,
+            PromptTokens = completion.PromptTokens,
+            CompletionTokens = completion.CompletionTokens,
+            TotalTokens = completion.TotalTokens,
+        };
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<JobAssessmentDto> SubmitAssessment(SubmitAssessmentInput input)
+    {
+        var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
+            ?? throw new UserFriendlyException("Assessment not found.");
+        var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
+            ?? throw new UserFriendlyException("Job not found.");
+        var company = await _companyRepository.FirstOrDefaultAsync(job.CompanyId);
+
+        var trimmedSubmission = (input.SubmissionText ?? string.Empty).Trim();
+        if (trimmedSubmission.Length < 20)
+        {
+            throw new UserFriendlyException("Assessment submission is too short.");
+        }
+
+        assessment.SubmissionText = trimmedSubmission;
+        assessment.SubmissionGithubRepo = input.GithubRepoUrl?.Trim();
+        assessment.Status = AssessmentStatus.Submitted;
+        assessment.SubmittedAt = DateTime.UtcNow;
+
+        var evaluated = await EvaluateAssessmentSubmissionAsync(job, assessment);
+        assessment.Score = evaluated.Score;
+        assessment.Verdict = evaluated.Verdict;
+        assessment.AssessmentResultJson = JsonSerializer.Serialize(new
+        {
+            score = evaluated.Score,
+            verdict = evaluated.Verdict,
+            summary = evaluated.Summary,
+            strengths = evaluated.Strengths,
+            weaknesses = evaluated.Weaknesses,
+            tips = evaluated.Tips,
+            testScore = evaluated.TestScore,
+            promptScore = evaluated.PromptScore,
+            tokenEfficiencyScore = evaluated.TokenEfficiencyScore,
+            codeQualityScore = evaluated.CodeQualityScore,
+        });
+        assessment.Status = AssessmentStatus.Reviewed;
+
+        await _jobAssessmentRepository.UpdateAsync(assessment);
+        await ApplyAssessmentOutcomeToApplication(assessment, evaluated);
+        await CurrentUnitOfWork.SaveChangesAsync();
+        await PublishAssessmentCompletedNotificationAsync(job, assessment);
+
+        return MapAssessmentDto(assessment, job, company, evaluated);
     }
 
     [AbpAuthorize]
@@ -696,6 +857,23 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             return new List<JobApplicationDto>();
         }
 
+        var applicationIds = applications.Select(x => x.Id).ToList();
+        List<JobAssessment> assessments;
+        try
+        {
+            assessments = await _jobAssessmentRepository.GetAll()
+                .Where(x => x.JobApplicationId.HasValue && applicationIds.Contains(x.JobApplicationId.Value))
+                .ToListAsync();
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            assessments = new List<JobAssessment>();
+        }
+        var assessmentsByMemberApplicationId = assessments
+            .Where(x => x.JobApplicationId.HasValue)
+            .GroupBy(x => x.JobApplicationId!.Value)
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(y => y.LastModificationTime ?? y.CreationTime).First());
+
         var candidateIds = applications.Select(x => x.CandidateDeveloperId).Distinct().ToList();
         List<Developer> developers;
         Dictionary<long, User> users;
@@ -716,6 +894,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             users.TryGetValue(developer?.UserId ?? 0, out var user);
             var fullName = string.Join(" ", new[] { user?.Name, user?.Surname }.Where(x => !string.IsNullOrWhiteSpace(x)));
             var candidateName = string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Candidate" : fullName;
+            assessmentsByMemberApplicationId.TryGetValue(application.Id, out var linkedAssessment);
 
         return new JobApplicationDto
         {
@@ -739,6 +918,11 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 AiGithubRepo = string.Empty,
                 AiProjects = new List<AiProjectDto>(),
                 AiMosaic = new Dictionary<string, double>(),
+                AssessmentId = linkedAssessment?.Id,
+                AssessmentStatus = linkedAssessment == null ? string.Empty : ToAssessmentStatusLabel(linkedAssessment.Status),
+                AssessmentScore = linkedAssessment?.Score,
+                AssessmentVerdict = linkedAssessment?.Verdict ?? string.Empty,
+                AssessmentSubmittedAt = linkedAssessment?.SubmittedAt,
             };
         }).ToList();
     }
@@ -749,6 +933,23 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         {
             return new List<JobApplicationDto>();
         }
+
+        var applicationIds = applications.Select(x => x.Id).ToList();
+        List<JobAssessment> assessments;
+        try
+        {
+            assessments = await _jobAssessmentRepository.GetAll()
+                .Where(x => x.PublicJobApplicationId.HasValue && applicationIds.Contains(x.PublicJobApplicationId.Value))
+                .ToListAsync();
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            assessments = new List<JobAssessment>();
+        }
+        var assessmentsByPublicApplicationId = assessments
+            .Where(x => x.PublicJobApplicationId.HasValue)
+            .GroupBy(x => x.PublicJobApplicationId!.Value)
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(y => y.LastModificationTime ?? y.CreationTime).First());
 
         var developerIds = applications
             .Where(x => x.CandidateDeveloperId.HasValue)
@@ -793,6 +994,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 : user?.EmailAddress ?? string.Empty;
 
             var assessment = ParseAssessmentFromApplicationResponse(application.ApplicationResponseJson);
+            assessmentsByPublicApplicationId.TryGetValue(application.Id, out var linkedAssessment);
 
             return new JobApplicationDto
             {
@@ -816,6 +1018,11 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 AiGithubRepo = assessment.GithubRepo,
                 AiProjects = ToProjectDtos(assessment.Projects),
                 AiMosaic = assessment.Mosaic,
+                AssessmentId = linkedAssessment?.Id,
+                AssessmentStatus = linkedAssessment == null ? string.Empty : ToAssessmentStatusLabel(linkedAssessment.Status),
+                AssessmentScore = linkedAssessment?.Score,
+                AssessmentVerdict = linkedAssessment?.Verdict ?? string.Empty,
+                AssessmentSubmittedAt = linkedAssessment?.SubmittedAt,
             };
         }).ToList();
     }
@@ -1054,7 +1261,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 enabled = true,
                 mode = "manual",
                 subject = "Application received for {jobTitle}",
-                body = "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team",
+                body = "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team",
             }
         });
     }
@@ -1107,7 +1314,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         CompanyJobsPageSettings settings,
         Job job,
         PublicJobApplication application,
-        ApplicationAssessment assessment)
+        ApplicationAssessment assessment,
+        string assessmentLink)
     {
         var emailSettings = ParseEmailTemplateSettings(settings?.EmailTemplateSettingsJson);
         if (!emailSettings.ApplicationReceivedEnabled)
@@ -1124,7 +1332,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         var subjectTemplate = string.IsNullOrWhiteSpace(emailSettings.ApplicationReceivedSubject)
             ? "Application received for {jobTitle}"
             : emailSettings.ApplicationReceivedSubject;
-        var subject = ReplaceEmailTokens(subjectTemplate, company, job, application, assessment);
+        var subject = ReplaceEmailTokens(subjectTemplate, company, job, application, assessment, assessmentLink);
 
         var bodyText = string.Empty;
         if (string.Equals(emailSettings.ApplicationReceivedMode, "ai", StringComparison.OrdinalIgnoreCase) && _groqChatService.IsConfigured())
@@ -1135,9 +1343,9 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         if (string.IsNullOrWhiteSpace(bodyText))
         {
             var bodyTemplate = string.IsNullOrWhiteSpace(emailSettings.ApplicationReceivedBody)
-                ? "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team"
+                ? "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team"
                 : emailSettings.ApplicationReceivedBody;
-            bodyText = ReplaceEmailTokens(bodyTemplate, company, job, application, assessment);
+            bodyText = ReplaceEmailTokens(bodyTemplate, company, job, application, assessment, assessmentLink);
         }
 
         var brandColor = string.IsNullOrWhiteSpace(settings?.PrimaryColor) ? "#D4AF37" : settings.PrimaryColor.Trim();
@@ -1271,7 +1479,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         Company company,
         Job job,
         PublicJobApplication application,
-        ApplicationAssessment assessment)
+        ApplicationAssessment assessment,
+        string assessmentLink = "")
     {
         var output = template ?? string.Empty;
         output = output.Replace("{candidateName}", application.FullName ?? "Candidate", StringComparison.OrdinalIgnoreCase);
@@ -1279,6 +1488,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         output = output.Replace("{companyName}", company.Name ?? "our company", StringComparison.OrdinalIgnoreCase);
         output = output.Replace("{matchScore}", assessment.Score.ToString("0.#"), StringComparison.OrdinalIgnoreCase);
         output = output.Replace("{verdict}", assessment.Verdict ?? "pending review", StringComparison.OrdinalIgnoreCase);
+        output = output.Replace("{assessmentLink}", assessmentLink ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         return output.Trim();
     }
 
@@ -1384,7 +1594,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 return;
             }
 
-            var link = BuildAssessmentUrl(application.Id);
+            var assessment = await EnsureAssessmentForMemberApplication(job, application, recipient.Name, recipient.Email);
+            var link = BuildAssessmentUrl(assessment.Id);
             var subject = $"Assessment invitation: {job.Title}";
             var body =
                 $"Hi {recipient.Name},\n\n" +
@@ -1416,7 +1627,8 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 return;
             }
 
-            var link = BuildAssessmentUrl(application.Id);
+            var assessment = await EnsureAssessmentForPublicApplication(job, application);
+            var link = BuildAssessmentUrl(assessment.Id);
             var subject = $"Assessment invitation: {job.Title}";
             var body =
                 $"Hi {application.FullName},\n\n" +
@@ -1439,22 +1651,1144 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
     }
 
-    private string BuildAssessmentUrl(Guid applicationId)
+    private string BuildAssessmentUrl(Guid assessmentId)
     {
-        var request = _httpContextAccessor.HttpContext?.Request;
-        if (request != null && request.Host.HasValue)
-        {
-            return $"{request.Scheme}://{request.Host}/assessment/{applicationId}";
-        }
-
-        var clientRoot = _configuration["App:ClientRootAddress"] ?? _configuration["App__ClientRootAddress"] ?? string.Empty;
-        clientRoot = (clientRoot ?? string.Empty).Trim().TrimEnd('/');
+        var clientRoot = ResolveClientRootAddress();
         if (string.IsNullOrWhiteSpace(clientRoot))
         {
-            return $"/assessment/{applicationId}";
+            return $"/assessment/{assessmentId}";
         }
 
-        return $"{clientRoot}/assessment/{applicationId}";
+        return $"{clientRoot}/assessment/{assessmentId}";
+    }
+
+    private string ResolveClientRootAddress()
+    {
+        var request = _httpContextAccessor.HttpContext?.Request;
+
+        // Prefer browser-origin headers so links target the tenant frontend domain.
+        var fromOriginHeader = ReadOriginFromHeaders(request);
+        if (!string.IsNullOrWhiteSpace(fromOriginHeader))
+        {
+            return fromOriginHeader;
+        }
+
+        // Then use configured frontend root when available.
+        var configuredClientRoot = (_configuration["App:ClientRootAddress"] ?? _configuration["App__ClientRootAddress"] ?? string.Empty)
+            .Trim()
+            .TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(configuredClientRoot))
+        {
+            return configuredClientRoot;
+        }
+
+        // Fallback: use current request host as last resort.
+        if (request != null && request.Host.HasValue)
+        {
+            return $"{request.Scheme}://{request.Host.Value}";
+        }
+
+        return string.Empty;
+    }
+
+    private static string ReadOriginFromHeaders(HttpRequest request)
+    {
+        if (request == null)
+        {
+            return string.Empty;
+        }
+
+        if (request.Headers.TryGetValue("Origin", out var originValues))
+        {
+            var origin = originValues.FirstOrDefault();
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+            {
+                return $"{originUri.Scheme}://{originUri.Authority}";
+            }
+        }
+
+        if (request.Headers.TryGetValue("Referer", out var refererValues))
+        {
+            var referer = refererValues.FirstOrDefault();
+            if (Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
+            {
+                return $"{refererUri.Scheme}://{refererUri.Authority}";
+            }
+        }
+
+        if (request.Headers.TryGetValue("X-Forwarded-Proto", out var protoValues) &&
+            request.Headers.TryGetValue("X-Forwarded-Host", out var hostValues))
+        {
+            var proto = (protoValues.FirstOrDefault() ?? string.Empty).Split(',').FirstOrDefault()?.Trim();
+            var host = (hostValues.FirstOrDefault() ?? string.Empty).Split(',').FirstOrDefault()?.Trim();
+            if (!string.IsNullOrWhiteSpace(proto) && !string.IsNullOrWhiteSpace(host))
+            {
+                return $"{proto}://{host}";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private async Task<JobAssessment> EnsureAssessmentForMemberApplication(Job job, JobApplication application, string candidateName, string candidateEmail)
+    {
+        var existing = await _jobAssessmentRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.JobApplicationId == application.Id);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var fallback = new ApplicationAssessment
+        {
+            Score = application.MatchScore,
+            Summary = application.MatchReason ?? string.Empty,
+            Verdict = "Pending assessment",
+            Strengths = new List<string>(),
+            Weaknesses = new List<string>(),
+        };
+
+        return await CreateAssessmentRecordAsync(
+            job,
+            candidateName,
+            candidateEmail,
+            application.Id,
+            null,
+            fallback,
+            string.Empty);
+    }
+
+    private async Task<JobAssessment> EnsureAssessmentForPublicApplication(Job job, PublicJobApplication application)
+    {
+        var existing = await _jobAssessmentRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.PublicJobApplicationId == application.Id);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var parsed = ParseAssessmentFromApplicationResponse(application.ApplicationResponseJson);
+        return await CreateAssessmentRecordAsync(
+            job,
+            application.FullName,
+            application.Email,
+            null,
+            application.Id,
+            parsed,
+            string.Empty);
+    }
+
+    private async Task<JobAssessment> CreateAssessmentRecordAsync(
+        Job job,
+        string candidateName,
+        string candidateEmail,
+        Guid? jobApplicationId,
+        Guid? publicJobApplicationId,
+        ApplicationAssessment aiAssessment,
+        string resumeText)
+    {
+        var prompt = await BuildLeetPromptAssessmentAsync(job, candidateName, aiAssessment, resumeText);
+        var instructions = BuildAssessmentInstructions(job, aiAssessment);
+        var contextJson = JsonSerializer.Serialize(new
+        {
+            skills = aiAssessment.ExtractedSkills ?? new List<string>(),
+            strengths = aiAssessment.Strengths ?? new List<string>(),
+            weaknesses = aiAssessment.Weaknesses ?? new List<string>(),
+            verdict = aiAssessment.Verdict ?? string.Empty,
+            score = aiAssessment.Score,
+        });
+
+        var assessment = new JobAssessment
+        {
+            TenantId = job.TenantId,
+            JobId = job.Id,
+            JobApplicationId = jobApplicationId,
+            PublicJobApplicationId = publicJobApplicationId,
+            CandidateName = (candidateName ?? string.Empty).Trim(),
+            CandidateEmail = (candidateEmail ?? string.Empty).Trim().ToLowerInvariant(),
+            Prompt = prompt,
+            Instructions = instructions,
+            ContextJson = contextJson,
+            Status = AssessmentStatus.Pending,
+            Score = 0,
+            Verdict = "Awaiting submission",
+        };
+
+        await _jobAssessmentRepository.InsertAsync(assessment);
+        return assessment;
+    }
+
+    private async Task<string> BuildLeetPromptAssessmentAsync(
+        Job job,
+        string candidateName,
+        ApplicationAssessment aiAssessment,
+        string resumeText)
+    {
+        var fallback =
+            $"Build a production-ready solution for \"{job.Title}\".\n" +
+            "Deliverables:\n" +
+            "1) Architecture decisions and trade-offs.\n" +
+            "2) Core implementation approach (with pseudo-code or snippets).\n" +
+            "3) Testing strategy.\n" +
+            "4) Risk analysis and rollout plan.\n" +
+            "5) Explain how AI assistants were used responsibly.\n\n" +
+            $"Target skills: {string.Join(", ", aiAssessment.ExtractedSkills.Take(8))}";
+
+        if (!_groqChatService.IsConfigured())
+        {
+            return fallback;
+        }
+
+        try
+        {
+            var systemPrompt = "Create a realistic coding assessment prompt. Return plain text only.";
+            var userPrompt =
+                $"Role: {job.Title}\n" +
+                $"Description: {job.Description}\n" +
+                $"Technical prompt: {job.TechnicalAssessmentPrompt}\n" +
+                $"Behavioural prompt: {job.BehaviouralAssessmentPrompt}\n" +
+                $"Candidate: {candidateName}\n" +
+                $"Extracted skills: {string.Join(", ", aiAssessment.ExtractedSkills)}\n" +
+                $"Resume context: {resumeText}\n" +
+                "Generate one practical take-home assessment with clear acceptance criteria. Keep under 500 words.";
+            var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+            return string.IsNullOrWhiteSpace(response) ? fallback : response.Trim();
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    private static string BuildAssessmentInstructions(Job job, ApplicationAssessment aiAssessment)
+    {
+        return
+            "Assessment Instructions:\n" +
+            "- You may use AI coding assistants, but explain what you delegated and what you validated.\n" +
+            "- Provide runnable approach details and key decisions.\n" +
+            "- Include links to code/docs if relevant.\n" +
+            "- Keep answers concise and practical.\n\n" +
+            $"Role: {job.Title}\n" +
+            $"Focus skills: {string.Join(", ", aiAssessment.ExtractedSkills.Take(10))}";
+    }
+
+    private async Task<AssessmentEvaluation> EvaluateAssessmentSubmissionAsync(Job job, JobAssessment assessment)
+    {
+        var leetSubmission = ParseLeetPromptSubmission(assessment.SubmissionText);
+        var fallback = BuildHeuristicAssessmentEvaluation(assessment.SubmissionText, assessment.SubmissionGithubRepo);
+        if (leetSubmission != null)
+        {
+            fallback = MergeExecutionScoreIntoEvaluation(fallback, leetSubmission);
+        }
+        if (!_groqChatService.IsConfigured())
+        {
+            return fallback;
+        }
+
+        try
+        {
+            var systemPrompt =
+                "You evaluate engineering assessments. Return JSON only with keys: " +
+                "score (0-100), verdict, summary, strengths (array), weaknesses (array), tips (array).";
+            var userPrompt =
+                $"Role: {job.Title}\n" +
+                $"Job description: {job.Description}\n" +
+                $"Assessment prompt: {assessment.Prompt}\n" +
+                $"Assessment instructions: {assessment.Instructions}\n" +
+                $"Submission: {assessment.SubmissionText}\n" +
+                $"Github: {assessment.SubmissionGithubRepo}\n" +
+                $"Execution summary: {BuildLeetPromptSummaryForAi(leetSubmission)}\n" +
+                "Score for real-world readiness, clarity, trade-off quality, and AI-assistant usage maturity.";
+            var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return fallback;
+            }
+
+            using var doc = JsonDocument.Parse(response);
+            var root = doc.RootElement;
+            var score = root.TryGetProperty("score", out var scoreNode) && scoreNode.TryGetDouble(out var parsedScore)
+                ? ClampScore(parsedScore)
+                : fallback.Score;
+            var verdict = root.TryGetProperty("verdict", out var verdictNode) ? SafeTrim(verdictNode.GetString()) : fallback.Verdict;
+            var summary = root.TryGetProperty("summary", out var summaryNode) ? SafeTrim(summaryNode.GetString()) : fallback.Summary;
+            var strengths = root.TryGetProperty("strengths", out var strengthsNode) ? ReadStringArray(strengthsNode) : fallback.Strengths;
+            var weaknesses = root.TryGetProperty("weaknesses", out var weaknessesNode) ? ReadStringArray(weaknessesNode) : fallback.Weaknesses;
+            var tips = root.TryGetProperty("tips", out var tipsNode) ? ReadStringArray(tipsNode) : fallback.Tips;
+
+            return new AssessmentEvaluation
+            {
+                Score = score,
+                Verdict = string.IsNullOrWhiteSpace(verdict) ? fallback.Verdict : verdict,
+                Summary = string.IsNullOrWhiteSpace(summary) ? fallback.Summary : summary,
+                Strengths = strengths.Count == 0 ? fallback.Strengths : strengths.Take(5).ToList(),
+                Weaknesses = weaknesses.Count == 0 ? fallback.Weaknesses : weaknesses.Take(5).ToList(),
+                Tips = tips.Count == 0 ? fallback.Tips : tips.Take(5).ToList(),
+            };
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    private static AssessmentEvaluation BuildHeuristicAssessmentEvaluation(string submissionText, string githubRepo)
+    {
+        var text = (submissionText ?? string.Empty).ToLowerInvariant();
+        var hasArchitecture = text.Contains("architecture") || text.Contains("design");
+        var hasTesting = text.Contains("test") || text.Contains("testing");
+        var hasTradeoffs = text.Contains("trade-off") || text.Contains("tradeoff") || text.Contains("pros") || text.Contains("cons");
+        var hasAiReasoning = text.Contains("ai") || text.Contains("assistant") || text.Contains("copilot");
+        var hasRepo = !string.IsNullOrWhiteSpace(githubRepo);
+
+        var score = 45d;
+        if (hasArchitecture) score += 12;
+        if (hasTesting) score += 12;
+        if (hasTradeoffs) score += 12;
+        if (hasAiReasoning) score += 10;
+        if (hasRepo) score += 9;
+        score = ClampScore(score);
+
+        var verdict = score >= 80 ? "Strong" : score >= 60 ? "Good" : "Needs improvement";
+        return new AssessmentEvaluation
+        {
+            Score = score,
+            Verdict = verdict,
+            Summary = $"Assessment quality is {verdict.ToLowerInvariant()} based on structure, testing depth, and implementation clarity.",
+            Strengths = new List<string>
+            {
+                hasArchitecture ? "Clear architectural thinking was shown." : "Submission provided a workable implementation direction.",
+                hasTesting ? "Testing approach was addressed." : "Consider adding explicit test strategy.",
+            },
+            Weaknesses = new List<string>
+            {
+                hasTradeoffs ? "Trade-offs were mentioned but can be deeper." : "Trade-offs were not clearly discussed.",
+                hasAiReasoning ? "AI usage was disclosed; include stronger validation details." : "No explicit AI-assistant usage reflection.",
+            },
+            Tips = new List<string>
+            {
+                "Explain why your design choices are better than alternatives.",
+                "Add measurable acceptance criteria and edge-case tests.",
+                "Document how AI-generated output was validated.",
+            },
+        };
+    }
+
+    private async Task ApplyAssessmentOutcomeToApplication(JobAssessment assessment, AssessmentEvaluation evaluation)
+    {
+        var verdictLabel = string.IsNullOrWhiteSpace(evaluation.Verdict) ? "Assessed" : evaluation.Verdict;
+        var summary = string.IsNullOrWhiteSpace(evaluation.Summary)
+            ? $"Assessment completed with score {evaluation.Score:0.#}."
+            : evaluation.Summary;
+
+        if (assessment.JobApplicationId.HasValue)
+        {
+            var member = await _jobApplicationRepository.FirstOrDefaultAsync(assessment.JobApplicationId.Value);
+            if (member != null)
+            {
+                member.MatchScore = evaluation.Score;
+                member.MatchReason = $"{verdictLabel}: {summary}";
+                member.Status = ApplicationStatus.Assessment;
+                await _jobApplicationRepository.UpdateAsync(member);
+            }
+        }
+
+        if (assessment.PublicJobApplicationId.HasValue)
+        {
+            var candidate = await _publicJobApplicationRepository.FirstOrDefaultAsync(assessment.PublicJobApplicationId.Value);
+            if (candidate != null)
+            {
+                candidate.MatchScore = evaluation.Score;
+                candidate.MatchReason = $"{verdictLabel}: {summary}";
+                candidate.Status = ApplicationStatus.Assessment;
+                candidate.ApplicationResponseJson = MergeAssessmentEvaluationIntoResponse(candidate.ApplicationResponseJson, evaluation);
+                await _publicJobApplicationRepository.UpdateAsync(candidate);
+            }
+        }
+    }
+
+    private static string MergeAssessmentEvaluationIntoResponse(string applicationResponseJson, AssessmentEvaluation evaluation)
+    {
+        var root = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(applicationResponseJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(applicationResponseJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var property in doc.RootElement.EnumerateObject())
+                    {
+                        root[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                            ? property.Value.GetString()
+                            : property.Value.ToString();
+                    }
+                }
+            }
+            catch
+            {
+                // ignore malformed json
+            }
+        }
+
+        root["__assessment_score"] = evaluation.Score;
+        root["__assessment_verdict"] = evaluation.Verdict;
+        root["__assessment_summary"] = evaluation.Summary;
+        root["__assessment_strengths"] = evaluation.Strengths;
+        root["__assessment_weaknesses"] = evaluation.Weaknesses;
+        root["__assessment_tips"] = evaluation.Tips;
+        return JsonSerializer.Serialize(root);
+    }
+
+    private async Task PublishAssessmentCompletedNotificationAsync(Job job, JobAssessment assessment)
+    {
+        try
+        {
+            var employees = await _companyEmployeeRepository.GetAll()
+                .Where(x => x.CompanyId == job.CompanyId)
+                .Select(x => x.UserId)
+                .Distinct()
+                .ToListAsync();
+            if (employees.Count == 0)
+            {
+                return;
+            }
+
+            var userIdentifiers = employees
+                .Select(userId => new UserIdentifier(assessment.TenantId, userId))
+                .ToArray();
+            if (userIdentifiers.Length == 0)
+            {
+                return;
+            }
+
+            var message = $"{assessment.CandidateName} completed an assessment for {job.Title}.";
+            await _notificationPublisher.PublishAsync(
+                "MosaicTalent.AssessmentCompleted",
+                new MessageNotificationData(message),
+                severity: NotificationSeverity.Success,
+                userIds: userIdentifiers);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to publish assessment completion notification.", ex);
+        }
+    }
+
+    private async Task<bool> EnsureLeetPromptProblemsAsync(Job job, JobAssessment assessment)
+    {
+        var existing = ParseLeetPromptProblems(assessment.ContextJson);
+        if (existing.Count >= 2)
+        {
+            return false;
+        }
+
+        var generated = await GenerateLeetPromptProblemsAsync(job, assessment);
+        if (generated.Count < 2)
+        {
+            generated = BuildDefaultLeetPromptProblems(job.Title);
+        }
+
+        assessment.ContextJson = UpsertLeetPromptProblemsIntoContext(assessment.ContextJson, generated);
+        return true;
+    }
+
+    private async Task<List<LeetPromptProblem>> GenerateLeetPromptProblemsAsync(Job job, JobAssessment assessment)
+    {
+        if (!_groqChatService.IsConfigured())
+        {
+            return BuildDefaultLeetPromptProblems(job.Title);
+        }
+
+        try
+        {
+            var systemPrompt =
+                "Generate exactly 2 coding problems. Return JSON only with key problems. " +
+                "Each problem: id,title,description,language('javascript'),starterCode,maxScore,order,publicTests[]. " +
+                "Each public test: input,expectedOutput,hint. " +
+                "Use function signature: function solve(input) { ... }";
+            var userPrompt =
+                $"Role: {job.Title}\n" +
+                $"Job description: {job.Description}\n" +
+                $"Assessment prompt: {assessment.Prompt}\n" +
+                "Create practical interview-style problems with deterministic string input/output.";
+            var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return BuildDefaultLeetPromptProblems(job.Title);
+            }
+
+            using var doc = JsonDocument.Parse(response);
+            if (!doc.RootElement.TryGetProperty("problems", out var problemsNode) || problemsNode.ValueKind != JsonValueKind.Array)
+            {
+                return BuildDefaultLeetPromptProblems(job.Title);
+            }
+
+            var output = new List<LeetPromptProblem>();
+            foreach (var node in problemsNode.EnumerateArray())
+            {
+                if (node.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var title = node.TryGetProperty("title", out var titleNode) ? SafeTrim(titleNode.GetString()) : string.Empty;
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    continue;
+                }
+
+                var problem = new LeetPromptProblem
+                {
+                    Id = node.TryGetProperty("id", out var idNode) ? SafeTrim(idNode.GetString()) : Guid.NewGuid().ToString("N"),
+                    Title = title,
+                    Description = node.TryGetProperty("description", out var descriptionNode) ? SafeTrim(descriptionNode.GetString()) : string.Empty,
+                    Language = "javascript",
+                    StarterCode = node.TryGetProperty("starterCode", out var starterNode) ? starterNode.GetString() ?? DefaultStarterCode() : DefaultStarterCode(),
+                    MaxScore = node.TryGetProperty("maxScore", out var scoreNode) && scoreNode.TryGetDouble(out var maxScore) ? Math.Max(1, maxScore) : 100,
+                    Order = node.TryGetProperty("order", out var orderNode) && orderNode.TryGetInt32(out var parsedOrder) ? parsedOrder : output.Count + 1,
+                    PublicTests = node.TryGetProperty("publicTests", out var testsNode) ? ParseLeetPromptTests(testsNode) : new List<LeetPromptTestCase>(),
+                };
+
+                if (problem.PublicTests.Count == 0)
+                {
+                    problem.PublicTests = BuildDefaultPublicTestsForProblem(problem.Order);
+                }
+
+                output.Add(problem);
+            }
+
+            return output.Count >= 2 ? output.OrderBy(x => x.Order).Take(3).ToList() : BuildDefaultLeetPromptProblems(job.Title);
+        }
+        catch
+        {
+            return BuildDefaultLeetPromptProblems(job.Title);
+        }
+    }
+
+    private static List<LeetPromptProblem> BuildDefaultLeetPromptProblems(string roleTitle)
+    {
+        return new List<LeetPromptProblem>
+        {
+            new LeetPromptProblem
+            {
+                Id = "array-sum-pairs",
+                Title = "Array Pair Sum",
+                Description =
+                    $"As a {roleTitle}, implement solve(input) that reads: \"n1,n2,n3|target\" and returns indices \"i,j\" for two numbers that sum to target. " +
+                    "Return \"-1,-1\" when no pair exists.",
+                Language = "javascript",
+                StarterCode = "function solve(input) {\n  // input: \"2,7,11,15|9\"\n  // return: \"0,1\"\n  return \"-1,-1\";\n}",
+                MaxScore = 100,
+                Order = 1,
+                PublicTests = new List<LeetPromptTestCase>
+                {
+                    new LeetPromptTestCase { Input = "2,7,11,15|9", ExpectedOutput = "0,1", Hint = "2+7=9" },
+                    new LeetPromptTestCase { Input = "3,2,4|6", ExpectedOutput = "1,2", Hint = "2+4=6" },
+                    new LeetPromptTestCase { Input = "1,2,3|10", ExpectedOutput = "-1,-1", Hint = "No valid pair" },
+                }
+            },
+            new LeetPromptProblem
+            {
+                Id = "balanced-brackets",
+                Title = "Balanced Brackets",
+                Description =
+                    $"As a {roleTitle}, implement solve(input) that returns \"true\" when brackets are balanced and \"false\" otherwise. " +
+                    "Supported brackets: () [] {}.",
+                Language = "javascript",
+                StarterCode = "function solve(input) {\n  // input: \"([{}])\"\n  // return: \"true\" or \"false\"\n  return \"false\";\n}",
+                MaxScore = 100,
+                Order = 2,
+                PublicTests = new List<LeetPromptTestCase>
+                {
+                    new LeetPromptTestCase { Input = "([{}])", ExpectedOutput = "true", Hint = "Every opening has a matching closing bracket" },
+                    new LeetPromptTestCase { Input = "([)]", ExpectedOutput = "false", Hint = "Order matters" },
+                    new LeetPromptTestCase { Input = "{[]}", ExpectedOutput = "true", Hint = "Nested valid pairs" },
+                }
+            }
+        };
+    }
+
+    private static List<LeetPromptTestCase> BuildDefaultPublicTestsForProblem(int order)
+    {
+        return order == 1
+            ? new List<LeetPromptTestCase>
+            {
+                new LeetPromptTestCase { Input = "2,7,11,15|9", ExpectedOutput = "0,1", Hint = "2+7=9" }
+            }
+            : new List<LeetPromptTestCase>
+            {
+                new LeetPromptTestCase { Input = "([{}])", ExpectedOutput = "true", Hint = "Balanced sequence" }
+            };
+    }
+
+    private static List<LeetPromptTestCase> ParseLeetPromptTests(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            return new List<LeetPromptTestCase>();
+        }
+
+        var output = new List<LeetPromptTestCase>();
+        foreach (var node in element.EnumerateArray())
+        {
+            if (node.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var input = node.TryGetProperty("input", out var inputNode) ? inputNode.GetString() ?? string.Empty : string.Empty;
+            var expected = node.TryGetProperty("expectedOutput", out var expectedNode) ? expectedNode.GetString() ?? string.Empty : string.Empty;
+            var hint = node.TryGetProperty("hint", out var hintNode) ? hintNode.GetString() ?? string.Empty : string.Empty;
+            if (string.IsNullOrWhiteSpace(input) && string.IsNullOrWhiteSpace(expected))
+            {
+                continue;
+            }
+
+            output.Add(new LeetPromptTestCase
+            {
+                Input = input,
+                ExpectedOutput = expected,
+                Hint = hint,
+            });
+        }
+
+        return output;
+    }
+
+    private static string DefaultStarterCode()
+    {
+        return "function solve(input) {\n  return \"\";\n}";
+    }
+
+    private static List<LeetPromptProblem> ParseLeetPromptProblems(string contextJson)
+    {
+        if (string.IsNullOrWhiteSpace(contextJson))
+        {
+            return new List<LeetPromptProblem>();
+        }
+
+        try
+        {
+            var root = JsonNode.Parse(contextJson)?.AsObject();
+            var problemsNode = root?["problems"];
+            if (problemsNode == null)
+            {
+                return new List<LeetPromptProblem>();
+            }
+
+            var parsed = problemsNode.Deserialize<List<LeetPromptProblem>>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            }) ?? new List<LeetPromptProblem>();
+            return parsed
+                .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.Title))
+                .OrderBy(x => x.Order)
+                .ToList();
+        }
+        catch
+        {
+            return new List<LeetPromptProblem>();
+        }
+    }
+
+    private static string UpsertLeetPromptProblemsIntoContext(string contextJson, List<LeetPromptProblem> problems)
+    {
+        JsonObject root;
+        try
+        {
+            root = JsonNode.Parse(string.IsNullOrWhiteSpace(contextJson) ? "{}" : contextJson)?.AsObject() ?? new JsonObject();
+        }
+        catch
+        {
+            root = new JsonObject();
+        }
+
+        root["problems"] = JsonSerializer.SerializeToNode(problems);
+        return root.ToJsonString();
+    }
+
+    private static LeetPromptSubmission ParseLeetPromptSubmission(string submissionText)
+    {
+        if (string.IsNullOrWhiteSpace(submissionText))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(submissionText);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            if (!doc.RootElement.TryGetProperty("problems", out var problemsNode) || problemsNode.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var submission = new LeetPromptSubmission();
+            foreach (var node in problemsNode.EnumerateArray())
+            {
+                if (node.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var problem = new LeetPromptSubmissionProblem
+                {
+                    ProblemId = node.TryGetProperty("problemId", out var idNode) ? idNode.GetString() ?? string.Empty : string.Empty,
+                    Code = node.TryGetProperty("code", out var codeNode) ? codeNode.GetString() ?? string.Empty : string.Empty,
+                    PassedPublic = node.TryGetProperty("passedPublic", out var passedNode) && passedNode.TryGetInt32(out var passed) ? Math.Max(0, passed) : 0,
+                    TotalPublic = node.TryGetProperty("totalPublic", out var totalNode) && totalNode.TryGetInt32(out var total) ? Math.Max(0, total) : 0,
+                    PromptAttempts = ParsePromptAttempts(node),
+                };
+                submission.Problems.Add(problem);
+            }
+
+            return submission.Problems.Count == 0 ? null : submission;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static List<LeetPromptPromptAttempt> ParsePromptAttempts(JsonElement node)
+    {
+        var output = new List<LeetPromptPromptAttempt>();
+        if (!node.TryGetProperty("promptAttempts", out var attemptsNode) || attemptsNode.ValueKind != JsonValueKind.Array)
+        {
+            return output;
+        }
+
+        foreach (var attempt in attemptsNode.EnumerateArray())
+        {
+            if (attempt.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            output.Add(new LeetPromptPromptAttempt
+            {
+                Prompt = attempt.TryGetProperty("prompt", out var promptNode) ? promptNode.GetString() ?? string.Empty : string.Empty,
+                Response = attempt.TryGetProperty("response", out var responseNode) ? responseNode.GetString() ?? string.Empty : string.Empty,
+                PromptTokens = attempt.TryGetProperty("promptTokens", out var pNode) && pNode.TryGetInt32(out var p) ? Math.Max(0, p) : 0,
+                CompletionTokens = attempt.TryGetProperty("completionTokens", out var cNode) && cNode.TryGetInt32(out var c) ? Math.Max(0, c) : 0,
+                TotalTokens = attempt.TryGetProperty("totalTokens", out var tNode) && tNode.TryGetInt32(out var t) ? Math.Max(0, t) : 0,
+                Accepted = attempt.TryGetProperty("accepted", out var aNode) && aNode.ValueKind == JsonValueKind.True,
+            });
+        }
+
+        return output;
+    }
+
+    private static double ComputePromptQualityScore(LeetPromptSubmission submission)
+    {
+        var attempts = submission?.Problems?.SelectMany(x => x.PromptAttempts ?? new List<LeetPromptPromptAttempt>()).ToList()
+            ?? new List<LeetPromptPromptAttempt>();
+        if (attempts.Count == 0)
+        {
+            return 55;
+        }
+
+        var acceptedRatio = attempts.Count(x => x.Accepted) / (double)attempts.Count;
+        var avgPromptLen = attempts.Average(x => (x.Prompt ?? string.Empty).Trim().Length);
+        var avgResponseLen = attempts.Average(x => (x.Response ?? string.Empty).Trim().Length);
+        var concisePromptScore = Math.Min(100d, Math.Max(0d, (avgPromptLen / 220d) * 100d));
+        var responseSignalScore = Math.Min(100d, Math.Max(0d, (avgResponseLen / 500d) * 100d));
+
+        return ClampScore(
+            (acceptedRatio * 55d) +
+            (concisePromptScore * 25d / 100d) +
+            (responseSignalScore * 20d / 100d));
+    }
+
+    private static double ComputeTokenEfficiencyScore(LeetPromptSubmission submission)
+    {
+        if (submission?.Problems == null || submission.Problems.Count == 0)
+        {
+            return 60;
+        }
+
+        var attempts = submission.Problems.SelectMany(x => x.PromptAttempts ?? new List<LeetPromptPromptAttempt>()).ToList();
+        if (attempts.Count == 0)
+        {
+            return 60;
+        }
+
+        var totalTokens = attempts.Sum(x => x.TotalTokens > 0 ? x.TotalTokens : (x.PromptTokens + x.CompletionTokens));
+        var avgTokensPerProblem = totalTokens / Math.Max(1d, submission.Problems.Count);
+        var attemptsPerProblem = attempts.Count / Math.Max(1d, submission.Problems.Count);
+
+        var tokenPenalty = avgTokensPerProblem <= 700 ? 0 : Math.Min(70d, ((avgTokensPerProblem - 700d) / 1300d) * 70d);
+        var attemptPenalty = attemptsPerProblem <= 2 ? 0 : Math.Min(25d, (attemptsPerProblem - 2d) * 8d);
+
+        return ClampScore(100d - tokenPenalty - attemptPenalty);
+    }
+
+    private static double ComputeCodeQualityScore(LeetPromptSubmission submission)
+    {
+        if (submission?.Problems == null || submission.Problems.Count == 0)
+        {
+            return 40;
+        }
+
+        var scores = new List<double>();
+        foreach (var problem in submission.Problems)
+        {
+            var code = (problem.Code ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                scores.Add(0);
+                continue;
+            }
+
+            var score = 40d;
+            if (code.Contains("function solve", StringComparison.OrdinalIgnoreCase) ||
+                code.Contains("const solve", StringComparison.OrdinalIgnoreCase) ||
+                code.Contains("def solve", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 20;
+            }
+            if (code.Contains("if", StringComparison.OrdinalIgnoreCase) || code.Contains("switch", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 10;
+            }
+            if (code.Contains("for", StringComparison.OrdinalIgnoreCase) || code.Contains("while", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 10;
+            }
+            if (code.Contains("//", StringComparison.OrdinalIgnoreCase) || code.Contains("/*", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 8;
+            }
+            if (code.Length >= 120 && code.Length <= 4000)
+            {
+                score += 12;
+            }
+            if (code.Contains("eval(", StringComparison.OrdinalIgnoreCase) || code.Contains("new Function(", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 35;
+            }
+            if (code.Length < 40)
+            {
+                score -= 20;
+            }
+
+            scores.Add(ClampScore(score));
+        }
+
+        return scores.Count == 0 ? 40 : ClampScore(scores.Average());
+    }
+
+    private static AssessmentEvaluation MergeExecutionScoreIntoEvaluation(AssessmentEvaluation baseEvaluation, LeetPromptSubmission submission)
+    {
+        if (submission?.Problems == null || submission.Problems.Count == 0)
+        {
+            return baseEvaluation;
+        }
+
+        var ratios = submission.Problems
+            .Where(x => x.TotalPublic > 0)
+            .Select(x => (double)x.PassedPublic / x.TotalPublic)
+            .ToList();
+        if (ratios.Count == 0)
+        {
+            return baseEvaluation;
+        }
+
+        var executionScore = ClampScore(ratios.Average() * 100d);
+        var promptScore = ComputePromptQualityScore(submission);
+        var tokenScore = ComputeTokenEfficiencyScore(submission);
+        var codeQualityScore = ComputeCodeQualityScore(submission);
+        var combinedScore = ClampScore(
+            (executionScore * 0.50) +
+            (promptScore * 0.20) +
+            (tokenScore * 0.15) +
+            (codeQualityScore * 0.15));
+        var merged = new AssessmentEvaluation
+        {
+            Score = combinedScore,
+            Verdict = combinedScore >= 80 ? "Strong" : combinedScore >= 60 ? "Good" : "Needs improvement",
+            Summary =
+                $"LeetPrompt score {combinedScore:0.#}% " +
+                $"(tests {executionScore:0.#}%, prompts {promptScore:0.#}%, token efficiency {tokenScore:0.#}%, code quality {codeQualityScore:0.#}%).",
+            Strengths = new List<string>(baseEvaluation.Strengths),
+            Weaknesses = new List<string>(baseEvaluation.Weaknesses),
+            Tips = new List<string>(baseEvaluation.Tips),
+            TestScore = executionScore,
+            PromptScore = promptScore,
+            TokenEfficiencyScore = tokenScore,
+            CodeQualityScore = codeQualityScore,
+        };
+        merged.Strengths.Insert(0, $"Solved {submission.Problems.Sum(x => x.PassedPublic)} public tests out of {submission.Problems.Sum(x => x.TotalPublic)}.");
+        if (executionScore < 70)
+        {
+            merged.Weaknesses.Insert(0, "Public test pass-rate is below target.");
+            merged.Tips.Insert(0, "Re-run failing public tests and handle edge cases before final submission.");
+        }
+
+        return merged;
+    }
+
+    private static string BuildLeetPromptSummaryForAi(LeetPromptSubmission submission)
+    {
+        if (submission?.Problems == null || submission.Problems.Count == 0)
+        {
+            return "No runnable problem summary provided.";
+        }
+
+        var summary = submission.Problems
+            .Select(x => $"{x.ProblemId}:{x.PassedPublic}/{x.TotalPublic}")
+            .ToList();
+        return string.Join(", ", summary);
+    }
+
+    private async Task<PromptAssistCompletion> TryCompleteAssessmentPromptWithUsage(
+        Job job,
+        JobAssessment assessment,
+        LeetPromptProblem problem,
+        string userPrompt)
+    {
+        var fallbackResponse =
+            "I can help you refine this. Break your approach into: parsing input, core algorithm, and return format. " +
+            "Then validate with the provided public tests and edge cases.";
+        var fallbackPromptTokens = EstimateTokenCount(userPrompt);
+        var fallbackCompletionTokens = EstimateTokenCount(fallbackResponse);
+
+        var apiKey = (_configuration["Groq:ApiKey"] ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return new PromptAssistCompletion
+            {
+                Response = fallbackResponse,
+                PromptTokens = fallbackPromptTokens,
+                CompletionTokens = fallbackCompletionTokens,
+                TotalTokens = fallbackPromptTokens + fallbackCompletionTokens,
+            };
+        }
+
+        var model = (_configuration["Groq:Model"] ?? "llama-3.3-70b-versatile").Trim();
+        var systemPrompt =
+            "You are a coding assistant for LeetPrompt assessments. " +
+            "Provide concise guidance, pseudocode, and test-oriented reasoning. " +
+            "Do not mention hidden tests. Return JSON only with keys: response.";
+        var contextualPrompt =
+            $"Role: {job.Title}\n" +
+            $"Assessment candidate: {assessment.CandidateName}\n" +
+            $"Problem title: {problem.Title}\n" +
+            $"Problem description: {problem.Description}\n" +
+            $"Starter code: {problem.StarterCode}\n" +
+            $"User prompt: {userPrompt}\n";
+
+        var payload = new
+        {
+            model,
+            temperature = 0.2,
+            messages = new object[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = contextualPrompt },
+            },
+            response_format = new { type = "json_object" },
+        };
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(20);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+            using var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new PromptAssistCompletion
+                {
+                    Response = fallbackResponse,
+                    PromptTokens = fallbackPromptTokens,
+                    CompletionTokens = fallbackCompletionTokens,
+                    TotalTokens = fallbackPromptTokens + fallbackCompletionTokens,
+                };
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(body);
+
+            var content = fallbackResponse;
+            if (document.RootElement.TryGetProperty("choices", out var choices) &&
+                choices.ValueKind == JsonValueKind.Array &&
+                choices.GetArrayLength() > 0)
+            {
+                var raw = choices[0].GetProperty("message").GetProperty("content").GetString();
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    try
+                    {
+                        using var contentDoc = JsonDocument.Parse(raw);
+                        if (contentDoc.RootElement.TryGetProperty("response", out var responseNode))
+                        {
+                            var parsed = SafeTrim(responseNode.GetString());
+                            if (!string.IsNullOrWhiteSpace(parsed))
+                            {
+                                content = parsed;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        content = SafeTrim(raw);
+                    }
+                }
+            }
+
+            var promptTokens = fallbackPromptTokens;
+            var completionTokens = EstimateTokenCount(content);
+            var totalTokens = promptTokens + completionTokens;
+            if (document.RootElement.TryGetProperty("usage", out var usageNode) && usageNode.ValueKind == JsonValueKind.Object)
+            {
+                if (usageNode.TryGetProperty("prompt_tokens", out var promptNode) && promptNode.TryGetInt32(out var p))
+                {
+                    promptTokens = Math.Max(0, p);
+                }
+                if (usageNode.TryGetProperty("completion_tokens", out var completionNode) && completionNode.TryGetInt32(out var c))
+                {
+                    completionTokens = Math.Max(0, c);
+                }
+                if (usageNode.TryGetProperty("total_tokens", out var totalNode) && totalNode.TryGetInt32(out var t))
+                {
+                    totalTokens = Math.Max(0, t);
+                }
+                else
+                {
+                    totalTokens = promptTokens + completionTokens;
+                }
+            }
+
+            return new PromptAssistCompletion
+            {
+                Response = string.IsNullOrWhiteSpace(content) ? fallbackResponse : content,
+                PromptTokens = promptTokens,
+                CompletionTokens = completionTokens,
+                TotalTokens = totalTokens,
+            };
+        }
+        catch
+        {
+            return new PromptAssistCompletion
+            {
+                Response = fallbackResponse,
+                PromptTokens = fallbackPromptTokens,
+                CompletionTokens = fallbackCompletionTokens,
+                TotalTokens = fallbackPromptTokens + fallbackCompletionTokens,
+            };
+        }
+    }
+
+    private static int EstimateTokenCount(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        var chars = text.Length;
+        return Math.Max(1, (int)Math.Ceiling(chars / 4d));
+    }
+
+    private JobAssessmentDto MapAssessmentDto(JobAssessment assessment, Job job, Company company, AssessmentEvaluation evaluated = null)
+    {
+        var result = ParseAssessmentEvaluationResult(assessment.AssessmentResultJson);
+        var strengths = evaluated?.Strengths ?? result.Strengths;
+        var weaknesses = evaluated?.Weaknesses ?? result.Weaknesses;
+        var tips = evaluated?.Tips ?? result.Tips;
+        var problems = ParseLeetPromptProblems(assessment.ContextJson)
+            .OrderBy(x => x.Order)
+            .Select(x => new JobAssessmentProblemDto
+            {
+                Id = x.Id,
+                Title = x.Title,
+                Description = x.Description,
+                Language = x.Language,
+                StarterCode = x.StarterCode,
+                MaxScore = x.MaxScore,
+                Order = x.Order,
+                PublicTests = (x.PublicTests ?? new List<LeetPromptTestCase>())
+                    .Select(t => new JobAssessmentTestCaseDto
+                    {
+                        Input = t.Input,
+                        ExpectedOutput = t.ExpectedOutput,
+                        Hint = t.Hint,
+                    }).ToList(),
+            }).ToList();
+
+        return new JobAssessmentDto
+        {
+            Id = assessment.Id,
+            JobId = assessment.JobId,
+            JobApplicationId = assessment.JobApplicationId,
+            PublicJobApplicationId = assessment.PublicJobApplicationId,
+            CandidateName = assessment.CandidateName ?? string.Empty,
+            CandidateEmail = assessment.CandidateEmail ?? string.Empty,
+            JobTitle = job?.Title ?? string.Empty,
+            CompanyName = company?.Name ?? string.Empty,
+            Prompt = assessment.Prompt ?? string.Empty,
+            Instructions = assessment.Instructions ?? string.Empty,
+            Status = ToAssessmentStatusLabel(assessment.Status),
+            SubmissionText = assessment.SubmissionText ?? string.Empty,
+            SubmissionGithubRepo = assessment.SubmissionGithubRepo ?? string.Empty,
+            Score = assessment.Score,
+            Verdict = string.IsNullOrWhiteSpace(assessment.Verdict) ? result.Verdict : assessment.Verdict,
+            Strengths = strengths,
+            Weaknesses = weaknesses,
+            Tips = tips,
+            SubmittedAt = assessment.SubmittedAt,
+            Problems = problems,
+        };
+    }
+
+    private static AssessmentEvaluation ParseAssessmentEvaluationResult(string assessmentResultJson)
+    {
+        var fallback = new AssessmentEvaluation
+        {
+            Score = 0,
+            Verdict = string.Empty,
+            Summary = string.Empty,
+            Strengths = new List<string>(),
+            Weaknesses = new List<string>(),
+            Tips = new List<string>(),
+        };
+
+        if (string.IsNullOrWhiteSpace(assessmentResultJson))
+        {
+            return fallback;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(assessmentResultJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return fallback;
+            }
+
+            return new AssessmentEvaluation
+            {
+                Score = doc.RootElement.TryGetProperty("score", out var scoreNode) && scoreNode.TryGetDouble(out var score) ? ClampScore(score) : 0,
+                Verdict = doc.RootElement.TryGetProperty("verdict", out var verdictNode) ? verdictNode.GetString() ?? string.Empty : string.Empty,
+                Summary = doc.RootElement.TryGetProperty("summary", out var summaryNode) ? summaryNode.GetString() ?? string.Empty : string.Empty,
+                Strengths = doc.RootElement.TryGetProperty("strengths", out var strengthsNode) ? ReadStringArray(strengthsNode) : new List<string>(),
+                Weaknesses = doc.RootElement.TryGetProperty("weaknesses", out var weaknessesNode) ? ReadStringArray(weaknessesNode) : new List<string>(),
+                Tips = doc.RootElement.TryGetProperty("tips", out var tipsNode) ? ReadStringArray(tipsNode) : new List<string>(),
+            };
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 
     private static HashSet<ApplicationStatus> BuildStatusFilter(List<int> values)
@@ -1558,6 +2892,17 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         };
     }
 
+    private static string ToAssessmentStatusLabel(AssessmentStatus status)
+    {
+        return status switch
+        {
+            AssessmentStatus.Pending => "pending",
+            AssessmentStatus.Submitted => "submitted",
+            AssessmentStatus.Reviewed => "reviewed",
+            _ => "pending",
+        };
+    }
+
     private async Task<CompanyJobsPageSettings> TryGetPageSettingsOrNull(int tenantId, Guid companyId)
     {
         try
@@ -1583,6 +2928,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             message.Contains("42703", StringComparison.OrdinalIgnoreCase) ||
             message.Contains("relation \"CompanyJobsPageSettings\" does not exist", StringComparison.OrdinalIgnoreCase) ||
             message.Contains("relation \"PublicJobApplications\" does not exist", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("relation \"JobAssessments\" does not exist", StringComparison.OrdinalIgnoreCase) ||
             message.Contains("EmailTemplateSettingsJson", StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -2097,12 +3443,77 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         public List<string> Technologies { get; set; } = new();
     }
 
+    private sealed class AssessmentEvaluation
+    {
+        public double Score { get; set; }
+        public string Verdict { get; set; } = string.Empty;
+        public string Summary { get; set; } = string.Empty;
+        public List<string> Strengths { get; set; } = new();
+        public List<string> Weaknesses { get; set; } = new();
+        public List<string> Tips { get; set; } = new();
+        public double TestScore { get; set; }
+        public double PromptScore { get; set; }
+        public double TokenEfficiencyScore { get; set; }
+        public double CodeQualityScore { get; set; }
+    }
+
+    private sealed class LeetPromptProblem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Language { get; set; } = "javascript";
+        public string StarterCode { get; set; } = string.Empty;
+        public double MaxScore { get; set; } = 100;
+        public int Order { get; set; }
+        public List<LeetPromptTestCase> PublicTests { get; set; } = new();
+    }
+
+    private sealed class LeetPromptTestCase
+    {
+        public string Input { get; set; } = string.Empty;
+        public string ExpectedOutput { get; set; } = string.Empty;
+        public string Hint { get; set; } = string.Empty;
+    }
+
+    private sealed class LeetPromptSubmission
+    {
+        public List<LeetPromptSubmissionProblem> Problems { get; set; } = new();
+    }
+
+    private sealed class LeetPromptSubmissionProblem
+    {
+        public string ProblemId { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public int PassedPublic { get; set; }
+        public int TotalPublic { get; set; }
+        public List<LeetPromptPromptAttempt> PromptAttempts { get; set; } = new();
+    }
+
+    private sealed class LeetPromptPromptAttempt
+    {
+        public string Prompt { get; set; } = string.Empty;
+        public string Response { get; set; } = string.Empty;
+        public int PromptTokens { get; set; }
+        public int CompletionTokens { get; set; }
+        public int TotalTokens { get; set; }
+        public bool Accepted { get; set; }
+    }
+
+    private sealed class PromptAssistCompletion
+    {
+        public string Response { get; set; } = string.Empty;
+        public int PromptTokens { get; set; }
+        public int CompletionTokens { get; set; }
+        public int TotalTokens { get; set; }
+    }
+
     private sealed class EmailTemplateSettings
     {
         public bool ApplicationReceivedEnabled { get; set; } = true;
         public string ApplicationReceivedMode { get; set; } = "manual";
         public string ApplicationReceivedSubject { get; set; } = "Application received for {jobTitle}";
         public string ApplicationReceivedBody { get; set; } =
-            "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team";
+            "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team";
     }
 }

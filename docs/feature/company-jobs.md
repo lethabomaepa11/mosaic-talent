@@ -24,6 +24,20 @@ Implemented in `aspnet-core/src/MosaicTalent.Core/Domains/Companies`:
   - `MatchReason`
   - `Source` (`LinkedIn`, `Facebook`, `Referral`, `Website`, `Google`, `Other`)
   - `Status` (`Applied`, `Shortlisted`, `Assessment`, `Interview`, `Rejected`, `Approved`)
+- `JobAssessment`
+  - `JobId`
+  - `JobApplicationId` (optional link for member applications)
+  - `PublicJobApplicationId` (optional link for public applications)
+  - `CandidateName`
+  - `CandidateEmail`
+  - `Prompt` (LeetPrompt-style task)
+  - `Instructions`
+  - `SubmissionText`
+  - `SubmissionGithubRepo`
+  - `AssessmentResultJson`
+  - `Score` (0-100)
+  - `Verdict`
+  - `Status` (`Pending`, `Submitted`, `Reviewed`)
 
 ## Backend Service
 
@@ -42,6 +56,8 @@ Endpoints:
 - `GET /api/services/app/CompanyJob/GetCandidatesDirectory` (company employees, tenant-1 shared pool)
 - `POST /api/services/app/CompanyJob/ApplyToJob`
 - `POST /api/services/app/CompanyJob/ApplyToPublicJob` (anonymous form apply)
+- `GET /api/services/app/CompanyJob/GetAssessment` (anonymous assessment load)
+- `POST /api/services/app/CompanyJob/SubmitAssessment` (anonymous assessment submit)
 - `GET /api/services/app/CompanyJob/GetPublicJobsPage`
 - `GET /api/services/app/CompanyJob/GetMyJobsPageSettings`
 - `PUT /api/services/app/CompanyJob/UpdateMyJobsPageSettings`
@@ -105,6 +121,22 @@ UI capabilities:
 - view shared tenant-1 candidate directory inside `/app/jobs/[id]`
 - update application status
 - bulk move candidates to assessment based on criteria + send assessment invite emails
+- assessment lifecycle:
+  - assessment record is created when an application is submitted
+  - application received email includes `{assessmentLink}` token
+  - candidate opens `/assessment/[id]` and submits response + optional GitHub link
+  - backend evaluates result (AI first, heuristic fallback), updates `MatchScore`/`MatchReason`, and stores structured strengths/weaknesses/tips
+  - company employees receive in-app ABP notification on assessment completion
+  - assessment now supports LeetPrompt multi-problem flow:
+    - backend ensures at least 2 coding problems per assessment in context JSON
+    - each problem carries starter code + public test cases
+    - candidate runs public tests in-browser before final submit
+    - candidate can call AI assistant per problem (`RunAssessmentPrompt`) and token usage is tracked
+    - final payload includes per-problem pass counts + prompt attempts, blended into backend evaluation score:
+      - test pass-rate
+      - prompt quality
+      - token efficiency
+      - code quality
 - company page-builder in `/app/settings/page-builder`:
   - drag/drop-like block composition (hero, text, image, button, form, jobs list)
   - value editing panel + image upload

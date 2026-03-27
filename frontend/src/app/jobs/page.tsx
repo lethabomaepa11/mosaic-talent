@@ -23,11 +23,10 @@ const JobsPage = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
-    setIsPageLoading(true);
     Promise.allSettled([fetchOpenJobs(), fetchPublicJobsPage()]).finally(() => {
       setIsPageLoading(false);
     });
-  }, []);
+  }, [fetchOpenJobs, fetchPublicJobsPage]);
 
   const companyLabel = useMemo(() => {
     return tenancyName ? `${tenancyName} workspace` : "developer workspace";

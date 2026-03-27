@@ -214,6 +214,21 @@ const CandidateAssessmentPage = () => {
                   <div className={styles.timelineRow}><div className={styles.timelineDotPending}><Users size={14} /></div><div><Typography.Text strong>Interview / Decision</Typography.Text><br /><Typography.Text type="secondary">Pending</Typography.Text></div></div>
                 </Space>
               </Card>
+              <Card title="Assessment">
+                <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                  <Typography.Text type="secondary">Status: {application.assessmentStatus || "not-created"}</Typography.Text>
+                  <Typography.Text type="secondary">Score: {typeof application.assessmentScore === "number" ? `${application.assessmentScore.toFixed(1)}%` : "--"}</Typography.Text>
+                  <Typography.Text type="secondary">Verdict: {application.assessmentVerdict || "--"}</Typography.Text>
+                  {application.assessmentSubmittedAt ? (
+                    <Typography.Text type="secondary">Submitted: {new Date(application.assessmentSubmittedAt).toLocaleString()}</Typography.Text>
+                  ) : null}
+                  {application.assessmentId ? (
+                    <a href={`/assessment/${application.assessmentId}`} target="_blank" rel="noreferrer">
+                      <Button icon={<ExternalLink size={14} />}>Open Candidate Assessment</Button>
+                    </a>
+                  ) : null}
+                </Space>
+              </Card>
             </div>,
           },
           {
@@ -242,7 +257,7 @@ const CandidateAssessmentPage = () => {
               : <Card title="Projects"><Empty description="No projects extracted from CV yet." /></Card>,
           },
           { key: "reviews", label: "Reviews", children: <Card title="Reviews"><Empty description="Peer reviews are not linked to this application yet." /></Card> },
-          { key: "simulator", label: "Simulator Results", children: <Card title="Simulator Results"><Empty description="Simulation results are not linked to this application yet." /></Card> },
+          { key: "assessment", label: "Assessment", children: <Card title="Assessment Result"><Empty description={application.assessmentStatus === "reviewed" ? "Assessment was reviewed. See overview for summary." : "Assessment has not been reviewed yet."} /></Card> },
         ]} />
 
         <Card title="Skills & Notes">

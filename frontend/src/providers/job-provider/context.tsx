@@ -28,6 +28,58 @@ export interface IJobApplication {
     technologies: string[];
   }>;
   aiMosaic?: Record<string, number>;
+  assessmentId?: string;
+  assessmentStatus?: string;
+  assessmentScore?: number;
+  assessmentVerdict?: string;
+  assessmentSubmittedAt?: string;
+}
+
+export interface IJobAssessment {
+  id: string;
+  jobId: string;
+  jobApplicationId?: string;
+  publicJobApplicationId?: string;
+  candidateName: string;
+  candidateEmail: string;
+  jobTitle: string;
+  companyName: string;
+  prompt: string;
+  instructions: string;
+  status: string;
+  submissionText: string;
+  submissionGithubRepo?: string;
+  score: number;
+  verdict: string;
+  strengths: string[];
+  weaknesses: string[];
+  tips: string[];
+  submittedAt?: string;
+  problems: IJobAssessmentProblem[];
+}
+
+export interface IAssessmentPromptResult {
+  problemId: string;
+  prompt: string;
+  response: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface IJobAssessmentProblem {
+  id: string;
+  title: string;
+  description: string;
+  language: string;
+  starterCode: string;
+  maxScore: number;
+  order: number;
+  publicTests: Array<{
+    input: string;
+    expectedOutput: string;
+    hint?: string;
+  }>;
 }
 
 export interface IJobCandidate {
@@ -136,6 +188,9 @@ export interface IJobActionContext {
   updateApplicationStatus: (jobApplicationId: string, status: number) => Promise<IJobApplication | undefined>;
   bulkMoveToAssessment: (input: { jobId: string; minimumMatchScore?: number; currentStatuses?: number[] }) => Promise<number>;
   sendApplicationEmail: (jobApplicationId: string, subject: string, message: string) => Promise<void>;
+  getAssessment: (assessmentId: string) => Promise<IJobAssessment>;
+  runAssessmentPrompt: (input: { assessmentId: string; problemId: string; prompt: string }) => Promise<IAssessmentPromptResult>;
+  submitAssessment: (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => Promise<IJobAssessment>;
 }
 
 export const INITIAL_STATE: IJobStateContext = {
@@ -166,4 +221,48 @@ export const JobActionContext = createContext<IJobActionContext>({
   updateApplicationStatus: async () => undefined,
   bulkMoveToAssessment: async () => 0,
   sendApplicationEmail: async () => undefined,
+  getAssessment: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
+  }),
+  runAssessmentPrompt: async () => ({
+    problemId: "",
+    prompt: "",
+    response: "",
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  }),
+  submitAssessment: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
+  }),
 });

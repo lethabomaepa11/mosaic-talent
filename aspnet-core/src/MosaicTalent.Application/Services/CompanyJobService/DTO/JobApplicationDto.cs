@@ -44,6 +44,16 @@ public class JobApplicationDto
     public List<AiProjectDto> AiProjects { get; set; } = new();
 
     public Dictionary<string, double> AiMosaic { get; set; } = new();
+
+    public Guid? AssessmentId { get; set; }
+
+    public string AssessmentStatus { get; set; } = string.Empty;
+
+    public double? AssessmentScore { get; set; }
+
+    public string AssessmentVerdict { get; set; } = string.Empty;
+
+    public DateTime? AssessmentSubmittedAt { get; set; }
 }
 
 public class AiProjectDto

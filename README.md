@@ -76,6 +76,14 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - AI application assessment (match score, strengths, weaknesses, verdict)
   - branded applicant emails with configurable template mode (manual/AI) from jobs page settings
   - job application review pipeline (applied -> shortlisted -> assessment -> interview -> rejected/approved) + bulk assessment transition
+  - assessment workflow:
+    - assessment generated at application time
+    - application received email includes assessment link
+    - public `/assessment/[id]` submission page
+    - AI/heuristic scoring updates application score + verdict + reasons
+    - LeetPrompt-style coding experience with 2+ runnable problems and public test execution
+    - per-problem AI prompt assistant with token tracking and accepted-prompt selection
+    - final score blends public test pass-rate + prompt quality + token efficiency + code quality
 
 ## Documentation
 
@@ -185,6 +193,8 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/CompanyJob/GetJobApplications`
 - `POST /api/services/app/CompanyJob/ApplyToJob`
 - `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
+- `GET /api/services/app/CompanyJob/GetAssessment`
+- `POST /api/services/app/CompanyJob/SubmitAssessment`
 
 ### File upload (R2)
 

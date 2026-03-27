@@ -19,8 +19,10 @@ import {
   updateJobSuccess,
 } from "./actions";
 import {
+  IAssessmentPromptResult,
   ICreateJobInput,
   IApplyToPublicJobInput,
+  IJobAssessment,
   IJobCandidate,
   IJob,
   IJobApplication,
@@ -83,6 +85,70 @@ const normalizeApplication = (input: Partial<IJobApplication>): IJobApplication 
           ),
         )
       : {},
+  assessmentId: input.assessmentId ? String(input.assessmentId) : "",
+  assessmentStatus: input.assessmentStatus ?? "",
+  assessmentScore: typeof input.assessmentScore === "number" ? input.assessmentScore : undefined,
+  assessmentVerdict: input.assessmentVerdict ?? "",
+  assessmentSubmittedAt: input.assessmentSubmittedAt ?? "",
+});
+
+const normalizeAssessment = (input: Partial<IJobAssessment>): IJobAssessment => ({
+  id: String(input.id ?? ""),
+  jobId: String(input.jobId ?? ""),
+  jobApplicationId: input.jobApplicationId ? String(input.jobApplicationId) : "",
+  publicJobApplicationId: input.publicJobApplicationId ? String(input.publicJobApplicationId) : "",
+  candidateName: input.candidateName ?? "",
+  candidateEmail: input.candidateEmail ?? "",
+  jobTitle: input.jobTitle ?? "",
+  companyName: input.companyName ?? "",
+  prompt: input.prompt ?? "",
+  instructions: input.instructions ?? "",
+  status: input.status ?? "pending",
+  submissionText: input.submissionText ?? "",
+  submissionGithubRepo: input.submissionGithubRepo ?? "",
+  score: Number(input.score ?? 0),
+  verdict: input.verdict ?? "",
+  strengths: Array.isArray(input.strengths) ? input.strengths.filter((x): x is string => typeof x === "string") : [],
+  weaknesses: Array.isArray(input.weaknesses) ? input.weaknesses.filter((x): x is string => typeof x === "string") : [],
+  tips: Array.isArray(input.tips) ? input.tips.filter((x): x is string => typeof x === "string") : [],
+  submittedAt: input.submittedAt ?? "",
+  problems: Array.isArray(input.problems)
+    ? input.problems
+        .filter((x) => typeof x === "object" && x !== null)
+        .map((problem) => ({
+          id: typeof (problem as { id?: unknown }).id === "string" ? (problem as { id: string }).id : "",
+          title: typeof (problem as { title?: unknown }).title === "string" ? (problem as { title: string }).title : "",
+          description:
+            typeof (problem as { description?: unknown }).description === "string"
+              ? (problem as { description: string }).description
+              : "",
+          language:
+            typeof (problem as { language?: unknown }).language === "string"
+              ? (problem as { language: string }).language
+              : "javascript",
+          starterCode:
+            typeof (problem as { starterCode?: unknown }).starterCode === "string"
+              ? (problem as { starterCode: string }).starterCode
+              : "",
+          maxScore:
+            typeof (problem as { maxScore?: unknown }).maxScore === "number"
+              ? (problem as { maxScore: number }).maxScore
+              : 100,
+          order: typeof (problem as { order?: unknown }).order === "number" ? (problem as { order: number }).order : 0,
+          publicTests: Array.isArray((problem as { publicTests?: unknown }).publicTests)
+            ? ((problem as { publicTests: unknown[] }).publicTests
+                .filter((test) => typeof test === "object" && test !== null)
+                .map((test) => ({
+                  input: typeof (test as { input?: unknown }).input === "string" ? (test as { input: string }).input : "",
+                  expectedOutput:
+                    typeof (test as { expectedOutput?: unknown }).expectedOutput === "string"
+                      ? (test as { expectedOutput: string }).expectedOutput
+                      : "",
+                  hint: typeof (test as { hint?: unknown }).hint === "string" ? (test as { hint: string }).hint : "",
+                })))
+            : [],
+        }))
+    : [],
 });
 
 const normalizeCandidate = (input: Partial<IJobCandidate>): IJobCandidate => ({
@@ -193,7 +259,7 @@ const normalizePublicJobsPage = (input: Partial<IPublicJobsPage>): IPublicJobsPa
       enabled: true,
       mode: "manual",
       subject: "Application received for {jobTitle}",
-      body: "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team",
+      body: "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team",
     },
   }),
 });
@@ -386,6 +452,56 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const getAssessment = async (assessmentId: string) => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetAssessment`, {
+        params: {
+          assessmentId,
+          AssessmentId: assessmentId,
+          "input.assessmentId": assessmentId,
+        },
+      });
+      return normalizeAssessment((res.data?.result ?? {}) as Partial<IJobAssessment>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load assessment."));
+    }
+  };
+
+  const submitAssessment = async (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/SubmitAssessment`, {
+        assessmentId: input.assessmentId,
+        submissionText: input.submissionText,
+        githubRepoUrl: input.githubRepoUrl ?? "",
+      });
+      return normalizeAssessment((res.data?.result ?? {}) as Partial<IJobAssessment>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to submit assessment."));
+    }
+  };
+
+  const runAssessmentPrompt = async (input: { assessmentId: string; problemId: string; prompt: string }) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/RunAssessmentPrompt`, {
+        assessmentId: input.assessmentId,
+        problemId: input.problemId,
+        prompt: input.prompt,
+      });
+
+      const result = (res.data?.result ?? {}) as Partial<IAssessmentPromptResult>;
+      return {
+        problemId: String(result.problemId ?? ""),
+        prompt: result.prompt ?? "",
+        response: result.response ?? "",
+        promptTokens: Number(result.promptTokens ?? 0),
+        completionTokens: Number(result.completionTokens ?? 0),
+        totalTokens: Number(result.totalTokens ?? 0),
+      };
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to run AI prompt."));
+    }
+  };
+
   const fetchCandidatesDirectory = async () => {
     try {
       const res = await instance.get(`${ENDPOINT}/GetCandidatesDirectory`);
@@ -486,6 +602,9 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
           updateApplicationStatus,
           bulkMoveToAssessment,
           sendApplicationEmail,
+          getAssessment,
+          runAssessmentPrompt,
+          submitAssessment,
         }}
       >
         {children}
@@ -505,9 +624,12 @@ export const useJobAction = () => {
 export type {
   IApplyToPublicJobInput,
   ICreateJobInput,
+  IAssessmentPromptResult,
   IJobCandidate,
   IJob,
   IJobApplication,
+  IJobAssessment,
+  IJobAssessmentProblem,
   IPublicJobsPage,
   IUpdateJobsPageSettingsInput,
   IUpdateJobInput,

@@ -9,6 +9,7 @@ description: Use this skill before starting ANY feature or fix. Covers branch na
 
 **No code is written without a branch. No branch is pushed without tests.**
 **No implementation starts until the user explicitly approves the plan.**
+**Never run migration commands; always ask the user to run migrations manually.**
 
 Every piece of work — no matter how small — follows this sequence:
 
