@@ -12,6 +12,7 @@ import { SimulationProvider } from "@/providers/simulation-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
+  useTenantResolutionState,
 } from "@/providers/tenant-provider";
 import { AntdProvider } from "./antd-provider";
 import { AntdToastViewport } from "./antd-toast";
@@ -28,10 +29,33 @@ const TenantBootstrap = ({ children }: PropsWithChildren) => {
   return <>{children}</>;
 };
 
+const FaviconSync = () => {
+  const { tenancyName, companyLogoUrl } = useTenantResolutionState();
+
+  useEffect(() => {
+    const baseHref = tenancyName && companyLogoUrl ? companyLogoUrl : "/logo.svg";
+    const href = `${baseHref}${baseHref.includes("?") ? "&" : "?"}v=${Date.now()}`;
+    const rels = ["icon", "shortcut icon", "apple-touch-icon"];
+
+    rels.forEach((rel) => {
+      let link = document.querySelector<HTMLLinkElement>(`link[rel='${rel}']`);
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = rel;
+        document.head.appendChild(link);
+      }
+      link.href = href;
+    });
+  }, [tenancyName, companyLogoUrl]);
+
+  return null;
+};
+
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <TenantResolutionProvider>
       <TenantBootstrap>
+        <FaviconSync />
         <CompanyAccountProvider>
           <AuthProvider>
             <CompanyProfileProvider>

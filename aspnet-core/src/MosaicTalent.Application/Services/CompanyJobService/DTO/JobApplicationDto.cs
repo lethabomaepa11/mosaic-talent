@@ -25,4 +25,8 @@ public class JobApplicationDto
     public string Status { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public bool IsPublicApplication { get; set; }
+
+    public string ApplicationResponseJson { get; set; }
 }

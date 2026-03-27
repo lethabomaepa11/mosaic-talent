@@ -1,14 +1,17 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Domain.Uow;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
+using MosaicTalent.Services.AiService;
 using MosaicTalent.Services.CompanyJobService.DTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MosaicTalent.Services.CompanyJobService;
@@ -20,23 +23,47 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     private readonly IRepository<CompanyEmployee, Guid> _companyEmployeeRepository;
     private readonly IRepository<Job, Guid> _jobRepository;
     private readonly IRepository<JobApplication, Guid> _jobApplicationRepository;
+    private readonly IRepository<PublicJobApplication, Guid> _publicJobApplicationRepository;
+    private readonly IRepository<CompanyJobsPageSettings, Guid> _jobsPageSettingsRepository;
     private readonly IRepository<Developer, Guid> _developerRepository;
     private readonly IRepository<User, long> _userRepository;
+    private readonly IGroqChatService _groqChatService;
 
     public CompanyJobAppService(
         IRepository<Company, Guid> companyRepository,
         IRepository<CompanyEmployee, Guid> companyEmployeeRepository,
         IRepository<Job, Guid> jobRepository,
         IRepository<JobApplication, Guid> jobApplicationRepository,
+        IRepository<PublicJobApplication, Guid> publicJobApplicationRepository,
+        IRepository<CompanyJobsPageSettings, Guid> jobsPageSettingsRepository,
         IRepository<Developer, Guid> developerRepository,
-        IRepository<User, long> userRepository)
+        IRepository<User, long> userRepository,
+        IGroqChatService groqChatService)
     {
         _companyRepository = companyRepository;
         _companyEmployeeRepository = companyEmployeeRepository;
         _jobRepository = jobRepository;
         _jobApplicationRepository = jobApplicationRepository;
+        _publicJobApplicationRepository = publicJobApplicationRepository;
+        _jobsPageSettingsRepository = jobsPageSettingsRepository;
         _developerRepository = developerRepository;
         _userRepository = userRepository;
+        _groqChatService = groqChatService;
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<PublicJobsPageDto> GetPublicJobsPage()
+    {
+        var tenantId = AbpSession.TenantId;
+        if (!tenantId.HasValue)
+        {
+            throw new UserFriendlyException("Tenant context is required.");
+        }
+
+        var company = await GetCompanyByTenant(tenantId.Value);
+        var settings = await TryGetPageSettingsOrNull(tenantId.Value, company.Id);
+
+        return MapPublicJobsPage(company, settings);
     }
 
     public async Task<List<JobDto>> GetMyJobs()
@@ -47,6 +74,23 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
 
         var jobs = await _jobRepository.GetAll()
             .Where(x => x.TenantId == tenantId && x.CompanyId == company.Id)
+            .OrderByDescending(x => x.CreationTime)
+            .ToListAsync();
+
+        return await MapJobs(jobs);
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<List<JobDto>> GetOpenJobs()
+    {
+        var tenantId = AbpSession.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return new List<JobDto>();
+        }
+
+        var jobs = await _jobRepository.GetAll()
+            .Where(x => x.TenantId == tenantId.Value && x.IsOpen)
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 
@@ -148,7 +192,9 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         var currentDeveloper = await GetCurrentDeveloperOrNull();
         var myDeveloperId = currentDeveloper?.Id;
 
-        var query = _jobApplicationRepository.GetAll()
+        var memberQuery = _jobApplicationRepository.GetAll()
+            .Where(x => x.JobId == job.Id);
+        var publicQuery = _publicJobApplicationRepository.GetAll()
             .Where(x => x.JobId == job.Id);
 
         if (!isCompanyEmployee)
@@ -158,14 +204,69 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 throw new UserFriendlyException("You are not authorized to view these applications.");
             }
 
-            query = query.Where(x => x.CandidateDeveloperId == myDeveloperId.Value);
+            memberQuery = memberQuery.Where(x => x.CandidateDeveloperId == myDeveloperId.Value);
+            publicQuery = publicQuery.Where(x => x.CandidateDeveloperId == myDeveloperId.Value);
         }
 
-        var applications = await query
-            .OrderByDescending(x => x.CreationTime)
-            .ToListAsync();
+        var memberApplications = await memberQuery.ToListAsync();
+        List<PublicJobApplication> publicApplications;
+        try
+        {
+            publicApplications = await publicQuery.ToListAsync();
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            publicApplications = new List<PublicJobApplication>();
+        }
+        var mappedMember = await MapApplications(memberApplications);
+        var mappedPublic = await MapPublicApplications(publicApplications);
 
-        return await MapApplications(applications);
+        return mappedMember
+            .Concat(mappedPublic)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToList();
+    }
+
+    [AbpAuthorize]
+    public async Task<List<JobCandidateDto>> GetCandidatesDirectory()
+    {
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyByTenant(tenantId);
+        await EnsureCompanyEmployee(company.Id);
+
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+        {
+            var tenantOneUserIds = await _userRepository.GetAll()
+                .Where(x => x.TenantId == 1)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var developers = await _developerRepository.GetAll()
+                .Where(x => tenantOneUserIds.Contains(x.UserId))
+                .OrderByDescending(x => x.CreationTime)
+                .ToListAsync();
+
+            var users = await _userRepository.GetAll()
+                .Where(x => tenantOneUserIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x);
+
+            return developers.Select(developer =>
+            {
+                users.TryGetValue(developer.UserId, out var user);
+                var fullName = string.Join(" ", new[] { user?.Name, user?.Surname }.Where(x => !string.IsNullOrWhiteSpace(x)));
+                var candidateName = string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Candidate" : fullName;
+
+                return new JobCandidateDto
+                {
+                    DeveloperId = developer.Id,
+                    UserId = developer.UserId,
+                    FullName = candidateName,
+                    Email = user?.EmailAddress ?? string.Empty,
+                    AvatarUrl = user?.AvatarUrl ?? string.Empty,
+                    GithubUsername = developer.GithubUsername ?? string.Empty,
+                };
+            }).ToList();
+        }
     }
 
     public async Task<JobApplicationDto> ApplyToJob(ApplyToJobInput input)
@@ -208,6 +309,163 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         return mapped.First();
     }
 
+    [AbpAllowAnonymous]
+    public async Task<JobApplicationDto> ApplyToPublicJob(ApplyToPublicJobInput input)
+    {
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var job = await _jobRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == input.JobId && x.TenantId == tenantId)
+            ?? throw new UserFriendlyException("Job not found.");
+
+        if (!job.IsOpen)
+        {
+            throw new UserFriendlyException("This job is no longer accepting applications.");
+        }
+
+        var developer = await GetCurrentDeveloperOrNull();
+        var source = ParseApplicationSource(input.Source);
+        var publicApplication = new PublicJobApplication
+        {
+            TenantId = tenantId,
+            JobId = job.Id,
+            CandidateDeveloperId = developer?.Id,
+            FullName = input.FullName.Trim(),
+            Email = input.Email.Trim().ToLowerInvariant(),
+            PhoneNumber = input.PhoneNumber?.Trim(),
+            ResumeStoredFileId = input.ResumeStoredFileId?.Trim(),
+            TechnicalAssessmentAnswer = input.TechnicalAssessmentAnswer?.Trim(),
+            BehaviouralAssessmentAnswer = input.BehaviouralAssessmentAnswer?.Trim(),
+            ApplicationResponseJson = input.ResponsesJson?.Trim(),
+            Source = source,
+            MatchScore = 0,
+            MatchReason = "Pending AI evaluation.",
+            Status = ApplicationStatus.Applied,
+        };
+
+        try
+        {
+            await _publicJobApplicationRepository.InsertAsync(publicApplication);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            throw new UserFriendlyException("Public applications are not ready yet. Please run the latest database migrations.");
+        }
+
+        return new JobApplicationDto
+        {
+            Id = publicApplication.Id,
+            JobId = publicApplication.JobId,
+            CandidateDeveloperId = publicApplication.CandidateDeveloperId ?? Guid.Empty,
+            CandidateName = publicApplication.FullName,
+            CandidateEmail = publicApplication.Email,
+            ResumeStoredFileId = publicApplication.ResumeStoredFileId,
+            MatchScore = publicApplication.MatchScore,
+            MatchReason = publicApplication.MatchReason,
+            Source = ToSourceLabel(publicApplication.Source),
+            Status = ToStatusLabel(publicApplication.Status),
+            CreatedAt = publicApplication.CreationTime,
+            IsPublicApplication = true,
+            ApplicationResponseJson = publicApplication.ApplicationResponseJson ?? string.Empty,
+        };
+    }
+
+    [AbpAuthorize]
+    public async Task<PublicJobsPageDto> GetMyJobsPageSettings()
+    {
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyByTenant(tenantId);
+        await EnsureCompanyEmployee(company.Id);
+
+        var settings = await GetOrCreatePageSettings(tenantId, company.Id);
+        return MapPublicJobsPage(company, settings);
+    }
+
+    [AbpAuthorize]
+    public async Task<PublicJobsPageDto> UpdateMyJobsPageSettings(UpdateMyJobsPageSettingsInput input)
+    {
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyByTenant(tenantId);
+        await EnsureCompanyAdmin(company.Id);
+
+        var settings = await GetOrCreatePageSettings(tenantId, company.Id);
+        settings.HeroTitle = input.HeroTitle?.Trim();
+        settings.HeroSubtitle = input.HeroSubtitle?.Trim();
+        settings.HeroImageUrl = input.HeroImageUrl?.Trim();
+        settings.PrimaryColor = input.PrimaryColor?.Trim();
+        settings.LayoutJson = input.LayoutJson?.Trim();
+        settings.ApplicationFormJson = input.ApplicationFormJson?.Trim();
+
+        await _jobsPageSettingsRepository.UpdateAsync(settings);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        return MapPublicJobsPage(company, settings);
+    }
+
+    [AbpAuthorize]
+    public async Task<PublicJobsPageDto> GenerateMyJobsPageSettingsWithAi(GenerateJobsPageWithAiInput input)
+    {
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyByTenant(tenantId);
+        await EnsureCompanyAdmin(company.Id);
+
+        var settings = await GetOrCreatePageSettings(tenantId, company.Id);
+        var defaultLayout = ParseLayoutOrDefault(settings.LayoutJson);
+        var defaultLayoutJson = JsonSerializer.Serialize(new { components = defaultLayout });
+
+        var systemPrompt = "You generate JSON for a company jobs page configuration. Return valid JSON only.";
+        var userPrompt =
+            $"Company: {company.Name}\n" +
+            $"Prompt: {input.Prompt ?? string.Empty}\n" +
+            "Return object keys: heroTitle, heroSubtitle, heroImageUrl, primaryColor, components (string array of hero, job-list, faq, cta, image-banner), " +
+            "applicationFormFields (array of objects: key,label,type,required,placeholder).";
+
+        var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+        if (!string.IsNullOrWhiteSpace(response))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(response);
+                var root = doc.RootElement;
+                settings.HeroTitle = root.TryGetProperty("heroTitle", out var titleNode)
+                    ? titleNode.GetString()
+                    : settings.HeroTitle;
+                settings.HeroSubtitle = root.TryGetProperty("heroSubtitle", out var subtitleNode)
+                    ? subtitleNode.GetString()
+                    : settings.HeroSubtitle;
+                settings.HeroImageUrl = root.TryGetProperty("heroImageUrl", out var imageNode)
+                    ? imageNode.GetString()
+                    : settings.HeroImageUrl;
+                settings.PrimaryColor = root.TryGetProperty("primaryColor", out var colorNode)
+                    ? colorNode.GetString()
+                    : settings.PrimaryColor;
+                if (root.TryGetProperty("components", out var componentsNode) && componentsNode.ValueKind == JsonValueKind.Array)
+                {
+                    var components = componentsNode.EnumerateArray()
+                        .Select(x => x.GetString())
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .ToList();
+
+                    settings.LayoutJson = JsonSerializer.Serialize(new { components });
+                }
+
+                if (root.TryGetProperty("applicationFormFields", out var formFieldsNode) && formFieldsNode.ValueKind == JsonValueKind.Array)
+                {
+                    settings.ApplicationFormJson = $"{{\"fields\":{formFieldsNode.GetRawText()}}}";
+                }
+            }
+            catch
+            {
+                settings.LayoutJson = defaultLayoutJson;
+            }
+        }
+
+        await _jobsPageSettingsRepository.UpdateAsync(settings);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        return MapPublicJobsPage(company, settings);
+    }
+
     public async Task<JobApplicationDto> UpdateJobApplicationStatus(UpdateJobApplicationStatusInput input)
     {
         var application = await _jobApplicationRepository.FirstOrDefaultAsync(input.JobApplicationId)
@@ -232,6 +490,10 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
 
         var jobIds = jobs.Select(x => x.Id).ToList();
+        var companyIds = jobs.Select(x => x.CompanyId).Distinct().ToList();
+        var companies = await _companyRepository.GetAll()
+            .Where(x => companyIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x);
         var applicationCounts = await _jobApplicationRepository.GetAll()
             .Where(x => jobIds.Contains(x.JobId))
             .GroupBy(x => x.JobId)
@@ -241,11 +503,30 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 Count = group.Count(),
             })
             .ToDictionaryAsync(x => x.JobId, x => x.Count);
+        Dictionary<Guid, int> publicApplicationCounts;
+        try
+        {
+            publicApplicationCounts = await _publicJobApplicationRepository.GetAll()
+                .Where(x => jobIds.Contains(x.JobId))
+                .GroupBy(x => x.JobId)
+                .Select(group => new
+                {
+                    JobId = group.Key,
+                    Count = group.Count(),
+                })
+                .ToDictionaryAsync(x => x.JobId, x => x.Count);
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            publicApplicationCounts = new Dictionary<Guid, int>();
+        }
 
         return jobs.Select(job => new JobDto
         {
             Id = job.Id,
             CompanyId = job.CompanyId,
+            CompanyName = companies.TryGetValue(job.CompanyId, out var company) ? company.Name : string.Empty,
+            CompanyLogoStoredFileId = companies.TryGetValue(job.CompanyId, out var logoCompany) ? logoCompany.LogoStoredFileId : string.Empty,
             Title = job.Title,
             Description = job.Description,
             Location = job.Location,
@@ -255,7 +536,9 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             TechnicalAssessmentPrompt = job.TechnicalAssessmentPrompt,
             BehaviouralAssessmentPrompt = job.BehaviouralAssessmentPrompt,
             CreatedAt = job.CreationTime,
-            ApplicationCount = applicationCounts.TryGetValue(job.Id, out var count) ? count : 0,
+            ApplicationCount =
+                (applicationCounts.TryGetValue(job.Id, out var count) ? count : 0) +
+                (publicApplicationCounts.TryGetValue(job.Id, out var publicCount) ? publicCount : 0),
         }).ToList();
     }
 
@@ -267,13 +550,18 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
 
         var candidateIds = applications.Select(x => x.CandidateDeveloperId).Distinct().ToList();
-        var developers = await _developerRepository.GetAll()
-            .Where(x => candidateIds.Contains(x.Id))
-            .ToListAsync();
-        var userIds = developers.Select(x => x.UserId).Distinct().ToList();
-        var users = await _userRepository.GetAll()
-            .Where(x => userIds.Contains(x.Id))
-            .ToDictionaryAsync(x => x.Id, x => x);
+        List<Developer> developers;
+        Dictionary<long, User> users;
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+        {
+            developers = await _developerRepository.GetAll()
+                .Where(x => candidateIds.Contains(x.Id))
+                .ToListAsync();
+            var userIds = developers.Select(x => x.UserId).Distinct().ToList();
+            users = await _userRepository.GetAll()
+                .Where(x => userIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x);
+        }
 
         return applications.Select(application =>
         {
@@ -295,6 +583,76 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 Source = ToSourceLabel(application.Source),
                 Status = ToStatusLabel(application.Status),
                 CreatedAt = application.CreationTime,
+                IsPublicApplication = false,
+                ApplicationResponseJson = string.Empty,
+            };
+        }).ToList();
+    }
+
+    private async Task<List<JobApplicationDto>> MapPublicApplications(List<PublicJobApplication> applications)
+    {
+        if (applications.Count == 0)
+        {
+            return new List<JobApplicationDto>();
+        }
+
+        var developerIds = applications
+            .Where(x => x.CandidateDeveloperId.HasValue)
+            .Select(x => x.CandidateDeveloperId!.Value)
+            .Distinct()
+            .ToList();
+
+        List<Developer> developers = new();
+        Dictionary<long, User> users = new();
+        if (developerIds.Count > 0)
+        {
+            using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+            {
+                developers = await _developerRepository.GetAll()
+                    .Where(x => developerIds.Contains(x.Id))
+                    .ToListAsync();
+                var userIds = developers.Select(x => x.UserId).Distinct().ToList();
+                users = await _userRepository.GetAll()
+                    .Where(x => userIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, x => x);
+            }
+        }
+
+        return applications.Select(application =>
+        {
+            User user = null;
+            if (application.CandidateDeveloperId.HasValue)
+            {
+                var dev = developers.FirstOrDefault(x => x.Id == application.CandidateDeveloperId.Value);
+                if (dev != null)
+                {
+                    users.TryGetValue(dev.UserId, out user);
+                }
+            }
+
+            var fullName = string.Join(" ", new[] { user?.Name, user?.Surname }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            var candidateName = !string.IsNullOrWhiteSpace(application.FullName)
+                ? application.FullName
+                : (string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Candidate" : fullName);
+            var candidateEmail = !string.IsNullOrWhiteSpace(application.Email)
+                ? application.Email
+                : user?.EmailAddress ?? string.Empty;
+
+            return new JobApplicationDto
+            {
+                Id = application.Id,
+                JobId = application.JobId,
+                CandidateDeveloperId = application.CandidateDeveloperId ?? Guid.Empty,
+                CandidateName = candidateName,
+                CandidateEmail = candidateEmail,
+                ResumeStoredFileId = application.ResumeStoredFileId,
+                MatchScore = application.MatchScore,
+                MatchReason = application.MatchReason,
+                Source = ToSourceLabel(application.Source),
+                Status = ToStatusLabel(application.Status),
+                CreatedAt = application.CreationTime,
+                IsPublicApplication = true,
+                ApplicationResponseJson = application.ApplicationResponseJson ?? string.Empty,
             };
         }).ToList();
     }
@@ -309,6 +667,158 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
 
         return company;
+    }
+
+    private async Task<CompanyJobsPageSettings> GetOrCreatePageSettings(int tenantId, Guid companyId)
+    {
+        var settings = await TryGetPageSettingsOrNull(tenantId, companyId);
+        if (settings != null)
+        {
+            return settings;
+        }
+
+        settings = new CompanyJobsPageSettings
+        {
+            TenantId = tenantId,
+            CompanyId = companyId,
+            HeroTitle = "Build your career with us",
+            HeroSubtitle = "Apply to open roles and show your strengths.",
+            HeroImageUrl = string.Empty,
+            PrimaryColor = "#D4AF37",
+            LayoutJson = BuildDefaultLayoutJson(),
+            ApplicationFormJson = JsonSerializer.Serialize(new
+            {
+                fields = new[]
+                {
+                    new { key = "technicalAssessmentAnswer", label = "Technical Assessment", type = "textarea", required = false, placeholder = "Tell us how you solve technical challenges." },
+                    new { key = "behaviouralAssessmentAnswer", label = "Behavioural Assessment", type = "textarea", required = false, placeholder = "Describe your collaboration and communication style." },
+                }
+            }),
+        };
+
+        try
+        {
+            await _jobsPageSettingsRepository.InsertAsync(settings);
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            return settings;
+        }
+        return settings;
+    }
+
+    private static PublicJobsPageDto MapPublicJobsPage(Company company, CompanyJobsPageSettings settings)
+    {
+        return new PublicJobsPageDto
+        {
+            CompanyId = company.Id,
+            CompanyName = company.Name,
+            TenancyName = company.TenancyName,
+            CompanyLogoStoredFileId = company.LogoStoredFileId ?? string.Empty,
+            CompanyEmail = company.Email ?? string.Empty,
+            CompanyWebsiteUrl = company.Website ?? string.Empty,
+            HeroTitle = settings?.HeroTitle ?? "Build your career with us",
+            HeroSubtitle = settings?.HeroSubtitle ?? "Apply to open roles and show your strengths.",
+            HeroImageUrl = settings?.HeroImageUrl ?? string.Empty,
+            PrimaryColor = string.IsNullOrWhiteSpace(settings?.PrimaryColor) ? "#D4AF37" : settings.PrimaryColor,
+            LayoutJson = string.IsNullOrWhiteSpace(settings?.LayoutJson) ? BuildDefaultLayoutJson() : settings.LayoutJson,
+            ApplicationFormJson = settings?.ApplicationFormJson ?? JsonSerializer.Serialize(new
+            {
+                fields = new[]
+                {
+                    new { key = "technicalAssessmentAnswer", label = "Technical Assessment", type = "textarea", required = false, placeholder = "Tell us how you solve technical challenges." },
+                    new { key = "behaviouralAssessmentAnswer", label = "Behavioural Assessment", type = "textarea", required = false, placeholder = "Describe your collaboration and communication style." },
+                }
+            }),
+        };
+    }
+
+    private static List<string> ParseLayoutOrDefault(string layoutJson)
+    {
+        if (string.IsNullOrWhiteSpace(layoutJson))
+        {
+            return new List<string> { "hero", "text", "job-list", "form", "cta" };
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(layoutJson);
+            if (doc.RootElement.TryGetProperty("components", out var componentsNode) && componentsNode.ValueKind == JsonValueKind.Array)
+            {
+                return componentsNode.EnumerateArray()
+                    .Select(x => x.GetString())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+            }
+        }
+        catch
+        {
+            return new List<string> { "hero", "text", "job-list", "form", "cta" };
+        }
+
+        return new List<string> { "hero", "text", "job-list", "form", "cta" };
+    }
+
+    private static string BuildDefaultLayoutJson()
+    {
+        return JsonSerializer.Serialize(new
+        {
+            blocks = new object[]
+            {
+                new
+                {
+                    id = "hero-1",
+                    type = "hero",
+                    props = new
+                    {
+                        title = "Ready to become a team member?",
+                        subtitle = "Welcome to our recruitment platform. Explore opportunities and apply with confidence."
+                    }
+                },
+                new
+                {
+                    id = "text-1",
+                    type = "text",
+                    props = new
+                    {
+                        content = "We are excited to have you explore our career opportunities.\nOur platform connects you directly with our Human Capital team."
+                    }
+                },
+                new
+                {
+                    id = "jobs-1",
+                    type = "job-list",
+                    props = new
+                    {
+                        title = "Our Openings",
+                        subtitle = "Open positions",
+                        showCount = "true",
+                        label = "Apply"
+                    }
+                },
+                new
+                {
+                    id = "form-1",
+                    type = "form",
+                    props = new
+                    {
+                        title = "Submit your application",
+                        subtitle = "Even if no role fits yet, you can still submit your profile."
+                    }
+                },
+                new
+                {
+                    id = "cta-1",
+                    type = "cta",
+                    props = new
+                    {
+                        title = "Keep in touch",
+                        subtitle = "Met us at a career fair? Share your details and stay connected."
+                    }
+                }
+            }
+        });
     }
 
     private async Task EnsureCompanyEmployee(Guid companyId)
@@ -374,8 +884,11 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             return null;
         }
 
-        return await _developerRepository.GetAll()
-            .FirstOrDefaultAsync(x => x.UserId == userId.Value);
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+        {
+            return await _developerRepository.GetAll()
+                .FirstOrDefaultAsync(x => x.UserId == userId.Value);
+        }
     }
 
     private static EmploymentType ParseEmploymentType(int value)
@@ -452,5 +965,36 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             ApplicationStatus.Approved => "approved",
             _ => "applied",
         };
+    }
+
+    private async Task<CompanyJobsPageSettings> TryGetPageSettingsOrNull(int tenantId, Guid companyId)
+    {
+        try
+        {
+            return await _jobsPageSettingsRepository.GetAll()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.CompanyId == companyId);
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            return null;
+        }
+    }
+
+    private static bool IsMissingRelation(Exception exception)
+    {
+        if (exception == null)
+        {
+            return false;
+        }
+
+        var message = exception.Message ?? string.Empty;
+        if (message.Contains("42P01", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("relation \"CompanyJobsPageSettings\" does not exist", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("relation \"PublicJobApplications\" does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return exception.InnerException != null && IsMissingRelation(exception.InnerException);
     }
 }

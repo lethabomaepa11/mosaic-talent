@@ -1,6 +1,12 @@
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
+  pageLoader: css`
+    min-height: calc(100vh - 140px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `,
   page: css`
     display: flex;
     flex-direction: column;

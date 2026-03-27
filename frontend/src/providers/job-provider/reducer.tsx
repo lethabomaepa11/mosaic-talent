@@ -18,6 +18,7 @@ export const JobReducer = handleActions<IJobStateContext, JobStatePatch>(
     [JobStateEnums.JOB_UPDATE_PENDING]: (state, { payload }) => ({ ...state, ...payload }),
     [JobStateEnums.JOB_UPDATE_SUCCESS]: (state, { payload }) => ({ ...state, ...payload }),
     [JobStateEnums.JOB_UPDATE_ERROR]: (state, { payload }) => ({ ...state, ...payload }),
+    [JobStateEnums.JOB_PUBLIC_PAGE_SUCCESS]: (state, { payload }) => ({ ...state, ...payload }),
   },
   INITIAL_STATE,
 );

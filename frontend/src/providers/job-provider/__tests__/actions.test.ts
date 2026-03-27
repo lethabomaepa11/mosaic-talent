@@ -5,6 +5,8 @@ const jobs = [
   {
     id: "job-1",
     companyId: "company-1",
+    companyName: "Acme",
+    companyLogoStoredFileId: "",
     title: "Frontend Engineer",
     description: "Build product UI.",
     location: "Remote",

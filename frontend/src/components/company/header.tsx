@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
 import { Bell, Menu, Search, Settings } from "lucide-react";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
@@ -11,6 +12,7 @@ interface ICompanyHeaderProps {
 }
 
 export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
+  const router = useRouter();
   const { styles } = useStyles();
   const { profile } = useCompanyProfileState();
 
@@ -93,6 +95,7 @@ export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
           icon={<Settings size={18} />}
           className={styles.iconButton}
           aria-label="Company settings"
+          onClick={() => router.push("/app/settings")}
         />
 
         <Dropdown trigger={["click"]} menu={{ items: menuItems }} placement="bottomRight">

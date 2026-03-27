@@ -9,6 +9,10 @@ public class JobDto
 
     public Guid CompanyId { get; set; }
 
+    public string CompanyName { get; set; }
+
+    public string CompanyLogoStoredFileId { get; set; }
+
     public string Title { get; set; }
 
     public string Description { get; set; }

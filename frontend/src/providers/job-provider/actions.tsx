@@ -1,5 +1,5 @@
 import { createAction } from "redux-actions";
-import { IJob, IJobStateContext } from "./context";
+import { IJob, IJobStateContext, IPublicJobsPage } from "./context";
 
 type JobStatePatch = Partial<IJobStateContext>;
 
@@ -16,6 +16,7 @@ export enum JobStateEnums {
   JOB_UPDATE_PENDING = "JOB_UPDATE_PENDING",
   JOB_UPDATE_SUCCESS = "JOB_UPDATE_SUCCESS",
   JOB_UPDATE_ERROR = "JOB_UPDATE_ERROR",
+  JOB_PUBLIC_PAGE_SUCCESS = "JOB_PUBLIC_PAGE_SUCCESS",
 }
 
 export const fetchJobsPending = createAction<JobStatePatch>(
@@ -76,4 +77,9 @@ export const updateJobSuccess = createAction<JobStatePatch>(
 export const updateJobError = createAction<JobStatePatch>(
   JobStateEnums.JOB_UPDATE_ERROR,
   () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const publicJobsPageSuccess = createAction<JobStatePatch, IPublicJobsPage>(
+  JobStateEnums.JOB_PUBLIC_PAGE_SUCCESS,
+  (publicJobsPage) => ({ publicJobsPage }),
 );
