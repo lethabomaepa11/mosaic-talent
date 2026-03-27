@@ -45,6 +45,10 @@ public class JobApplicationDto
 
     public Dictionary<string, double> AiMosaic { get; set; } = new();
 
+    public List<string> AiExperienceHighlights { get; set; } = new();
+
+    public double? AiTotalExperienceYears { get; set; }
+
     public Guid? AssessmentId { get; set; }
 
     public string AssessmentStatus { get; set; } = string.Empty;

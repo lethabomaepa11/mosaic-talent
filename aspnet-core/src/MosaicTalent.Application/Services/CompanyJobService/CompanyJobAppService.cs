@@ -26,6 +26,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Abp;
+using UglyToad.PdfPig;
 
 namespace MosaicTalent.Services.CompanyJobService;
 
@@ -462,6 +463,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             AiGithubRepo = aiAssessment.GithubRepo,
             AiProjects = ToProjectDtos(aiAssessment.Projects),
             AiMosaic = aiAssessment.Mosaic,
+            AiExperienceHighlights = aiAssessment.ExperienceHighlights,
+            AiTotalExperienceYears = aiAssessment.TotalExperienceYears,
             AssessmentId = createdAssessment?.Id,
             AssessmentStatus = createdAssessment == null ? string.Empty : ToAssessmentStatusLabel(createdAssessment.Status),
             AssessmentScore = createdAssessment?.Score,
@@ -947,8 +950,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             var candidateName = string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Candidate" : fullName;
             assessmentsByMemberApplicationId.TryGetValue(application.Id, out var linkedAssessment);
 
-        return new JobApplicationDto
-        {
+            return new JobApplicationDto
+            {
                 Id = application.Id,
                 JobId = application.JobId,
                 CandidateDeveloperId = application.CandidateDeveloperId,
@@ -969,6 +972,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 AiGithubRepo = string.Empty,
                 AiProjects = new List<AiProjectDto>(),
                 AiMosaic = new Dictionary<string, double>(),
+                AiExperienceHighlights = new List<string>(),
+                AiTotalExperienceYears = null,
                 AssessmentId = linkedAssessment?.Id,
                 AssessmentStatus = linkedAssessment == null ? string.Empty : ToAssessmentStatusLabel(linkedAssessment.Status),
                 AssessmentScore = linkedAssessment?.Score,
@@ -1069,6 +1074,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 AiGithubRepo = assessment.GithubRepo,
                 AiProjects = ToProjectDtos(assessment.Projects),
                 AiMosaic = assessment.Mosaic,
+                AiExperienceHighlights = assessment.ExperienceHighlights,
+                AiTotalExperienceYears = assessment.TotalExperienceYears,
                 AssessmentId = linkedAssessment?.Id,
                 AssessmentStatus = linkedAssessment == null ? string.Empty : ToAssessmentStatusLabel(linkedAssessment.Status),
                 AssessmentScore = linkedAssessment?.Score,
@@ -2879,30 +2886,69 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
 
     private static List<string> BuildInteractiveQuestions(string workMode, Job job = null, ApplicationAssessment aiAssessment = null)
     {
-        var role = string.IsNullOrWhiteSpace(job?.Title) ? "this role" : job.Title;
-        var topSkill = aiAssessment?.ExtractedSkills?.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
-        var primarySkill = string.IsNullOrWhiteSpace(topSkill) ? "your strongest technical area" : topSkill;
-        var questions = new List<string>
-        {
-            $"Which trade-off did you make for {role}, and why was it acceptable?",
-            $"How did you validate AI suggestions against {primarySkill} requirements?",
-            "What production signal would you monitor first after release?",
-        };
+        var questions = new List<string>();
+        questions.AddRange(ExtractQuestionsFromText(job?.TechnicalAssessmentPrompt));
+        questions.AddRange(ExtractQuestionsFromText(job?.BehaviouralAssessmentPrompt));
+        questions.AddRange(ExtractQuestionsFromText(job?.Description));
 
         if (!string.Equals(workMode, "frontend", StringComparison.OrdinalIgnoreCase))
         {
             var endpoint = BuildEndpointHints(job, workMode).FirstOrDefault();
-            questions.Add(string.IsNullOrWhiteSpace(endpoint)
-                ? "Which endpoint contracts are critical and how will you version them?"
-                : $"How would you version and protect contract changes for `{endpoint}`?");
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                questions.Add($"How would you version and protect contract changes for `{endpoint}`?");
+            }
         }
 
-        if (!string.Equals(workMode, "backend", StringComparison.OrdinalIgnoreCase))
+        if (questions.Count == 0)
         {
-            questions.Add("How does your UI handle loading, validation, and failure states accessibly?");
+            var role = SafeTrim(job?.Title);
+            var primarySkill = aiAssessment?.ExtractedSkills?.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            var fallback = string.IsNullOrWhiteSpace(primarySkill)
+                ? $"What was your highest-impact implementation decision for {(string.IsNullOrWhiteSpace(role) ? "this role" : role)}?"
+                : $"How did {primarySkill} influence your final implementation decision?";
+            questions.Add(fallback);
         }
 
-        return questions;
+        return questions
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+    }
+
+    private static List<string> ExtractQuestionsFromText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new List<string>();
+        }
+
+        var output = new List<string>();
+        var normalized = text.Replace("\r", "\n");
+        var blocks = normalized.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var block in blocks)
+        {
+            var sentences = block.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var sentence in sentences)
+            {
+                var value = sentence.Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                var originalHasQuestion = block.Contains("?", StringComparison.Ordinal);
+                if (originalHasQuestion)
+                {
+                    output.Add(value.EndsWith("?") ? value : $"{value}?");
+                }
+            }
+        }
+
+        return output;
+
     }
 
     private static List<string> DeriveStrongLanguages(ApplicationAssessment aiAssessment)
@@ -3290,10 +3336,10 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
 
         if (extension == ".pdf" || contentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
         {
-            return SafeTrim(ExtractPdfLikeText(bytes));
+            return SafeTrim(ExtractPdfText(bytes));
         }
 
-        return SafeTrim(ExtractPdfLikeText(bytes));
+        return SafeTrim(ExtractPdfText(bytes));
     }
 
     private static string ExtractDocxText(byte[] bytes)
@@ -3314,6 +3360,43 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             var doc = XDocument.Parse(xml);
             var textNodes = doc.Descendants().Where(x => x.Name.LocalName == "t").Select(x => x.Value);
             return string.Join(" ", textNodes);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string ExtractPdfText(byte[] bytes)
+    {
+        var fromPdfPig = ExtractPdfTextWithPdfPig(bytes);
+        if (!string.IsNullOrWhiteSpace(fromPdfPig))
+        {
+            return SafeTrim(fromPdfPig);
+        }
+
+        return SafeTrim(ExtractPdfLikeText(bytes));
+    }
+
+    private static string ExtractPdfTextWithPdfPig(byte[] bytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes);
+            using var document = PdfDocument.Open(stream);
+            var pages = document.GetPages();
+            var lines = pages
+                .Select(page => page.Text)
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .Select(text => Regex.Replace(text, @"\s+", " ").Trim())
+                .Where(text => text.Length > 1)
+                .ToList();
+            if (lines.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join("\n", lines);
         }
         catch
         {
@@ -3361,6 +3444,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             "You are a strict hiring assistant. Return JSON only with keys: " +
             "score (0-100), summary, verdict, strengths (array), weaknesses (array), skills (array), githubRepo, " +
             "projects (array of objects with name, description, technologies array, score), " +
+            "experienceHighlights (array), totalExperienceYears (number), " +
             "mosaic (object with technical, problemSolving, collaboration, communication between 0 and 100).";
         var userPrompt =
             $"Job title: {job.Title}\n" +
@@ -3392,6 +3476,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             var skills = root.TryGetProperty("skills", out var skillsNode) ? ReadStringArray(skillsNode) : fallback.ExtractedSkills;
             var githubRepo = root.TryGetProperty("githubRepo", out var repoNode) ? repoNode.GetString() : fallback.GithubRepo;
             var projects = root.TryGetProperty("projects", out var projectsNode) ? ReadProjectArray(projectsNode) : fallback.Projects;
+            var experienceHighlights = root.TryGetProperty("experienceHighlights", out var experienceNode)
+                ? ReadStringArray(experienceNode)
+                : fallback.ExperienceHighlights;
+            var totalExperienceYears = root.TryGetProperty("totalExperienceYears", out var yearsNode) && yearsNode.TryGetDouble(out var years)
+                ? (double?)Math.Max(0, years)
+                : fallback.TotalExperienceYears;
             var mosaic = root.TryGetProperty("mosaic", out var mosaicNode) ? ReadMosaicScores(mosaicNode) : fallback.Mosaic;
 
             return new ApplicationAssessment
@@ -3404,6 +3494,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 ExtractedSkills = skills.Take(12).ToList(),
                 GithubRepo = githubRepo ?? string.Empty,
                 Projects = projects.Count == 0 ? fallback.Projects : projects.Take(6).ToList(),
+                ExperienceHighlights = experienceHighlights.Take(8).ToList(),
+                TotalExperienceYears = totalExperienceYears,
                 Mosaic = mosaic.Count == 0 ? fallback.Mosaic : mosaic,
             };
         }
@@ -3444,8 +3536,49 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             ExtractedSkills = extractedSkills,
             GithubRepo = ExtractGithubRepo(text),
             Projects = BuildFallbackProjects(text, extractedSkills),
+            ExperienceHighlights = BuildFallbackExperienceHighlights(text),
+            TotalExperienceYears = EstimateExperienceYears(text),
             Mosaic = BuildFallbackMosaic(score),
         };
+    }
+
+    private static List<string> BuildFallbackExperienceHighlights(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new List<string>();
+        }
+
+        var normalized = text.Replace("\r", "\n");
+        var lines = normalized
+            .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length >= 25)
+            .Take(200)
+            .ToList();
+        var keywords = new[] { "experience", "worked", "built", "led", "developed", "engineer", "project", "role", "responsible" };
+        return lines
+            .Where(line => keywords.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToList();
+    }
+
+    private static double? EstimateExperienceYears(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var matches = Regex.Matches(text.ToLowerInvariant(), @"(\d{1,2}(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)");
+        var years = matches
+            .Cast<Match>()
+            .Select(m => double.TryParse(m.Groups[1].Value, out var value) ? value : -1)
+            .Where(v => v >= 0)
+            .DefaultIfEmpty(-1)
+            .Max();
+        return years < 0 ? null : Math.Min(50, years);
     }
 
     private static List<string> ExtractSharedTechnicalTerms(string corpus, string text)
@@ -3537,6 +3670,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         root["__ai_skills"] = assessment.ExtractedSkills;
         root["__ai_github_repo"] = assessment.GithubRepo;
         root["__ai_projects"] = assessment.Projects;
+        root["__ai_experience_highlights"] = assessment.ExperienceHighlights;
+        root["__ai_total_experience_years"] = assessment.TotalExperienceYears;
         root["__ai_mosaic"] = assessment.Mosaic;
         root["__resume_extracted"] = !string.IsNullOrWhiteSpace(resumeText);
 
@@ -3554,6 +3689,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             Weaknesses = new List<string>(),
             ExtractedSkills = new List<string>(),
             GithubRepo = string.Empty,
+            ExperienceHighlights = new List<string>(),
+            TotalExperienceYears = null,
         };
 
         if (string.IsNullOrWhiteSpace(responseJson))
@@ -3575,6 +3712,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             fallback.ExtractedSkills = doc.RootElement.TryGetProperty("__ai_skills", out var skillsNode) ? ReadStringArray(skillsNode) : new List<string>();
             fallback.GithubRepo = doc.RootElement.TryGetProperty("__ai_github_repo", out var repoNode) ? repoNode.GetString() ?? string.Empty : string.Empty;
             fallback.Projects = doc.RootElement.TryGetProperty("__ai_projects", out var projectsNode) ? ReadProjectArray(projectsNode) : new List<ProjectInsight>();
+            fallback.ExperienceHighlights = doc.RootElement.TryGetProperty("__ai_experience_highlights", out var experienceNode) ? ReadStringArray(experienceNode) : new List<string>();
+            fallback.TotalExperienceYears = doc.RootElement.TryGetProperty("__ai_total_experience_years", out var yearsNode) && yearsNode.TryGetDouble(out var years) ? Math.Max(0, years) : null;
             fallback.Mosaic = doc.RootElement.TryGetProperty("__ai_mosaic", out var mosaicNode) ? ReadMosaicScores(mosaicNode) : new Dictionary<string, double>();
             return fallback;
         }
@@ -3778,6 +3917,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         public List<string> ExtractedSkills { get; set; } = new();
         public string GithubRepo { get; set; } = string.Empty;
         public List<ProjectInsight> Projects { get; set; } = new();
+        public List<string> ExperienceHighlights { get; set; } = new();
+        public double? TotalExperienceYears { get; set; }
         public Dictionary<string, double> Mosaic { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 

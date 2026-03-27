@@ -15,16 +15,25 @@ This change removes hardcoded fallback assessment content in `CompanyJobAppServi
 - `BuildInteractiveQuestions` now uses role and extracted skills context.
 - `DefaultStarterCode` now uses job/assessment context rather than static login/auth examples.
 - `BuildHeuristicAssessment` now derives extracted skills from shared job/candidate technical terms instead of a fixed skill bank.
+- Resume PDF extraction now uses `PdfPig` to read full page text before fallback parsing.
 
 2. Added parsing helpers for real data signals:
 - `ExtractSharedTechnicalTerms`
 - `TokenizeTechnicalTerms`
+- `BuildFallbackExperienceHighlights`
+- `EstimateExperienceYears`
 
-3. Added and wired assessment partial/service DTO files:
+3. AI assessment extraction now includes:
+- `skills`
+- `projects`
+- `experienceHighlights`
+- `totalExperienceYears`
+
+4. Added and wired assessment partial/service DTO files:
 - `CompanyJobAppService.AssessmentGeneration.cs`
 - `DTO/SaveAssessmentDraftInput.cs`
 
-4. Removed unused generated migration files from this workstream:
+5. Removed unused generated migration files from this workstream:
 - `20260327185528_AddJobAssessment23.cs`
 - `20260327185528_AddJobAssessment23.Designer.cs`
 

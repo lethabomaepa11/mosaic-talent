@@ -21,6 +21,18 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   headerCard: css`
     border-radius: ${token.borderRadiusLG}px;
+    background: linear-gradient(
+      135deg,
+      ${token.colorBgContainer} 0%,
+      ${token.colorFillTertiary} 100%
+    );
+    border: 1px solid ${token.colorBorderSecondary};
+
+    :global(.ant-card-body) {
+      display: flex;
+      flex-direction: column;
+      gap: ${token.marginSM}px;
+    }
   `,
   blockedCard: css`
     min-height: 70vh;
@@ -51,10 +63,30 @@ export const useStyles = createStyles(({ token, css }) => ({
     flex-direction: column;
     gap: ${token.marginSM}px;
   `,
-  actions: css`
+  headerTop: css`
     display: flex;
-    gap: ${token.marginSM}px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: ${token.marginMD}px;
     flex-wrap: wrap;
+  `,
+  headerIdentity: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginXXS}px;
+    min-width: 260px;
+  `,
+  headerActions: css`
+    margin-left: auto;
+  `,
+  headerMeta: css`
+    :global(.ant-tag) {
+      margin-inline-end: 0;
+      border-radius: 999px;
+      padding: 2px 10px;
+      border: 1px solid ${token.colorBorderSecondary};
+      background: ${token.colorBgContainer};
+    }
   `,
   testsGrid: css`
     display: grid;
