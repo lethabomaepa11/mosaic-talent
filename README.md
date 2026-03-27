@@ -72,7 +72,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Company jobs:
   - company admin job posting management in `/app/jobs`
   - developer + public job applications with source + lifecycle status
-  - anonymous resume upload + CV parsing (skills/GitHub extraction)
+  - anonymous resume upload (PDF-only) + CV parsing (skills/GitHub extraction)
   - AI application assessment (match score, strengths, weaknesses, verdict)
   - branded applicant emails with configurable template mode (manual/AI) from jobs page settings
   - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
@@ -230,6 +230,8 @@ Also supported:
 - `Deepgram__TtsModel` (optional default fallback model)
 - `Vercel__Token`
 - `Brevo__ApiKey`
+- `Brevo__SenderEmail` (required for outbound emails)
+- `Brevo__SenderName` (optional)
 
 See example file:
 

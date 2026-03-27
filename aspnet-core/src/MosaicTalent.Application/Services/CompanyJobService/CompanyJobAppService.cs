@@ -286,6 +286,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
         var developer = await GetCurrentDeveloper();
+        EnsurePdfResumeReference(input.ResumeStoredFileId);
         var job = await _jobRepository.GetAll()
             .FirstOrDefaultAsync(x => x.Id == input.JobId && x.TenantId == tenantId)
             ?? throw new UserFriendlyException("Job not found.");
@@ -326,6 +327,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     public async Task<JobApplicationDto> ApplyToPublicJob(ApplyToPublicJobInput input)
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        EnsurePdfResumeReference(input.ResumeStoredFileId);
         var job = await _jobRepository.GetAll()
             .FirstOrDefaultAsync(x => x.Id == input.JobId && x.TenantId == tenantId)
             ?? throw new UserFriendlyException("Job not found.");
@@ -1104,8 +1106,18 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             return;
         }
 
-        var senderName = string.IsNullOrWhiteSpace(toName) ? "Mosaic Talent" : toName.Trim();
-        var senderEmail = "lethabomaepa@11";
+        var senderName = (_configuration["Brevo:SenderName"] ?? _configuration["Brevo__SenderName"] ?? "Mosaic Talent").Trim();
+        var senderEmail = (_configuration["Brevo:SenderEmail"] ?? _configuration["Brevo__SenderEmail"] ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(senderEmail) || !senderEmail.Contains("@", StringComparison.Ordinal))
+        {
+            throw new UserFriendlyException("Email sender is not configured. Set Brevo:SenderEmail to a valid sender.");
+        }
+
+        if (string.IsNullOrWhiteSpace(toEmail))
+        {
+            throw new UserFriendlyException("Recipient email is required.");
+        }
+
         var payload = new
         {
             sender = new
@@ -1693,6 +1705,20 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
 
         var normalized = Regex.Replace(value, @"\s+", " ").Trim();
         return normalized.Length > 25000 ? normalized.Substring(0, 25000) : normalized;
+    }
+
+    private static void EnsurePdfResumeReference(string resumeReference)
+    {
+        if (string.IsNullOrWhiteSpace(resumeReference))
+        {
+            return;
+        }
+
+        var value = resumeReference.Trim();
+        if (!value.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UserFriendlyException("Resume must be uploaded as a PDF file.");
+        }
     }
 
     private sealed class ApplicationAssessment

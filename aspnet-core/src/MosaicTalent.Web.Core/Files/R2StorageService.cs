@@ -38,6 +38,11 @@ namespace MosaicTalent.Files
             ".docx",
             ".txt",
         };
+        private static readonly string[] PdfOnlyContentTypes =
+        {
+            "application/pdf",
+            "application/octet-stream",
+        };
 
         private readonly R2StorageOptions _options;
         private readonly IAmazonS3 _s3Client;
@@ -80,13 +85,23 @@ namespace MosaicTalent.Files
             var extension = (Path.GetExtension(file.FileName) ?? string.Empty).ToLowerInvariant();
             var allowedByContentType = AllowedContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase);
             var allowedByExtension = AllowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
+            var safeFolder = string.IsNullOrWhiteSpace(folder) ? "general" : folder.Trim().ToLowerInvariant();
+
+            if (safeFolder.Equals("job-resumes", StringComparison.OrdinalIgnoreCase))
+            {
+                var isPdfByExtension = ".pdf".Equals(extension, StringComparison.OrdinalIgnoreCase);
+                var isPdfByContentType = PdfOnlyContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase);
+                if (!isPdfByExtension && !isPdfByContentType)
+                {
+                    throw new UserFriendlyException("Only PDF resumes are allowed.");
+                }
+            }
 
             if (!allowedByContentType && !allowedByExtension)
             {
                 throw new UserFriendlyException("Unsupported file type. Allowed types: images, pdf, doc, docx, txt.");
             }
 
-            var safeFolder = string.IsNullOrWhiteSpace(folder) ? "general" : folder.Trim().ToLowerInvariant();
             var fileId = Guid.NewGuid().ToString("N");
             var key = string.Format("{0}/{1}{2}", safeFolder, fileId, extension);
 

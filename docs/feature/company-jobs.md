@@ -86,9 +86,9 @@ UI capabilities:
 - view job applications per job under `/app/jobs/[id]`
 - browse tenant-scoped open jobs publicly under `/jobs`
 - apply from `/jobs` with a dynamic anonymous form
-- anonymous resume upload via `POST /api/files/upload-public` (no login required)
+- anonymous resume upload via `POST /api/files/upload-public` (no login required, PDF-only for resumes)
 - AI-assisted public application scoring:
-  - CV text extraction (pdf/doc/docx/txt)
+  - CV text extraction (PDF resumes)
   - extracted skills + GitHub repo discovery
   - fit score (0-100), strengths, weaknesses, and verdict
   - persisted into application payload and surfaced in HR applications view
@@ -97,6 +97,7 @@ UI capabilities:
   - color scheme from company jobs-page primary color
   - configurable email type `applicationReceived` in settings/page-builder
   - mode can be `manual` (HR template) or `ai` (AI-generated body)
+  - requires valid Brevo sender config (`Brevo:SenderEmail`, optional `Brevo:SenderName`)
 - view shared tenant-1 candidate directory inside `/app/jobs/[id]`
 - update application status
 - company page-builder in `/app/settings/page-builder`:
