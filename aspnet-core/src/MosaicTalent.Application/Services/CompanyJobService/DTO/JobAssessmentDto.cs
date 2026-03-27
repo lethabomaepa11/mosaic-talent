@@ -44,6 +44,12 @@ public class JobAssessmentDto
     public DateTime? SubmittedAt { get; set; }
 
     public List<JobAssessmentProblemDto> Problems { get; set; } = new List<JobAssessmentProblemDto>();
+
+    public string WorkMode { get; set; } = "fullstack";
+
+    public List<string> EndpointHints { get; set; } = new List<string>();
+
+    public List<string> InteractiveQuestions { get; set; } = new List<string>();
 }
 
 public class JobAssessmentProblemDto

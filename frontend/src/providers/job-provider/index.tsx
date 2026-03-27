@@ -112,6 +112,14 @@ const normalizeAssessment = (input: Partial<IJobAssessment>): IJobAssessment => 
   weaknesses: Array.isArray(input.weaknesses) ? input.weaknesses.filter((x): x is string => typeof x === "string") : [],
   tips: Array.isArray(input.tips) ? input.tips.filter((x): x is string => typeof x === "string") : [],
   submittedAt: input.submittedAt ?? "",
+  workMode:
+    input.workMode === "frontend" || input.workMode === "backend" || input.workMode === "fullstack"
+      ? input.workMode
+      : "fullstack",
+  endpointHints: Array.isArray(input.endpointHints) ? input.endpointHints.filter((x): x is string => typeof x === "string") : [],
+  interactiveQuestions: Array.isArray(input.interactiveQuestions)
+    ? input.interactiveQuestions.filter((x): x is string => typeof x === "string")
+    : [],
   problems: Array.isArray(input.problems)
     ? input.problems
         .filter((x) => typeof x === "object" && x !== null)
@@ -125,7 +133,7 @@ const normalizeAssessment = (input: Partial<IJobAssessment>): IJobAssessment => 
           language:
             typeof (problem as { language?: unknown }).language === "string"
               ? (problem as { language: string }).language
-              : "javascript",
+              : "typescript",
           starterCode:
             typeof (problem as { starterCode?: unknown }).starterCode === "string"
               ? (problem as { starterCode: string }).starterCode
@@ -480,6 +488,19 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const saveAssessmentDraft = async (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/SaveAssessmentDraft`, {
+        assessmentId: input.assessmentId,
+        submissionText: input.submissionText,
+        githubRepoUrl: input.githubRepoUrl ?? "",
+      });
+      return normalizeAssessment((res.data?.result ?? {}) as Partial<IJobAssessment>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to save assessment draft."));
+    }
+  };
+
   const runAssessmentPrompt = async (input: { assessmentId: string; problemId: string; prompt: string }) => {
     try {
       const res = await instance.post(`${ENDPOINT}/RunAssessmentPrompt`, {
@@ -496,6 +517,15 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
         promptTokens: Number(result.promptTokens ?? 0),
         completionTokens: Number(result.completionTokens ?? 0),
         totalTokens: Number(result.totalTokens ?? 0),
+        proposals: Array.isArray(result.proposals)
+          ? result.proposals
+              .filter((x) => typeof x === "object" && x !== null)
+              .map((x) => ({
+                title: typeof (x as { title?: unknown }).title === "string" ? (x as { title: string }).title : "",
+                patch: typeof (x as { patch?: unknown }).patch === "string" ? (x as { patch: string }).patch : "",
+                isHallucinationRisk: Boolean((x as { isHallucinationRisk?: unknown }).isHallucinationRisk),
+              }))
+          : [],
       };
     } catch (error) {
       throw new Error(readApiErrorMessage(error, "Failed to run AI prompt."));
@@ -604,6 +634,7 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
           sendApplicationEmail,
           getAssessment,
           runAssessmentPrompt,
+          saveAssessmentDraft,
           submitAssessment,
         }}
       >

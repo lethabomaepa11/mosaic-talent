@@ -21,6 +21,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -29,7 +30,7 @@ using Abp;
 namespace MosaicTalent.Services.CompanyJobService;
 
 [AbpAuthorize]
-public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppService
+public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppService
 {
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<CompanyEmployee, Guid> _companyEmployeeRepository;
@@ -474,11 +475,21 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     {
         var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
             ?? throw new UserFriendlyException("Assessment not found.");
+        if (assessment.Status != AssessmentStatus.Pending)
+        {
+            throw new UserFriendlyException("Assessment already submitted.");
+        }
         var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
             ?? throw new UserFriendlyException("Job not found.");
         var company = await _companyRepository.FirstOrDefaultAsync(job.CompanyId);
 
-        var changed = await EnsureLeetPromptProblemsAsync(job, assessment);
+        var isFirstOpen = !HasAssessmentStarted(assessment.ContextJson);
+        var changed = await EnsureLeetPromptProblemsAsync(job, assessment, isFirstOpen);
+        if (isFirstOpen)
+        {
+            assessment.ContextJson = MarkAssessmentStarted(assessment.ContextJson);
+            changed = true;
+        }
         if (changed)
         {
             await _jobAssessmentRepository.UpdateAsync(assessment);
@@ -493,6 +504,10 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     {
         var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
             ?? throw new UserFriendlyException("Assessment not found.");
+        if (assessment.Status != AssessmentStatus.Pending)
+        {
+            throw new UserFriendlyException("Assessment already submitted.");
+        }
         var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
             ?? throw new UserFriendlyException("Job not found.");
 
@@ -514,6 +529,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
 
         var completion = await TryCompleteAssessmentPromptWithUsage(job, assessment, problem, prompt);
+        var proposal = BuildProposalFromPrompt(prompt, completion.Response);
         return new RunAssessmentPromptDto
         {
             ProblemId = problem.Id,
@@ -522,6 +538,10 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             PromptTokens = completion.PromptTokens,
             CompletionTokens = completion.CompletionTokens,
             TotalTokens = completion.TotalTokens,
+            Proposals = new List<AssessmentProposalDto>
+            {
+                proposal
+            },
         };
     }
 
@@ -530,6 +550,10 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
     {
         var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
             ?? throw new UserFriendlyException("Assessment not found.");
+        if (assessment.Status != AssessmentStatus.Pending)
+        {
+            throw new UserFriendlyException("Assessment already submitted.");
+        }
         var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
             ?? throw new UserFriendlyException("Job not found.");
         var company = await _companyRepository.FirstOrDefaultAsync(job.CompanyId);
@@ -569,6 +593,33 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         await PublishAssessmentCompletedNotificationAsync(job, assessment);
 
         return MapAssessmentDto(assessment, job, company, evaluated);
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<JobAssessmentDto> SaveAssessmentDraft(SaveAssessmentDraftInput input)
+    {
+        var assessment = await _jobAssessmentRepository.FirstOrDefaultAsync(input.AssessmentId)
+            ?? throw new UserFriendlyException("Assessment not found.");
+        if (assessment.Status != AssessmentStatus.Pending)
+        {
+            throw new UserFriendlyException("Assessment already submitted.");
+        }
+        var job = await _jobRepository.FirstOrDefaultAsync(assessment.JobId)
+            ?? throw new UserFriendlyException("Job not found.");
+        var company = await _companyRepository.FirstOrDefaultAsync(job.CompanyId);
+
+        var trimmedSubmission = (input.SubmissionText ?? string.Empty).Trim();
+        if (trimmedSubmission.Length < 10)
+        {
+            throw new UserFriendlyException("Draft is too short.");
+        }
+
+        assessment.SubmissionText = trimmedSubmission;
+        assessment.SubmissionGithubRepo = input.GithubRepoUrl?.Trim();
+        await _jobAssessmentRepository.UpdateAsync(assessment);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        return MapAssessmentDto(assessment, job, company);
     }
 
     [AbpAuthorize]
@@ -1787,8 +1838,12 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         ApplicationAssessment aiAssessment,
         string resumeText)
     {
-        var prompt = await BuildLeetPromptAssessmentAsync(job, candidateName, aiAssessment, resumeText);
-        var instructions = BuildAssessmentInstructions(job, aiAssessment);
+        var blueprint = await BuildAssessmentBlueprintAsync(job, candidateName, candidateEmail, aiAssessment, resumeText);
+        var prompt = blueprint.Prompt;
+        var instructions = blueprint.Instructions;
+        var workMode = string.IsNullOrWhiteSpace(blueprint.WorkMode) ? ResolveWorkMode(job) : blueprint.WorkMode;
+        var endpointHints = blueprint.EndpointHints ?? new List<string>();
+        var interactiveQuestions = blueprint.InteractiveQuestions ?? BuildInteractiveQuestions(workMode);
         var contextJson = JsonSerializer.Serialize(new
         {
             skills = aiAssessment.ExtractedSkills ?? new List<string>(),
@@ -1796,6 +1851,18 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             weaknesses = aiAssessment.Weaknesses ?? new List<string>(),
             verdict = aiAssessment.Verdict ?? string.Empty,
             score = aiAssessment.Score,
+            projects = (aiAssessment.Projects ?? new List<ProjectInsight>()).Select(x => new
+            {
+                name = x.Name,
+                description = x.Description,
+                score = x.Score,
+                technologies = x.Technologies ?? new List<string>(),
+            }).ToList(),
+            strongLanguages = DeriveStrongLanguages(aiAssessment),
+            generationSeed = blueprint.GenerationSeed,
+            workMode,
+            endpointHints,
+            interactiveQuestions,
         });
 
         var assessment = new JobAssessment
@@ -1818,21 +1885,52 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         return assessment;
     }
 
-    private async Task<string> BuildLeetPromptAssessmentAsync(
+    private async Task<AssessmentBlueprint> BuildAssessmentBlueprintAsync(
         Job job,
         string candidateName,
+        string candidateEmail,
         ApplicationAssessment aiAssessment,
         string resumeText)
     {
-        var fallback =
-            $"Build a production-ready solution for \"{job.Title}\".\n" +
-            "Deliverables:\n" +
-            "1) Architecture decisions and trade-offs.\n" +
-            "2) Core implementation approach (with pseudo-code or snippets).\n" +
-            "3) Testing strategy.\n" +
-            "4) Risk analysis and rollout plan.\n" +
-            "5) Explain how AI assistants were used responsibly.\n\n" +
-            $"Target skills: {string.Join(", ", aiAssessment.ExtractedSkills.Take(8))}";
+        var strongLanguages = DeriveStrongLanguages(aiAssessment);
+        var topSkills = (aiAssessment.ExtractedSkills ?? new List<string>()).Take(8).ToList();
+        var skillText = topSkills.Count == 0 ? "problem solving, communication, delivery" : string.Join(", ", topSkills);
+        var fallbackMode = ResolveWorkMode(job);
+        var fallbackPrompt =
+            "Assessment Brief\n" +
+            $"You are working as a {job.Title} on an active product initiative.\n" +
+            $"Project context: {SafeTrim(job.Description)}\n\n" +
+            "Your work will be evaluated on:\n" +
+            "- implementation quality\n" +
+            "- reasoning and trade-offs\n" +
+            "- testing strategy\n" +
+            "- risk awareness\n" +
+            "- responsible AI usage\n\n" +
+            "Deliverables\n" +
+            "1) Core implementation plan\n" +
+            "2) Code or pseudo-code for the main flow\n" +
+            "3) Key states (loading, validation, error, success)\n" +
+            "4) Testing strategy\n" +
+            "5) Risk analysis and rollout notes\n" +
+            "6) Short note on AI usage and validation\n\n" +
+            $"Candidate focus skills: {skillText}";
+        var fallbackInstructions =
+            "Assessment Instructions:\n" +
+            "- You may use AI coding assistants, but explain what you delegated and what you validated.\n" +
+            "- Solve practical ticket tasks (not algorithm drills).\n" +
+            "- Submit runnable code/pseudocode and keep decisions practical.\n" +
+            "- Keep answers concise and production-oriented.\n\n" +
+            $"Role: {job.Title}\n" +
+            $"Focus skills: {string.Join(", ", aiAssessment.ExtractedSkills.Take(10))}";
+        var fallback = new AssessmentBlueprint
+        {
+            Prompt = fallbackPrompt,
+            Instructions = fallbackInstructions,
+            WorkMode = fallbackMode,
+            EndpointHints = new List<string>(),
+            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode),
+            GenerationSeed = BuildAssessmentGenerationSeed(job, candidateName, candidateEmail),
+        };
 
         if (!_groqChatService.IsConfigured())
         {
@@ -1841,18 +1939,79 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
 
         try
         {
-            var systemPrompt = "Create a realistic coding assessment prompt. Return plain text only.";
+            var systemPrompt =
+                "You are generating a candidate-specific engineering assessment. " +
+                "Output STRICT JSON only with keys: " +
+                "workMode, prompt, instructions, interactiveQuestions, endpointHints, uniquenessNotes. " +
+                "Rules: ticket must be highly different per candidate and per request; no algorithm puzzles; " +
+                "endpointHints must be empty unless API/backend integration is required by the ticket; " +
+                "if endpoints are included, include request/response expectations.";
+            var seed = BuildAssessmentGenerationSeed(job, candidateName, candidateEmail);
             var userPrompt =
                 $"Role: {job.Title}\n" +
                 $"Description: {job.Description}\n" +
                 $"Technical prompt: {job.TechnicalAssessmentPrompt}\n" +
                 $"Behavioural prompt: {job.BehaviouralAssessmentPrompt}\n" +
                 $"Candidate: {candidateName}\n" +
+                $"Candidate email: {candidateEmail}\n" +
                 $"Extracted skills: {string.Join(", ", aiAssessment.ExtractedSkills)}\n" +
+                $"Strong languages (from CV/projects): {string.Join(", ", strongLanguages)}\n" +
+                $"Projects (from CV): {JsonSerializer.Serialize((aiAssessment.Projects ?? new List<ProjectInsight>()).Select(x => new { x.Name, x.Description, x.Score, x.Technologies }))}\n" +
                 $"Resume context: {resumeText}\n" +
-                "Generate one practical take-home assessment with clear acceptance criteria. Keep under 500 words.";
+                $"Uniqueness seed: {seed}\n" +
+                "Generate one practical ticket-style assessment.\n" +
+                "Required sections:\n" +
+                "- Assessment Brief\n" +
+                "- Main Ticket (title, context, requirements, constraints)\n" +
+                "- Deliverables\n" +
+                "- Collaboration scenario (1 prompt)\n" +
+                "- AI usage reflection guidance\n" +
+                "Keep under 650 words.\n" +
+                "Make it materially different from common login task templates.";
             var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
-            return string.IsNullOrWhiteSpace(response) ? fallback : response.Trim();
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return fallback;
+            }
+
+            using var doc = JsonDocument.Parse(response);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return fallback;
+            }
+
+            var workMode = doc.RootElement.TryGetProperty("workMode", out var workModeNode)
+                ? SafeTrim(workModeNode.GetString()).ToLowerInvariant()
+                : fallback.WorkMode;
+            if (workMode != "frontend" && workMode != "backend" && workMode != "fullstack")
+            {
+                workMode = fallback.WorkMode;
+            }
+
+            var prompt = doc.RootElement.TryGetProperty("prompt", out var promptNode) ? SafeTrim(promptNode.GetString()) : string.Empty;
+            var instructions = doc.RootElement.TryGetProperty("instructions", out var instructionsNode) ? SafeTrim(instructionsNode.GetString()) : string.Empty;
+            var interactiveQuestions = doc.RootElement.TryGetProperty("interactiveQuestions", out var questionsNode)
+                ? ReadStringArray(questionsNode).Take(8).ToList()
+                : new List<string>();
+            if (interactiveQuestions.Count == 0)
+            {
+                interactiveQuestions = BuildInteractiveQuestions(workMode);
+            }
+
+            var endpointHints = doc.RootElement.TryGetProperty("endpointHints", out var endpointNode)
+                ? ReadStringArray(endpointNode).Take(8).ToList()
+                : new List<string>();
+            endpointHints = KeepOnlyRelevantEndpointHints(endpointHints, prompt, instructions);
+
+            return new AssessmentBlueprint
+            {
+                Prompt = string.IsNullOrWhiteSpace(prompt) ? fallback.Prompt : prompt,
+                Instructions = string.IsNullOrWhiteSpace(instructions) ? fallback.Instructions : instructions,
+                WorkMode = workMode,
+                EndpointHints = endpointHints,
+                InteractiveQuestions = interactiveQuestions,
+                GenerationSeed = seed,
+            };
         }
         catch
         {
@@ -1865,9 +2024,9 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         return
             "Assessment Instructions:\n" +
             "- You may use AI coding assistants, but explain what you delegated and what you validated.\n" +
-            "- Provide runnable approach details and key decisions.\n" +
-            "- Include links to code/docs if relevant.\n" +
-            "- Keep answers concise and practical.\n\n" +
+            "- Solve practical ticket tasks (not algorithm drills).\n" +
+            "- Submit runnable code/pseudocode and keep decisions practical.\n" +
+            "- Keep answers concise and production-oriented.\n\n" +
             $"Role: {job.Title}\n" +
             $"Focus skills: {string.Join(", ", aiAssessment.ExtractedSkills.Take(10))}";
     }
@@ -2075,190 +2234,31 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         }
     }
 
-    private async Task<bool> EnsureLeetPromptProblemsAsync(Job job, JobAssessment assessment)
+    private static string DefaultStarterCode(string workMode, int order)
     {
-        var existing = ParseLeetPromptProblems(assessment.ContextJson);
-        if (existing.Count >= 2)
+        var mode = (workMode ?? "fullstack").ToLowerInvariant();
+        if (mode == "backend")
         {
-            return false;
+            return
+                "export async function login(email: string, password: string) {\n" +
+                "  // call POST /api/auth/login\n" +
+                "  return { token: \"\", user: null };\n" +
+                "}\n";
         }
 
-        var generated = await GenerateLeetPromptProblemsAsync(job, assessment);
-        if (generated.Count < 2)
+        if (mode == "frontend" || order == 1)
         {
-            generated = BuildDefaultLeetPromptProblems(job.Title);
+            return
+                "import React from \"react\";\n\n" +
+                "export default function App() {\n" +
+                "  return <div>Implement login screen states here.</div>;\n" +
+                "}\n";
         }
 
-        assessment.ContextJson = UpsertLeetPromptProblemsIntoContext(assessment.ContextJson, generated);
-        return true;
-    }
-
-    private async Task<List<LeetPromptProblem>> GenerateLeetPromptProblemsAsync(Job job, JobAssessment assessment)
-    {
-        if (!_groqChatService.IsConfigured())
-        {
-            return BuildDefaultLeetPromptProblems(job.Title);
-        }
-
-        try
-        {
-            var systemPrompt =
-                "Generate exactly 2 coding problems. Return JSON only with key problems. " +
-                "Each problem: id,title,description,language('javascript'),starterCode,maxScore,order,publicTests[]. " +
-                "Each public test: input,expectedOutput,hint. " +
-                "Use function signature: function solve(input) { ... }";
-            var userPrompt =
-                $"Role: {job.Title}\n" +
-                $"Job description: {job.Description}\n" +
-                $"Assessment prompt: {assessment.Prompt}\n" +
-                "Create practical interview-style problems with deterministic string input/output.";
-            var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                return BuildDefaultLeetPromptProblems(job.Title);
-            }
-
-            using var doc = JsonDocument.Parse(response);
-            if (!doc.RootElement.TryGetProperty("problems", out var problemsNode) || problemsNode.ValueKind != JsonValueKind.Array)
-            {
-                return BuildDefaultLeetPromptProblems(job.Title);
-            }
-
-            var output = new List<LeetPromptProblem>();
-            foreach (var node in problemsNode.EnumerateArray())
-            {
-                if (node.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var title = node.TryGetProperty("title", out var titleNode) ? SafeTrim(titleNode.GetString()) : string.Empty;
-                if (string.IsNullOrWhiteSpace(title))
-                {
-                    continue;
-                }
-
-                var problem = new LeetPromptProblem
-                {
-                    Id = node.TryGetProperty("id", out var idNode) ? SafeTrim(idNode.GetString()) : Guid.NewGuid().ToString("N"),
-                    Title = title,
-                    Description = node.TryGetProperty("description", out var descriptionNode) ? SafeTrim(descriptionNode.GetString()) : string.Empty,
-                    Language = "javascript",
-                    StarterCode = node.TryGetProperty("starterCode", out var starterNode) ? starterNode.GetString() ?? DefaultStarterCode() : DefaultStarterCode(),
-                    MaxScore = node.TryGetProperty("maxScore", out var scoreNode) && scoreNode.TryGetDouble(out var maxScore) ? Math.Max(1, maxScore) : 100,
-                    Order = node.TryGetProperty("order", out var orderNode) && orderNode.TryGetInt32(out var parsedOrder) ? parsedOrder : output.Count + 1,
-                    PublicTests = node.TryGetProperty("publicTests", out var testsNode) ? ParseLeetPromptTests(testsNode) : new List<LeetPromptTestCase>(),
-                };
-
-                if (problem.PublicTests.Count == 0)
-                {
-                    problem.PublicTests = BuildDefaultPublicTestsForProblem(problem.Order);
-                }
-
-                output.Add(problem);
-            }
-
-            return output.Count >= 2 ? output.OrderBy(x => x.Order).Take(3).ToList() : BuildDefaultLeetPromptProblems(job.Title);
-        }
-        catch
-        {
-            return BuildDefaultLeetPromptProblems(job.Title);
-        }
-    }
-
-    private static List<LeetPromptProblem> BuildDefaultLeetPromptProblems(string roleTitle)
-    {
-        return new List<LeetPromptProblem>
-        {
-            new LeetPromptProblem
-            {
-                Id = "array-sum-pairs",
-                Title = "Array Pair Sum",
-                Description =
-                    $"As a {roleTitle}, implement solve(input) that reads: \"n1,n2,n3|target\" and returns indices \"i,j\" for two numbers that sum to target. " +
-                    "Return \"-1,-1\" when no pair exists.",
-                Language = "javascript",
-                StarterCode = "function solve(input) {\n  // input: \"2,7,11,15|9\"\n  // return: \"0,1\"\n  return \"-1,-1\";\n}",
-                MaxScore = 100,
-                Order = 1,
-                PublicTests = new List<LeetPromptTestCase>
-                {
-                    new LeetPromptTestCase { Input = "2,7,11,15|9", ExpectedOutput = "0,1", Hint = "2+7=9" },
-                    new LeetPromptTestCase { Input = "3,2,4|6", ExpectedOutput = "1,2", Hint = "2+4=6" },
-                    new LeetPromptTestCase { Input = "1,2,3|10", ExpectedOutput = "-1,-1", Hint = "No valid pair" },
-                }
-            },
-            new LeetPromptProblem
-            {
-                Id = "balanced-brackets",
-                Title = "Balanced Brackets",
-                Description =
-                    $"As a {roleTitle}, implement solve(input) that returns \"true\" when brackets are balanced and \"false\" otherwise. " +
-                    "Supported brackets: () [] {}.",
-                Language = "javascript",
-                StarterCode = "function solve(input) {\n  // input: \"([{}])\"\n  // return: \"true\" or \"false\"\n  return \"false\";\n}",
-                MaxScore = 100,
-                Order = 2,
-                PublicTests = new List<LeetPromptTestCase>
-                {
-                    new LeetPromptTestCase { Input = "([{}])", ExpectedOutput = "true", Hint = "Every opening has a matching closing bracket" },
-                    new LeetPromptTestCase { Input = "([)]", ExpectedOutput = "false", Hint = "Order matters" },
-                    new LeetPromptTestCase { Input = "{[]}", ExpectedOutput = "true", Hint = "Nested valid pairs" },
-                }
-            }
-        };
-    }
-
-    private static List<LeetPromptTestCase> BuildDefaultPublicTestsForProblem(int order)
-    {
-        return order == 1
-            ? new List<LeetPromptTestCase>
-            {
-                new LeetPromptTestCase { Input = "2,7,11,15|9", ExpectedOutput = "0,1", Hint = "2+7=9" }
-            }
-            : new List<LeetPromptTestCase>
-            {
-                new LeetPromptTestCase { Input = "([{}])", ExpectedOutput = "true", Hint = "Balanced sequence" }
-            };
-    }
-
-    private static List<LeetPromptTestCase> ParseLeetPromptTests(JsonElement element)
-    {
-        if (element.ValueKind != JsonValueKind.Array)
-        {
-            return new List<LeetPromptTestCase>();
-        }
-
-        var output = new List<LeetPromptTestCase>();
-        foreach (var node in element.EnumerateArray())
-        {
-            if (node.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var input = node.TryGetProperty("input", out var inputNode) ? inputNode.GetString() ?? string.Empty : string.Empty;
-            var expected = node.TryGetProperty("expectedOutput", out var expectedNode) ? expectedNode.GetString() ?? string.Empty : string.Empty;
-            var hint = node.TryGetProperty("hint", out var hintNode) ? hintNode.GetString() ?? string.Empty : string.Empty;
-            if (string.IsNullOrWhiteSpace(input) && string.IsNullOrWhiteSpace(expected))
-            {
-                continue;
-            }
-
-            output.Add(new LeetPromptTestCase
-            {
-                Input = input,
-                ExpectedOutput = expected,
-                Hint = hint,
-            });
-        }
-
-        return output;
-    }
-
-    private static string DefaultStarterCode()
-    {
-        return "function solve(input) {\n  return \"\";\n}";
+        return
+            "export async function handleAuthFlow() {\n" +
+            "  // implement token refresh and current-user retrieval\n" +
+            "}\n";
     }
 
     private static List<LeetPromptProblem> ParseLeetPromptProblems(string contextJson)
@@ -2323,28 +2323,44 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
                 return null;
             }
 
-            if (!doc.RootElement.TryGetProperty("problems", out var problemsNode) || problemsNode.ValueKind != JsonValueKind.Array)
-            {
-                return null;
-            }
-
             var submission = new LeetPromptSubmission();
-            foreach (var node in problemsNode.EnumerateArray())
+            if (doc.RootElement.TryGetProperty("problems", out var problemsNode) && problemsNode.ValueKind == JsonValueKind.Array)
             {
-                if (node.ValueKind != JsonValueKind.Object)
+                foreach (var node in problemsNode.EnumerateArray())
                 {
-                    continue;
-                }
+                    if (node.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
 
-                var problem = new LeetPromptSubmissionProblem
+                    var problem = new LeetPromptSubmissionProblem
+                    {
+                        ProblemId = node.TryGetProperty("problemId", out var idNode) ? idNode.GetString() ?? string.Empty : string.Empty,
+                        Code = node.TryGetProperty("code", out var codeNode) ? codeNode.GetString() ?? string.Empty : string.Empty,
+                        PassedPublic = node.TryGetProperty("passedPublic", out var passedNode) && passedNode.TryGetInt32(out var passed) ? Math.Max(0, passed) : 0,
+                        TotalPublic = node.TryGetProperty("totalPublic", out var totalNode) && totalNode.TryGetInt32(out var total) ? Math.Max(0, total) : 0,
+                        PromptAttempts = ParsePromptAttempts(node),
+                    };
+                    submission.Problems.Add(problem);
+                }
+            }
+            else
+            {
+                // Workspace-style payload fallback: score from top-level code + AI usage logs.
+                var promptAttempts = ParsePromptAttemptsFromRoot(doc.RootElement);
+                var code = doc.RootElement.TryGetProperty("mainFlowCode", out var codeNode)
+                    ? codeNode.GetString() ?? string.Empty
+                    : doc.RootElement.TryGetProperty("submission", out var submissionNode)
+                        ? submissionNode.GetString() ?? string.Empty
+                        : string.Empty;
+                submission.Problems.Add(new LeetPromptSubmissionProblem
                 {
-                    ProblemId = node.TryGetProperty("problemId", out var idNode) ? idNode.GetString() ?? string.Empty : string.Empty,
-                    Code = node.TryGetProperty("code", out var codeNode) ? codeNode.GetString() ?? string.Empty : string.Empty,
-                    PassedPublic = node.TryGetProperty("passedPublic", out var passedNode) && passedNode.TryGetInt32(out var passed) ? Math.Max(0, passed) : 0,
-                    TotalPublic = node.TryGetProperty("totalPublic", out var totalNode) && totalNode.TryGetInt32(out var total) ? Math.Max(0, total) : 0,
-                    PromptAttempts = ParsePromptAttempts(node),
-                };
-                submission.Problems.Add(problem);
+                    ProblemId = "workspace",
+                    Code = code,
+                    PassedPublic = 0,
+                    TotalPublic = 0,
+                    PromptAttempts = promptAttempts,
+                });
             }
 
             return submission.Problems.Count == 0 ? null : submission;
@@ -2353,6 +2369,35 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         {
             return null;
         }
+    }
+
+    private static List<LeetPromptPromptAttempt> ParsePromptAttemptsFromRoot(JsonElement root)
+    {
+        var output = new List<LeetPromptPromptAttempt>();
+        if (!root.TryGetProperty("promptAttempts", out var attemptsNode) || attemptsNode.ValueKind != JsonValueKind.Array)
+        {
+            return output;
+        }
+
+        foreach (var attempt in attemptsNode.EnumerateArray())
+        {
+            if (attempt.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            output.Add(new LeetPromptPromptAttempt
+            {
+                Prompt = attempt.TryGetProperty("prompt", out var promptNode) ? promptNode.GetString() ?? string.Empty : string.Empty,
+                Response = attempt.TryGetProperty("response", out var responseNode) ? responseNode.GetString() ?? string.Empty : string.Empty,
+                PromptTokens = attempt.TryGetProperty("promptTokens", out var pNode) && pNode.TryGetInt32(out var p) ? Math.Max(0, p) : 0,
+                CompletionTokens = attempt.TryGetProperty("completionTokens", out var cNode) && cNode.TryGetInt32(out var c) ? Math.Max(0, c) : 0,
+                TotalTokens = attempt.TryGetProperty("totalTokens", out var tNode) && tNode.TryGetInt32(out var t) ? Math.Max(0, t) : 0,
+                Accepted = attempt.TryGetProperty("accepted", out var aNode) && aNode.ValueKind == JsonValueKind.True,
+            });
+        }
+
+        return output;
     }
 
     private static List<LeetPromptPromptAttempt> ParsePromptAttempts(JsonElement node)
@@ -2494,12 +2539,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             .Where(x => x.TotalPublic > 0)
             .Select(x => (double)x.PassedPublic / x.TotalPublic)
             .ToList();
-        if (ratios.Count == 0)
-        {
-            return baseEvaluation;
-        }
-
-        var executionScore = ClampScore(ratios.Average() * 100d);
+        var executionScore = ratios.Count == 0 ? ClampScore(baseEvaluation.Score) : ClampScore(ratios.Average() * 100d);
         var promptScore = ComputePromptQualityScore(submission);
         var tokenScore = ComputeTokenEfficiencyScore(submission);
         var codeQualityScore = ComputeCodeQualityScore(submission);
@@ -2701,6 +2741,7 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
 
     private JobAssessmentDto MapAssessmentDto(JobAssessment assessment, Job job, Company company, AssessmentEvaluation evaluated = null)
     {
+        var workbenchConfig = ParseWorkbenchConfig(assessment.ContextJson, job);
         var result = ParseAssessmentEvaluationResult(assessment.AssessmentResultJson);
         var strengths = evaluated?.Strengths ?? result.Strengths;
         var weaknesses = evaluated?.Weaknesses ?? result.Weaknesses;
@@ -2747,7 +2788,210 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
             Tips = tips,
             SubmittedAt = assessment.SubmittedAt,
             Problems = problems,
+            WorkMode = workbenchConfig.WorkMode,
+            EndpointHints = workbenchConfig.EndpointHints,
+            InteractiveQuestions = workbenchConfig.InteractiveQuestions,
         };
+    }
+
+    private static AssessmentProposalDto BuildProposalFromPrompt(string prompt, string response)
+    {
+        var lowerPrompt = (prompt ?? string.Empty).ToLowerInvariant();
+        var hallucinates =
+            lowerPrompt.Contains("add extra") ||
+            lowerPrompt.Contains("new feature") ||
+            lowerPrompt.Contains("optional feature");
+
+        var patch = hallucinates
+            ? "// Suggested (scope-risk): add social auth and analytics tracking."
+            : $"// Suggested patch from AI\n// {SafeTrim(response).Substring(0, Math.Min(240, SafeTrim(response).Length))}";
+
+        return new AssessmentProposalDto
+        {
+            Title = hallucinates ? "Additional feature suggestion" : "Ticket-aligned change",
+            Patch = patch,
+            IsHallucinationRisk = hallucinates,
+        };
+    }
+
+    private static string ResolveWorkMode(Job job)
+    {
+        var signal = $"{job?.Title} {job?.Description} {job?.TechnicalAssessmentPrompt} {job?.BehaviouralAssessmentPrompt}".ToLowerInvariant();
+        var hasFrontend = signal.Contains("frontend") || signal.Contains("react") || signal.Contains("next");
+        var hasBackend = signal.Contains("backend") || signal.Contains("api") || signal.Contains("endpoint") || signal.Contains("service");
+        if (hasFrontend && hasBackend)
+        {
+            return "fullstack";
+        }
+
+        if (hasBackend)
+        {
+            return "backend";
+        }
+
+        return "frontend";
+    }
+
+    private static List<string> BuildEndpointHints(Job job, string workMode)
+    {
+        return new List<string>();
+    }
+
+    private static List<string> BuildInteractiveQuestions(string workMode)
+    {
+        var questions = new List<string>
+        {
+            "What trade-off did you make to keep the solution production-ready?",
+            "How did you validate AI-generated suggestions before using them?",
+            "What is the first risk you would monitor after release?",
+        };
+
+        if (!string.Equals(workMode, "frontend", StringComparison.OrdinalIgnoreCase))
+        {
+            questions.Add("Which endpoint contracts are critical and how will you version them?");
+        }
+
+        if (!string.Equals(workMode, "backend", StringComparison.OrdinalIgnoreCase))
+        {
+            questions.Add("How does your UI handle loading, validation, and failure states accessibly?");
+        }
+
+        return questions;
+    }
+
+    private static List<string> DeriveStrongLanguages(ApplicationAssessment aiAssessment)
+    {
+        var output = new List<string>();
+        var known = new[]
+        {
+            "typescript", "javascript", "c#", "csharp", "python", "java", "go", "kotlin", "swift",
+            "php", "ruby", "rust", "scala", "sql", "dart", "tsx", "jsx",
+        };
+
+        var pool = new List<string>();
+        if (aiAssessment?.ExtractedSkills != null)
+        {
+            pool.AddRange(aiAssessment.ExtractedSkills);
+        }
+
+        if (aiAssessment?.Projects != null)
+        {
+            foreach (var project in aiAssessment.Projects)
+            {
+                if (project?.Technologies != null)
+                {
+                    pool.AddRange(project.Technologies);
+                }
+            }
+        }
+
+        foreach (var raw in pool)
+        {
+            var value = (raw ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var normalized = value.ToLowerInvariant();
+            var matched = known.FirstOrDefault(lang => normalized == lang || normalized.Contains(lang));
+            if (string.IsNullOrWhiteSpace(matched))
+            {
+                continue;
+            }
+
+            var display = matched == "csharp" ? "c#" : matched;
+            if (!output.Any(x => string.Equals(x, display, StringComparison.OrdinalIgnoreCase)))
+            {
+                output.Add(display);
+            }
+        }
+
+        return output.Take(8).ToList();
+    }
+
+    private static string BuildAssessmentGenerationSeed(Job job, string candidateName, string candidateEmail)
+    {
+        var baseSeed =
+            $"{job?.Id}|{job?.Title}|{candidateName}|{candidateEmail}|{DateTime.UtcNow:yyyyMMddHHmmssfff}|{Guid.NewGuid():N}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(baseSeed))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static List<string> KeepOnlyRelevantEndpointHints(List<string> endpointHints, string prompt, string instructions)
+    {
+        var safe = (endpointHints ?? new List<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => SafeTrim(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        if (safe.Count == 0)
+        {
+            return safe;
+        }
+
+        var signal = $"{prompt} {instructions}".ToLowerInvariant();
+        var needsApiHints = signal.Contains("api") ||
+                            signal.Contains("endpoint") ||
+                            signal.Contains("backend") ||
+                            signal.Contains("integration") ||
+                            signal.Contains("service contract");
+        if (!needsApiHints)
+        {
+            return new List<string>();
+        }
+
+        return safe;
+    }
+
+    private static AssessmentWorkbenchConfig ParseWorkbenchConfig(string contextJson, Job job)
+    {
+        var fallbackMode = ResolveWorkMode(job);
+        var fallback = new AssessmentWorkbenchConfig
+        {
+            WorkMode = fallbackMode,
+            EndpointHints = BuildEndpointHints(job, fallbackMode),
+            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode),
+        };
+
+        if (string.IsNullOrWhiteSpace(contextJson))
+        {
+            return fallback;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(contextJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return fallback;
+            }
+
+            var mode = doc.RootElement.TryGetProperty("workMode", out var modeNode)
+                ? SafeTrim(modeNode.GetString())
+                : fallback.WorkMode;
+            var endpoints = doc.RootElement.TryGetProperty("endpointHints", out var endpointNode)
+                ? ReadStringArray(endpointNode)
+                : fallback.EndpointHints;
+            var questions = doc.RootElement.TryGetProperty("interactiveQuestions", out var questionsNode)
+                ? ReadStringArray(questionsNode)
+                : fallback.InteractiveQuestions;
+
+            return new AssessmentWorkbenchConfig
+            {
+                WorkMode = string.IsNullOrWhiteSpace(mode) ? fallback.WorkMode : mode.ToLowerInvariant(),
+                EndpointHints = endpoints.Count == 0 ? fallback.EndpointHints : endpoints,
+                InteractiveQuestions = questions.Count == 0 ? fallback.InteractiveQuestions : questions,
+            };
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 
     private static AssessmentEvaluation ParseAssessmentEvaluationResult(string assessmentResultJson)
@@ -3441,6 +3685,23 @@ public class CompanyJobAppService : MosaicTalentAppServiceBase, ICompanyJobAppSe
         public string Description { get; set; } = string.Empty;
         public double Score { get; set; }
         public List<string> Technologies { get; set; } = new();
+    }
+
+    private sealed class AssessmentWorkbenchConfig
+    {
+        public string WorkMode { get; set; } = "fullstack";
+        public List<string> EndpointHints { get; set; } = new();
+        public List<string> InteractiveQuestions { get; set; } = new();
+    }
+
+    private sealed class AssessmentBlueprint
+    {
+        public string Prompt { get; set; } = string.Empty;
+        public string Instructions { get; set; } = string.Empty;
+        public string WorkMode { get; set; } = "fullstack";
+        public List<string> EndpointHints { get; set; } = new();
+        public List<string> InteractiveQuestions { get; set; } = new();
+        public string GenerationSeed { get; set; } = string.Empty;
     }
 
     private sealed class AssessmentEvaluation

@@ -56,6 +56,9 @@ export interface IJobAssessment {
   tips: string[];
   submittedAt?: string;
   problems: IJobAssessmentProblem[];
+  workMode?: "frontend" | "backend" | "fullstack";
+  endpointHints?: string[];
+  interactiveQuestions?: string[];
 }
 
 export interface IAssessmentPromptResult {
@@ -65,6 +68,11 @@ export interface IAssessmentPromptResult {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  proposals?: Array<{
+    title: string;
+    patch: string;
+    isHallucinationRisk: boolean;
+  }>;
 }
 
 export interface IJobAssessmentProblem {
@@ -190,6 +198,7 @@ export interface IJobActionContext {
   sendApplicationEmail: (jobApplicationId: string, subject: string, message: string) => Promise<void>;
   getAssessment: (assessmentId: string) => Promise<IJobAssessment>;
   runAssessmentPrompt: (input: { assessmentId: string; problemId: string; prompt: string }) => Promise<IAssessmentPromptResult>;
+  saveAssessmentDraft: (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => Promise<IJobAssessment>;
   submitAssessment: (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => Promise<IJobAssessment>;
 }
 
@@ -246,6 +255,24 @@ export const JobActionContext = createContext<IJobActionContext>({
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+  }),
+  saveAssessmentDraft: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
   }),
   submitAssessment: async () => ({
     id: "",
