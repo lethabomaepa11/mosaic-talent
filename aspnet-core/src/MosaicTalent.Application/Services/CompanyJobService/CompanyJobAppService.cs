@@ -1843,7 +1843,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         var instructions = blueprint.Instructions;
         var workMode = string.IsNullOrWhiteSpace(blueprint.WorkMode) ? ResolveWorkMode(job) : blueprint.WorkMode;
         var endpointHints = blueprint.EndpointHints ?? new List<string>();
-        var interactiveQuestions = blueprint.InteractiveQuestions ?? BuildInteractiveQuestions(workMode);
+        var interactiveQuestions = blueprint.InteractiveQuestions ?? BuildInteractiveQuestions(workMode, job, aiAssessment);
         var contextJson = JsonSerializer.Serialize(new
         {
             skills = aiAssessment.ExtractedSkills ?? new List<string>(),
@@ -1928,7 +1928,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             Instructions = fallbackInstructions,
             WorkMode = fallbackMode,
             EndpointHints = new List<string>(),
-            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode),
+            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode, job, aiAssessment),
             GenerationSeed = BuildAssessmentGenerationSeed(job, candidateName, candidateEmail),
         };
 
@@ -1995,7 +1995,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 : new List<string>();
             if (interactiveQuestions.Count == 0)
             {
-                interactiveQuestions = BuildInteractiveQuestions(workMode);
+                interactiveQuestions = BuildInteractiveQuestions(workMode, job, aiAssessment);
             }
 
             var endpointHints = doc.RootElement.TryGetProperty("endpointHints", out var endpointNode)
@@ -2234,15 +2234,24 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         }
     }
 
-    private static string DefaultStarterCode(string workMode, int order)
+    private static string DefaultStarterCode(string workMode, int order, Job job, JobAssessment assessment)
     {
         var mode = (workMode ?? "fullstack").ToLowerInvariant();
+        var role = SafeTrim(job?.Title);
+        var shortRole = string.IsNullOrWhiteSpace(role) ? "candidate task" : role;
+        var assessmentPrompt = SafeTrim(assessment?.Prompt);
+        var focus = string.IsNullOrWhiteSpace(assessmentPrompt)
+            ? "Implement the requested flow with clear validation and error handling."
+            : assessmentPrompt.Split('\n').FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "Implement the requested flow.";
         if (mode == "backend")
         {
+            var endpoint = BuildEndpointHints(job, mode).FirstOrDefault() ?? "GET /api/...";
             return
-                "export async function login(email: string, password: string) {\n" +
-                "  // call POST /api/auth/login\n" +
-                "  return { token: \"\", user: null };\n" +
+                $"// Role context: {shortRole}\n" +
+                $"// Focus: {focus}\n" +
+                "export async function handleRequest(input: unknown) {\n" +
+                $"  // Implement endpoint contract for: {endpoint}\n" +
+                "  return { ok: true, data: null };\n" +
                 "}\n";
         }
 
@@ -2251,13 +2260,14 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             return
                 "import React from \"react\";\n\n" +
                 "export default function App() {\n" +
-                "  return <div>Implement login screen states here.</div>;\n" +
+                $"  return <div>Build the {shortRole} user flow with loading/error/success states.</div>;\n" +
                 "}\n";
         }
 
         return
-            "export async function handleAuthFlow() {\n" +
-            "  // implement token refresh and current-user retrieval\n" +
+            $"// Role context: {shortRole}\n" +
+            "export async function handleFlow() {\n" +
+            $"  // Implement integration flow for: {focus}\n" +
             "}\n";
     }
 
@@ -2834,21 +2844,57 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
 
     private static List<string> BuildEndpointHints(Job job, string workMode)
     {
-        return new List<string>();
+        var normalizedMode = NormalizeWorkMode(workMode);
+        if (normalizedMode == "frontend")
+        {
+            return new List<string>();
+        }
+
+        var corpus = $"{job?.Description} {job?.TechnicalAssessmentPrompt} {job?.BehaviouralAssessmentPrompt}";
+        if (string.IsNullOrWhiteSpace(corpus))
+        {
+            return new List<string>();
+        }
+
+        var output = new List<string>();
+        var endpointRegex = new Regex(@"(?:GET|POST|PUT|PATCH|DELETE)\s+(/[a-zA-Z0-9\-_/{}/]+)|(/api/[a-zA-Z0-9\-_/{}/]+)", RegexOptions.IgnoreCase);
+        var matches = endpointRegex.Matches(corpus);
+        foreach (Match match in matches)
+        {
+            var value = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+            value = SafeTrim(value);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (!output.Any(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase)))
+            {
+                output.Add(value);
+            }
+        }
+
+        return output.Take(8).ToList();
     }
 
-    private static List<string> BuildInteractiveQuestions(string workMode)
+    private static List<string> BuildInteractiveQuestions(string workMode, Job job = null, ApplicationAssessment aiAssessment = null)
     {
+        var role = string.IsNullOrWhiteSpace(job?.Title) ? "this role" : job.Title;
+        var topSkill = aiAssessment?.ExtractedSkills?.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+        var primarySkill = string.IsNullOrWhiteSpace(topSkill) ? "your strongest technical area" : topSkill;
         var questions = new List<string>
         {
-            "What trade-off did you make to keep the solution production-ready?",
-            "How did you validate AI-generated suggestions before using them?",
-            "What is the first risk you would monitor after release?",
+            $"Which trade-off did you make for {role}, and why was it acceptable?",
+            $"How did you validate AI suggestions against {primarySkill} requirements?",
+            "What production signal would you monitor first after release?",
         };
 
         if (!string.Equals(workMode, "frontend", StringComparison.OrdinalIgnoreCase))
         {
-            questions.Add("Which endpoint contracts are critical and how will you version them?");
+            var endpoint = BuildEndpointHints(job, workMode).FirstOrDefault();
+            questions.Add(string.IsNullOrWhiteSpace(endpoint)
+                ? "Which endpoint contracts are critical and how will you version them?"
+                : $"How would you version and protect contract changes for `{endpoint}`?");
         }
 
         if (!string.Equals(workMode, "backend", StringComparison.OrdinalIgnoreCase))
@@ -2955,7 +3001,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         {
             WorkMode = fallbackMode,
             EndpointHints = BuildEndpointHints(job, fallbackMode),
-            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode),
+            InteractiveQuestions = BuildInteractiveQuestions(fallbackMode, job),
         };
 
         if (string.IsNullOrWhiteSpace(contextJson))
@@ -3375,9 +3421,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         var corpus = $"{job.Title} {job.Description} {job.TechnicalAssessmentPrompt} {job.BehaviouralAssessmentPrompt}".ToLowerInvariant();
         var text = $"{resumeText} {input.ResponsesJson} {input.TechnicalAssessmentAnswer} {input.BehaviouralAssessmentAnswer}".ToLowerInvariant();
 
-        var skillBank = new[] { "c#", ".net", "javascript", "typescript", "react", "next", "sql", "postgres", "azure", "aws", "docker", "kubernetes", "testing", "qa", "python", "java" };
-        var extractedSkills = skillBank.Where(skill => text.Contains(skill)).Distinct().Take(12).ToList();
-        var matched = extractedSkills.Count(skill => corpus.Contains(skill));
+        var extractedSkills = ExtractSharedTechnicalTerms(corpus, text);
+        var matched = extractedSkills.Count(skill => corpus.Contains(skill, StringComparison.OrdinalIgnoreCase));
         var score = Math.Min(95, 45 + matched * 8 + (text.Length > 500 ? 8 : 0));
         var verdict = score >= 75 ? "Strong match" : score >= 55 ? "Moderate match" : "Needs review";
 
@@ -3401,6 +3446,63 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             Projects = BuildFallbackProjects(text, extractedSkills),
             Mosaic = BuildFallbackMosaic(score),
         };
+    }
+
+    private static List<string> ExtractSharedTechnicalTerms(string corpus, string text)
+    {
+        var corpusTokens = TokenizeTechnicalTerms(corpus).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var textTokens = TokenizeTechnicalTerms(text);
+        var output = new List<string>();
+        foreach (var token in textTokens)
+        {
+            if (!corpusTokens.Contains(token))
+            {
+                continue;
+            }
+
+            if (!output.Any(x => string.Equals(x, token, StringComparison.OrdinalIgnoreCase)))
+            {
+                output.Add(token);
+            }
+        }
+
+        return output.Take(12).ToList();
+    }
+
+    private static IEnumerable<string> TokenizeTechnicalTerms(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return Array.Empty<string>();
+        }
+
+        var stopwords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "and", "the", "for", "with", "this", "that", "from", "your", "have", "has", "will", "into", "about", "build",
+            "using", "used", "need", "must", "task", "ticket", "role", "team", "work", "code", "flow", "user", "data",
+            "system", "service", "application", "candidate", "project", "required", "requirements"
+        };
+
+        var matches = Regex.Matches(input.ToLowerInvariant(), @"[a-z0-9\.\+#-]{2,}");
+        var output = new List<string>();
+        foreach (Match match in matches)
+        {
+            var value = match.Value.Trim();
+            if (value.Length < 2 || value.Length > 32 || stopwords.Contains(value))
+            {
+                continue;
+            }
+
+            var hasSignal = value.Contains('.') || value.Contains('#') || value.Contains('+') || value.Contains('-') || value.Any(char.IsDigit);
+            if (!hasSignal && value.Length < 4)
+            {
+                continue;
+            }
+
+            output.Add(value);
+        }
+
+        return output;
     }
 
     private static string MergeResponsesWithAssessment(string inputResponsesJson, ApplicationAssessment assessment, string resumeText)
