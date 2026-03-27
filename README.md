@@ -69,6 +69,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
   - project-level AI feedback summary + strengths/improvements/tips + growth score
+- Company jobs:
+  - company admin job posting management in `/app/jobs`
+  - developer job applications with source + lifecycle status
+  - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
 
 ## Documentation
 
@@ -76,6 +80,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
+- [Company Jobs](docs/feature/company-jobs.md)
 
 ## Tenant Resolution Rules
 
@@ -163,6 +168,17 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/CompanyAccount/GetMyCompanyEmployees`
 - `POST /api/services/app/CompanyAccount/AddCompanyEmployee`
 - `POST /api/services/app/CompanyAccount/UpdateEmployeeRole`
+
+### Company jobs
+
+- `GET /api/services/app/CompanyJob/GetMyJobs`
+- `GET /api/services/app/CompanyJob/GetJob`
+- `POST /api/services/app/CompanyJob/CreateJob`
+- `PUT /api/services/app/CompanyJob/UpdateJob`
+- `PUT /api/services/app/CompanyJob/ToggleJobOpenStatus`
+- `GET /api/services/app/CompanyJob/GetJobApplications`
+- `POST /api/services/app/CompanyJob/ApplyToJob`
+- `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
 
 ### File upload (R2)
 

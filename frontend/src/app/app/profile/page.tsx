@@ -695,7 +695,7 @@ const ProfilePage = () => {
               <Card
                 title={
                   <Space>
-                    <GithubOutlined size={16} /> GitHub Integration
+                    <GithubOutlined size={16} /> {isCompanyTenant ? "Avatar" : "GitHub Integration"}
                   </Space>
                 }
               >
@@ -718,21 +718,18 @@ const ProfilePage = () => {
                         Upload Avatar
                       </Button>
                     </Upload>
-                    <Input
-                      value={isCompanyTenant ? companyDraft.avatarUrl : draft.avatarUrl}
-                      onChange={(event) =>
-                        isCompanyTenant
-                          ? setCompanyDraft((prev) => ({
-                              ...prev,
-                              avatarUrl: event.target.value,
-                            }))
-                          : setDraft((prev) => ({
-                              ...prev,
-                              avatarUrl: event.target.value,
-                            }))
-                      }
-                      placeholder="Or paste avatar URL"
-                    />
+                    {!isCompanyTenant ? (
+                      <Input
+                        value={draft.avatarUrl}
+                        onChange={(event) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            avatarUrl: event.target.value,
+                          }))
+                        }
+                        placeholder="Or paste avatar URL"
+                      />
+                    ) : null}
                   </div>
                   {!isCompanyTenant ? (
                     <Input

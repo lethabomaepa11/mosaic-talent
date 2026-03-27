@@ -7,3 +7,4 @@ Project documentation index.
 - [AI Matching](feature/ai-matching.md)
 - [AI Simulator](feature/ai-simulator.md) (includes realtime SignalR voice flow)
 - [AI Peer Reviews](feature/ai-peer-reviews.md)
+- [Company Jobs](feature/company-jobs.md)
