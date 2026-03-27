@@ -65,12 +65,17 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
   - communication dimension scoring per turn
+- AI peer reviews:
+  - auto-generated after completed projects
+  - teammate rating (1-10) and AI-generated review questions
+  - project-level AI feedback summary + strengths/improvements/tips + growth score
 
 ## Documentation
 
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
+- [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 
 ## Tenant Resolution Rules
 
@@ -130,6 +135,14 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
+
+### AI peer reviews
+
+- `GET /api/services/app/PeerReview/GetMyProjectPeerReviews`
+- `GET /api/services/app/PeerReview/GetProjectPeerReviews`
+- `POST /api/services/app/PeerReview/GenerateProjectPeerReviews`
+- `POST /api/services/app/PeerReview/SetPeerReviewRating`
+- `POST /api/services/app/PeerReview/SubmitReviewAnswer`
 
 ### AI simulator
 
