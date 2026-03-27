@@ -116,10 +116,18 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
             .Select(x => x.Role)
             .Distinct()
             .ToListAsync();
+        var participantName = await ResolveParticipantName();
         var speakingRoles = requiredRoles
             .Where(role => role != BotRole.Assessor && role != BotRole.Orchestrator)
             .Distinct()
             .ToList();
+
+        if (PromptImpliesManagerCounterpart(scenario.Prompt) &&
+            !speakingRoles.Contains(BotRole.Stakeholder))
+        {
+            speakingRoles.Insert(0, BotRole.Stakeholder);
+        }
+
         var sessionType = ParseSessionType(input.SessionType, speakingRoles.Count);
 
         var session = new SimulationSession
@@ -142,7 +150,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
                 TenantId = tenantId,
                 SessionId = session.Id,
                 Role = role,
-                PersonalityPrompt = BuildDefaultPersonality(role, scenario.Title),
+                PersonalityPrompt = BuildBotPersonality(role, scenario.Title, scenario.Prompt, participantName),
                 CurrentState = "Ready",
                 IsActive = true,
                 TurnOrder = order++,
@@ -176,11 +184,10 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
 
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        if (session.SessionType == SessionType.MeetingSimulation)
-        {
-            await GenerateAndPersistBotTurn(tenantId, session, scenario, "Meeting kickoff");
-            await GenerateAndPersistBotTurn(tenantId, session, scenario, "Continue discussion");
-        }
+        var kickoffTrigger = session.SessionType == SessionType.MeetingSimulation
+            ? "Meeting kickoff"
+            : "Session kickoff";
+        await GenerateAndPersistBotTurn(tenantId, session, scenario, kickoffTrigger);
 
         return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });
     }
@@ -222,7 +229,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         });
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        await GenerateAndPersistBotTurn(tenantId, session, scenario, content, user.Id);
+        await GenerateAndPersistBotTurn(tenantId, session, scenario, content);
         await CurrentUnitOfWork.SaveChangesAsync();
 
         return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });
@@ -245,6 +252,12 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
                 .Where(x => x.SessionId == session.Id)
                 .OrderBy(x => x.CreationTime)
                 .ToListAsync();
+
+            var latestMessage = messages.LastOrDefault();
+            if (latestMessage == null || latestMessage.Role != ScenarioRole.User)
+            {
+                return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });
+            }
 
             if (!IsAwaitingUserInput(messages))
             {
@@ -305,27 +318,29 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
             return null;
         }
 
+        var userMessages = messages
+            .Where(x => x.Role == ScenarioRole.User)
+            .Select(x => new { role = "User", x.Content })
+            .ToList();
+
+        if (userMessages.Count == 0)
+        {
+            return null;
+        }
+
         var prompt = new
         {
             scenario = new
             {
                 scenario.Title,
                 scenario.Prompt,
+                participantDefinition = "In this scenario, 'You' is the human participant (User).",
             },
-            conversation = messages.Select(x => new { role = x.Role.ToString(), x.Content }),
-            observations = observations.Select(observation => new
-            {
-                observation.TurnIndex,
-                observation.ObservationText,
-                dimensions = scores
-                    .Where(score => score.ObservationId == observation.Id)
-                    .Select(score => new { dimension = score.Dimension.ToString(), score.Score })
-                    .ToList(),
-            }).ToList(),
-            required = "Return JSON with communicationScore, empathyScore, resolutionScore, overallScore, summary, strengths[], improvements[], tips[]",
+            participantMessages = userMessages,
+            required = "Return JSON with communicationScore, empathyScore, resolutionScore, overallScore, summary, strengths[], improvements[], tips[]. Score only the participant messages. Ignore bot messages for scoring. All scores must be numeric percentages in the range 0 to 100 (not 0 to 10).",
         };
 
-        var systemPrompt = "You are an expert workplace communication assessor. Return objective, concise scoring and coaching as JSON only.";
+        var systemPrompt = "You are an expert workplace communication assessor. Evaluate only the human participant (User) messages. Do not score bot messages. Return objective, concise coaching as JSON only. IMPORTANT: every score field must be in percentage scale from 0 to 100.";
         var userPrompt = JsonSerializer.Serialize(prompt);
         var result = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
         if (string.IsNullOrWhiteSpace(result))
@@ -356,9 +371,22 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
 
     private static double ReadScore(JsonElement root, string name)
     {
-        return root.TryGetProperty(name, out var value) && value.TryGetDouble(out var score)
-            ? Math.Clamp(score, 0, 100)
-            : 0;
+        if (!root.TryGetProperty(name, out var value) || !value.TryGetDouble(out var rawScore))
+        {
+            return 0;
+        }
+
+        var score = rawScore;
+        if (score >= 0 && score <= 1)
+        {
+            score *= 100;
+        }
+        else if (score > 1 && score <= 10)
+        {
+            score *= 10;
+        }
+
+        return Math.Clamp(score, 0, 100);
     }
 
     private static string ReadString(JsonElement root, string name)

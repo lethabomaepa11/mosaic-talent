@@ -4,6 +4,7 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
+using MosaicTalent.Domains.Reviews;
 using MosaicTalent.Domains.Simulations;
 using MosaicTalent.MultiTenancy;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +19,18 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<DeveloperProfileGoal> DeveloperProfileGoals { get; set; }
     public DbSet<Company> Companies { get; set; }
     public DbSet<CompanyEmployee> CompanyEmployees { get; set; }
+    public DbSet<Job> Jobs { get; set; }
+    public DbSet<JobApplication> JobApplications { get; set; }
+    public DbSet<PublicJobApplication> PublicJobApplications { get; set; }
+    public DbSet<CompanyJobsPageSettings> CompanyJobsPageSettings { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectMember> ProjectMembers { get; set; }
     public DbSet<ProjectSkill> ProjectSkills { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
+    public DbSet<PeerReview> PeerReviews { get; set; }
+    public DbSet<AIReviewQuestion> AIReviewQuestions { get; set; }
+    public DbSet<AIReviewFeedback> AIReviewFeedbacks { get; set; }
+    public DbSet<ReviewAnswer> ReviewAnswers { get; set; }
     public DbSet<SimulationScenario> SimulationScenarios { get; set; }
     public DbSet<SimulationScenarioRequiredRole> SimulationScenarioRequiredRoles { get; set; }
     public DbSet<SimulationSession> SimulationSessions { get; set; }
@@ -73,6 +82,31 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
             builder.HasIndex(x => new { x.CompanyId, x.Role });
         });
 
+        modelBuilder.Entity<Job>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsOpen });
+            builder.HasIndex(x => new { x.CompanyId, x.CreationTime });
+        });
+
+        modelBuilder.Entity<JobApplication>(builder =>
+        {
+            builder.HasIndex(x => new { x.JobId, x.CandidateDeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.JobId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.CandidateDeveloperId });
+        });
+
+        modelBuilder.Entity<PublicJobApplication>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.JobId, x.Email });
+            builder.HasIndex(x => new { x.TenantId, x.JobId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.CandidateDeveloperId });
+        });
+
+        modelBuilder.Entity<CompanyJobsPageSettings>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
+        });
+
         modelBuilder.Entity<Project>(builder =>
         {
             builder.HasIndex(x => new { x.TenantId, x.OwnerDeveloperId });
@@ -95,6 +129,31 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         {
             builder.HasIndex(x => new { x.ProjectId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.ProjectId });
+        });
+
+        modelBuilder.Entity<PeerReview>(builder =>
+        {
+            builder.HasIndex(x => new { x.ProjectId, x.ReviewerDeveloperId, x.RevieweeDeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.ReviewerDeveloperId });
+            builder.HasIndex(x => new { x.TenantId, x.RevieweeDeveloperId });
+        });
+
+        modelBuilder.Entity<AIReviewQuestion>(builder =>
+        {
+            builder.HasIndex(x => new { x.PeerReviewId, x.Category });
+            builder.HasIndex(x => new { x.TenantId, x.PeerReviewId });
+        });
+
+        modelBuilder.Entity<AIReviewFeedback>(builder =>
+        {
+            builder.HasIndex(x => new { x.ProjectId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.ProjectId });
+        });
+
+        modelBuilder.Entity<ReviewAnswer>(builder =>
+        {
+            builder.HasIndex(x => new { x.AIReviewQuestionId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.AIReviewQuestionId });
         });
 
         modelBuilder.Entity<SimulationScenario>(builder =>

@@ -27,6 +27,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - `antd-style` 4.1.0
 - `axios` 1.13.6
 - `framer-motion` 12.38.0
+- `@microsoft/signalr` 9.0.10
 - `redux-actions` 3.0.3
 - Testing: `vitest` 4.1.1 + Testing Library
 
@@ -64,12 +65,22 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
   - communication dimension scoring per turn
+- AI peer reviews:
+  - auto-generated after completed projects
+  - teammate rating (1-10) and AI-generated review questions
+  - project-level AI feedback summary + strengths/improvements/tips + growth score
+- Company jobs:
+  - company admin job posting management in `/app/jobs`
+  - developer job applications with source + lifecycle status
+  - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
 
 ## Documentation
 
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
+- [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
+- [Company Jobs](docs/feature/company-jobs.md)
 
 ## Tenant Resolution Rules
 
@@ -130,6 +141,14 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
 
+### AI peer reviews
+
+- `GET /api/services/app/PeerReview/GetMyProjectPeerReviews`
+- `GET /api/services/app/PeerReview/GetProjectPeerReviews`
+- `POST /api/services/app/PeerReview/GenerateProjectPeerReviews`
+- `POST /api/services/app/PeerReview/SetPeerReviewRating`
+- `POST /api/services/app/PeerReview/SubmitReviewAnswer`
+
 ### AI simulator
 
 - `GET /api/services/app/SimulationScenario/GetScenarios`
@@ -137,6 +156,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/SimulationScenario/StartSession`
 - `GET /api/services/app/SimulationScenario/GetSession`
 - `POST /api/services/app/SimulationScenario/SendMessage`
+- `POST /api/services/app/SimulationVoice/Turn`
+- `GET /api/services/app/SimulationVoice/GetVoiceModels`
+- `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
 
 ### Company account
 
@@ -146,6 +168,17 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/CompanyAccount/GetMyCompanyEmployees`
 - `POST /api/services/app/CompanyAccount/AddCompanyEmployee`
 - `POST /api/services/app/CompanyAccount/UpdateEmployeeRole`
+
+### Company jobs
+
+- `GET /api/services/app/CompanyJob/GetMyJobs`
+- `GET /api/services/app/CompanyJob/GetJob`
+- `POST /api/services/app/CompanyJob/CreateJob`
+- `PUT /api/services/app/CompanyJob/UpdateJob`
+- `PUT /api/services/app/CompanyJob/ToggleJobOpenStatus`
+- `GET /api/services/app/CompanyJob/GetJobApplications`
+- `POST /api/services/app/CompanyJob/ApplyToJob`
+- `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
 
 ### File upload (R2)
 
@@ -187,6 +220,8 @@ Also supported:
 - `GitHubApp__PrivateKeyPem`
 - `GitHubApp__WebhookSecret`
 - `Groq__ApiKey`
+- `Deepgram__ApiKey`
+- `Deepgram__TtsModel` (optional default fallback model)
 - `Vercel__Token`
 - `Brevo__ApiKey`
 

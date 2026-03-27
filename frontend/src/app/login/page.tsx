@@ -55,7 +55,7 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      router.push("/app/projects/open");
+      router.push("/app");
     } finally {
       setIsLoading(false);
     }

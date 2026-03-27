@@ -6,6 +6,7 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
+using MosaicTalent.Services.PeerReviewService;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
 using System;
 using System.Collections.Generic;
@@ -28,6 +29,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IRepository<DeveloperProfileSkill, Guid> _developerProfileSkillRepository;
     private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
     private readonly IGroqChatService _groqChatService;
+    private readonly IPeerReviewGenerationService _peerReviewGenerationService;
 
     public DeveloperProjectAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -39,7 +41,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IRepository<DeveloperProfile, Guid> developerProfileRepository,
         IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
-        IGroqChatService groqChatService)
+        IGroqChatService groqChatService,
+        IPeerReviewGenerationService peerReviewGenerationService)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -51,6 +54,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _developerProfileSkillRepository = developerProfileSkillRepository;
         _developerProfileGoalRepository = developerProfileGoalRepository;
         _groqChatService = groqChatService;
+        _peerReviewGenerationService = peerReviewGenerationService;
     }
 
     public async Task<List<DeveloperProjectDto>> GetMyProjects()
@@ -445,6 +449,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
 
         project.Status = ProjectStatus.Complete;
         await _projectRepository.UpdateAsync(project);
+        await CurrentUnitOfWork.SaveChangesAsync();
+        await _peerReviewGenerationService.EnsureGeneratedForProject(project.Id, project.TenantId);
         await CurrentUnitOfWork.SaveChangesAsync();
 
         var mapped = await MapProjects(new List<Project> { project });
