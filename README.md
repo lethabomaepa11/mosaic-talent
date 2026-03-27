@@ -27,6 +27,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - `antd-style` 4.1.0
 - `axios` 1.13.6
 - `framer-motion` 12.38.0
+- `@microsoft/signalr` 9.0.10
 - `redux-actions` 3.0.3
 - Testing: `vitest` 4.1.1 + Testing Library
 
@@ -137,6 +138,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/SimulationScenario/StartSession`
 - `GET /api/services/app/SimulationScenario/GetSession`
 - `POST /api/services/app/SimulationScenario/SendMessage`
+- `POST /api/services/app/SimulationVoice/Turn`
+- `GET /api/services/app/SimulationVoice/GetVoiceModels`
+- `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
 
 ### Company account
 
@@ -187,6 +191,8 @@ Also supported:
 - `GitHubApp__PrivateKeyPem`
 - `GitHubApp__WebhookSecret`
 - `Groq__ApiKey`
+- `Deepgram__ApiKey`
+- `Deepgram__TtsModel` (optional default fallback model)
 - `Vercel__Token`
 - `Brevo__ApiKey`
 

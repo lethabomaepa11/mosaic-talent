@@ -1,8 +1,9 @@
 "use client";
 
 import { AxiosError } from "axios";
+import { HubConnection, HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { PropsWithChildren, useContext, useReducer } from "react";
-import { getAxiosInstance } from "@/utils/axiosInstance";
+import { getAuthToken, getAxiosInstance } from "@/utils/axiosInstance";
 import {
   createScenarioError,
   createScenarioPending,
@@ -21,14 +22,20 @@ import {
   ISimulationBot,
   ISimulationFeedback,
   ISimulationMessage,
+  ISimulationRealtimeEvent,
   ISimulationScenario,
   ISimulationSession,
+  ISimulationVoiceTurnResult,
   SimulationActionContext,
   SimulationStateContext,
 } from "./context";
 import { SimulationReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/SimulationScenario";
+const SIGNALR_ENDPOINT = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/signalr-simulation`;
+
+let simulationConnection: HubConnection | null = null;
+let realtimeEventHandler: ((event: ISimulationRealtimeEvent) => void) | null = null;
 
 const readApiError = (error: unknown, fallback: string) => {
   if (error instanceof AxiosError) {
@@ -197,9 +204,124 @@ export const SimulationProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const sendVoiceTurn = async (sessionId: string, content: string) => {
+    dispatch(sessionPending());
+    try {
+      const res = await instance.post("/api/services/app/SimulationVoice/Turn", {
+        sessionId,
+        content,
+      });
+      const result = (res.data?.result ?? {}) as Partial<ISimulationVoiceTurnResult> & {
+        session?: Partial<ISimulationSession>;
+      };
+      const session = normalizeSession(result.session ?? {});
+      dispatch(sessionSuccess(session));
+      return {
+        session,
+        replyText: result.replyText ?? "",
+        replyRole: result.replyRole ?? "",
+        replyMessageId: result.replyMessageId ?? "",
+        voiceModel: result.voiceModel ?? "",
+        audioBase64: result.audioBase64,
+        audioMimeType: result.audioMimeType,
+      } as ISimulationVoiceTurnResult;
+    } catch (error) {
+      dispatch(sessionError());
+      throw new Error(readApiError(error, "Failed to process voice turn."));
+    }
+  };
+
+  const emitRealtimeEvent = (event: ISimulationRealtimeEvent) => {
+    if (realtimeEventHandler) {
+      realtimeEventHandler(event);
+    }
+  };
+
+  const ensureRealtimeConnection = async () => {
+    if (!simulationConnection) {
+      simulationConnection = new HubConnectionBuilder()
+        .withUrl(SIGNALR_ENDPOINT, {
+          accessTokenFactory: () => getAuthToken(),
+          withCredentials: true,
+        })
+        .withAutomaticReconnect()
+        .configureLogging(LogLevel.Warning)
+        .build();
+
+      simulationConnection.on("simulation_turn_started", (payload: Record<string, unknown>) => {
+        emitRealtimeEvent({ type: "turn_started", payload });
+      });
+      simulationConnection.on("simulation_session_updated", (payload: Record<string, unknown>) => {
+        const session = normalizeSession((payload?.session as Partial<ISimulationSession>) ?? {});
+        dispatch(sessionSuccess(session));
+        emitRealtimeEvent({ type: "session_updated", payload });
+      });
+      simulationConnection.on("simulation_bot_text", (payload: Record<string, unknown>) => {
+        emitRealtimeEvent({ type: "bot_text", payload });
+      });
+      simulationConnection.on("simulation_bot_audio", (payload: Record<string, unknown>) => {
+        emitRealtimeEvent({ type: "bot_audio", payload });
+      });
+      simulationConnection.on("simulation_turn_completed", (payload: Record<string, unknown>) => {
+        emitRealtimeEvent({ type: "turn_completed", payload });
+      });
+      simulationConnection.on("simulation_interrupt_ack", (payload: Record<string, unknown>) => {
+        emitRealtimeEvent({ type: "interrupt_ack", payload });
+      });
+      simulationConnection.on("simulation_error", (message: string) => {
+        emitRealtimeEvent({ type: "error", payload: { message } });
+      });
+    }
+
+    if (simulationConnection.state === "Disconnected") {
+      await simulationConnection.start();
+    }
+  };
+
+  const connectRealtime = async (
+    sessionId: string,
+    onEvent: (event: ISimulationRealtimeEvent) => void,
+  ) => {
+    realtimeEventHandler = onEvent;
+    await ensureRealtimeConnection();
+    await simulationConnection?.invoke("JoinSession", sessionId);
+  };
+
+  const disconnectRealtime = async () => {
+    realtimeEventHandler = null;
+    if (simulationConnection && simulationConnection.state !== "Disconnected") {
+      await simulationConnection.stop();
+    }
+  };
+
+  const sendRealtimeMessage = async (sessionId: string, content: string) => {
+    await ensureRealtimeConnection();
+    await simulationConnection?.invoke("SendUserMessage", sessionId, content);
+  };
+
+  const interruptRealtime = async () => {
+    if (!simulationConnection || simulationConnection.state !== "Connected") {
+      return;
+    }
+    await simulationConnection.invoke("Interrupt");
+  };
+
   return (
     <SimulationStateContext.Provider value={state}>
-      <SimulationActionContext.Provider value={{ fetchScenarios, createScenario, startSession, getSession, advanceSession, sendMessage, evaluateSession }}>
+      <SimulationActionContext.Provider value={{
+        fetchScenarios,
+        createScenario,
+        startSession,
+        getSession,
+        advanceSession,
+        sendMessage,
+        sendVoiceTurn,
+        connectRealtime,
+        disconnectRealtime,
+        sendRealtimeMessage,
+        interruptRealtime,
+        evaluateSession,
+      }}>
         {children}
       </SimulationActionContext.Provider>
     </SimulationStateContext.Provider>

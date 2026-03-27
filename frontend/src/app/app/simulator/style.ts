@@ -43,11 +43,16 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: ${token.marginXXS}px 0 ${token.marginSM}px;
   `,
   activeWrap: css`
-    height: calc(100vh - 8rem);
+    height: calc(100dvh - 8rem);
     display: flex;
     flex-direction: column;
     gap: ${token.marginSM}px;
-    min-height: 560px;
+    min-height: 0;
+    overflow: hidden;
+
+    @media (max-width: 1024px) {
+      height: calc(100dvh - 6.5rem);
+    }
   `,
   activeHeader: css`
     display: flex;
@@ -68,9 +73,18 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginXS}px;
     flex-wrap: wrap;
   `,
+  toggleWrap: css`
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+    padding: 0 ${token.paddingXS}px;
+    min-height: 32px;
+  `,
   chatCard: css`
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 
     :global(.ant-card-body) {
       height: 100%;
@@ -80,9 +94,99 @@ export const useStyles = createStyles(({ token, css }) => ({
       padding: 0;
     }
   `,
+  callModeContainer: css`
+    padding: ${token.paddingSM}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+    background: color-mix(in srgb, ${token.colorBgContainer} 80%, ${token.colorPrimaryBg});
+    max-height: 42vh;
+    overflow: auto;
+  `,
+  comparisonPanel: css`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: ${token.marginXS}px;
+    margin-bottom: ${token.marginSM}px;
+    font-size: ${token.fontSizeSM}px;
+    color: ${token.colorTextSecondary};
+  `,
+  callGrid: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (min-width: 1280px) {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  `,
+  participantCard: css`
+    border: 1px solid ${token.colorBorderSecondary};
+    background: color-mix(in srgb, ${token.colorBgContainer} 84%, transparent);
+    border-radius: ${token.borderRadiusLG}px;
+    padding: ${token.paddingSM}px;
+    display: grid;
+    gap: ${token.marginXXS}px;
+    justify-items: center;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  `,
+  participantSpeaking: css`
+    border-color: color-mix(in srgb, ${token.colorPrimary} 45%, ${token.colorBorderSecondary});
+    box-shadow: 0 0 0 2px color-mix(in srgb, ${token.colorPrimary} 20%, transparent);
+    transform: translateY(-1px);
+  `,
+  participantAvatar: css`
+    background: color-mix(in srgb, ${token.colorPrimaryBg} 70%, ${token.colorBgContainer});
+    color: ${token.colorPrimary};
+    font-weight: ${token.fontWeightStrong};
+  `,
+  avatarVariant0: css`
+    background: color-mix(in srgb, #f59e0b 24%, ${token.colorBgContainer});
+    color: #f59e0b;
+  `,
+  avatarVariant1: css`
+    background: color-mix(in srgb, #06b6d4 24%, ${token.colorBgContainer});
+    color: #06b6d4;
+  `,
+  avatarVariant2: css`
+    background: color-mix(in srgb, #22c55e 24%, ${token.colorBgContainer});
+    color: #22c55e;
+  `,
+  avatarVariant3: css`
+    background: color-mix(in srgb, #f97316 24%, ${token.colorBgContainer});
+    color: #f97316;
+  `,
+  avatarVariant4: css`
+    background: color-mix(in srgb, #3b82f6 24%, ${token.colorBgContainer});
+    color: #3b82f6;
+  `,
+  avatarVariant5: css`
+    background: color-mix(in srgb, #ec4899 24%, ${token.colorBgContainer});
+    color: #ec4899;
+  `,
+  participantRole: css`
+    font-size: ${token.fontSizeSM}px;
+    text-align: center;
+  `,
+  speakingTag: css`
+    margin-top: ${token.marginXXS}px;
+  `,
+  mutedTag: css`
+    margin-top: ${token.marginXXS}px;
+    border-color: ${token.colorBorderSecondary} !important;
+    color: ${token.colorTextSecondary} !important;
+    background: color-mix(in srgb, ${token.colorFillSecondary} 70%, transparent) !important;
+  `,
   messagePane: css`
     flex: 1;
-    overflow: auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     padding: ${token.paddingMD}px;
     display: grid;
     gap: ${token.marginSM}px;
@@ -91,6 +195,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     gap: ${token.marginXS}px;
     align-items: flex-start;
+    min-width: 0;
   `,
   bubbleRowUser: css`
     justify-content: flex-end;
@@ -115,7 +220,8 @@ export const useStyles = createStyles(({ token, css }) => ({
   bubble: css`
     border-radius: ${token.borderRadiusLG}px;
     padding: ${token.paddingSM}px;
-    max-width: 80%;
+    max-width: min(82%, 760px);
+    min-width: 0;
     border: 1px solid ${token.colorBorderSecondary};
     background: ${token.colorBgContainer};
   `,
@@ -127,11 +233,15 @@ export const useStyles = createStyles(({ token, css }) => ({
   bubbleText: css`
     margin: 0;
     color: ${token.colorText};
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   `,
   bubbleMeta: css`
     margin: ${token.marginXXS}px 0 0;
     color: ${token.colorTextTertiary};
     font-size: ${token.fontSizeSM}px;
+    overflow-wrap: anywhere;
   `,
   typingRow: css`
     display: inline-flex;
@@ -174,6 +284,16 @@ export const useStyles = createStyles(({ token, css }) => ({
   composerRow: css`
     display: flex;
     gap: ${token.marginXS}px;
+
+    @media (max-width: 767px) {
+      flex-wrap: wrap;
+    }
+
+    :global(.ant-input-affix-wrapper),
+    :global(.ant-input) {
+      min-width: 0;
+      flex: 1 1 240px;
+    }
   `,
   helperText: css`
     margin: 0;

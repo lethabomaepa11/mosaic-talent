@@ -134,6 +134,13 @@ namespace MosaicTalent.Web.Host.Startup
                 return Task.CompletedTask;
             }
 
+            var accessToken = context.HttpContext.Request.Query["access_token"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                context.Token = accessToken;
+                return Task.CompletedTask;
+            }
+
             var qsAuthToken = context.HttpContext.Request.Query["enc_auth_token"].FirstOrDefault();
             if (qsAuthToken == null)
             {
