@@ -27,4 +27,6 @@ public class PublicJobsPageDto
     public string LayoutJson { get; set; }
 
     public string ApplicationFormJson { get; set; }
+
+    public string EmailTemplateSettingsJson { get; set; }
 }

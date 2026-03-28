@@ -22,6 +22,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<Job> Jobs { get; set; }
     public DbSet<JobApplication> JobApplications { get; set; }
     public DbSet<PublicJobApplication> PublicJobApplications { get; set; }
+    public DbSet<JobAssessment> JobAssessments { get; set; }
     public DbSet<CompanyJobsPageSettings> CompanyJobsPageSettings { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectMember> ProjectMembers { get; set; }
@@ -100,6 +101,14 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
             builder.HasIndex(x => new { x.TenantId, x.JobId, x.Email });
             builder.HasIndex(x => new { x.TenantId, x.JobId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.CandidateDeveloperId });
+        });
+
+        modelBuilder.Entity<JobAssessment>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.JobId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.CandidateEmail });
+            builder.HasIndex(x => x.JobApplicationId).IsUnique();
+            builder.HasIndex(x => x.PublicJobApplicationId).IsUnique();
         });
 
         modelBuilder.Entity<CompanyJobsPageSettings>(builder =>

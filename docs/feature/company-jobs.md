@@ -23,7 +23,21 @@ Implemented in `aspnet-core/src/MosaicTalent.Core/Domains/Companies`:
   - `MatchScore` (0-100)
   - `MatchReason`
   - `Source` (`LinkedIn`, `Facebook`, `Referral`, `Website`, `Google`, `Other`)
-  - `Status` (`Applied`, `Shortlisted`, `Interview`, `Rejected`, `Approved`)
+  - `Status` (`Applied`, `Shortlisted`, `Assessment`, `Interview`, `Rejected`, `Approved`)
+- `JobAssessment`
+  - `JobId`
+  - `JobApplicationId` (optional link for member applications)
+  - `PublicJobApplicationId` (optional link for public applications)
+  - `CandidateName`
+  - `CandidateEmail`
+  - `Prompt` (LeetPrompt-style task)
+  - `Instructions`
+  - `SubmissionText`
+  - `SubmissionGithubRepo`
+  - `AssessmentResultJson`
+  - `Score` (0-100)
+  - `Verdict`
+  - `Status` (`Pending`, `Submitted`, `Reviewed`)
 
 ## Backend Service
 
@@ -42,11 +56,14 @@ Endpoints:
 - `GET /api/services/app/CompanyJob/GetCandidatesDirectory` (company employees, tenant-1 shared pool)
 - `POST /api/services/app/CompanyJob/ApplyToJob`
 - `POST /api/services/app/CompanyJob/ApplyToPublicJob` (anonymous form apply)
+- `GET /api/services/app/CompanyJob/GetAssessment` (anonymous assessment load)
+- `POST /api/services/app/CompanyJob/SubmitAssessment` (anonymous assessment submit)
 - `GET /api/services/app/CompanyJob/GetPublicJobsPage`
 - `GET /api/services/app/CompanyJob/GetMyJobsPageSettings`
 - `PUT /api/services/app/CompanyJob/UpdateMyJobsPageSettings`
 - `POST /api/services/app/CompanyJob/GenerateMyJobsPageSettingsWithAi`
 - `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
+- `POST /api/services/app/CompanyJob/BulkMoveApplicationsToAssessment`
 
 Authorization behavior:
 
@@ -73,6 +90,8 @@ Route:
 - `frontend/src/app/app/jobs/style.ts`
 - `frontend/src/app/app/jobs/[id]/page.tsx`
 - `frontend/src/app/app/jobs/[id]/style.ts`
+- `frontend/src/app/app/jobs/[id]/application/[applicationId]/page.tsx`
+- `frontend/src/app/app/jobs/[id]/application/[applicationId]/style.ts`
 - `frontend/src/app/jobs/page.tsx`
 - `frontend/src/app/jobs/style.ts`
 - `frontend/src/app/app/settings/page-builder/page.tsx`
@@ -84,16 +103,50 @@ UI capabilities:
 - create/edit job postings
 - open/close jobs
 - view job applications per job under `/app/jobs/[id]`
+- view full application detail under `/app/jobs/[id]/application/[applicationId]`
 - browse tenant-scoped open jobs publicly under `/jobs`
 - apply from `/jobs` with a dynamic anonymous form
+- anonymous resume upload via `POST /api/files/upload-public` (no login required, PDF-only for resumes)
+- AI-assisted public application scoring:
+  - CV text extraction (PDF resumes)
+  - extracted skills + GitHub repo discovery
+  - fit score (0-100), strengths, weaknesses, and verdict
+  - persisted into application payload and surfaced in HR applications view
+- branded applicant confirmation emails:
+  - shared wrapper with Mosaic Talent logo (`https://mosaic-talent.vercel.app/text-logo.svg`)
+  - color scheme from company jobs-page primary color
+  - configurable email type `applicationReceived` in settings/page-builder
+  - mode can be `manual` (HR template) or `ai` (AI-generated body)
+  - requires valid Brevo sender config (`Brevo:SenderEmail`, optional `Brevo:SenderName`)
 - view shared tenant-1 candidate directory inside `/app/jobs/[id]`
 - update application status
+- bulk move candidates to assessment based on criteria + send assessment invite emails
+- assessment lifecycle:
+  - assessment record is created when an application is submitted
+  - application received email includes `{assessmentLink}` token
+  - candidate opens `/assessment/[id]` and submits response + optional GitHub link
+  - backend evaluates result (AI first, heuristic fallback), updates `MatchScore`/`MatchReason`, and stores structured strengths/weaknesses/tips
+  - company employees receive in-app ABP notification on assessment completion
+  - assessment now supports LeetPrompt multi-problem flow:
+    - backend ensures at least 2 coding problems per assessment in context JSON
+    - each problem carries starter code + public test cases
+    - candidate runs public tests in-browser before final submit
+    - candidate can call AI assistant per problem (`RunAssessmentPrompt`) and token usage is tracked
+    - final payload includes per-problem pass counts + prompt attempts, blended into backend evaluation score:
+      - test pass-rate
+      - prompt quality
+      - token efficiency
+      - code quality
 - company page-builder in `/app/settings/page-builder`:
   - drag/drop-like block composition (hero, text, image, button, form, jobs list)
   - value editing panel + image upload
   - AI assistant prompt that generates page settings
   - edit/preview toggle
   - persisted layout + form schema in DB
+- settings hub in `/app/settings` with dedicated pages:
+  - `/app/settings/company-details` for company profile/logo/contact updates
+  - `/app/settings/page-builder` for public jobs page design
+  - `/app/settings/email-templates` for applicant email template management
 
 ## Data Layer
 

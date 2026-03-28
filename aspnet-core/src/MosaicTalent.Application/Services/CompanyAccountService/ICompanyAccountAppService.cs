@@ -13,6 +13,8 @@ public interface ICompanyAccountAppService : IApplicationService
 
     Task<CompanyDto> GetMyCompany();
 
+    Task<CompanyDto> UpdateMyCompany(UpdateMyCompanyInput input);
+
     Task<List<CompanyEmployeeDto>> GetMyCompanyEmployees();
 
     Task<CompanyEmployeeDto> AddCompanyEmployee(AddCompanyEmployeeInput input);

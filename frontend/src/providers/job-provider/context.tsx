@@ -16,6 +16,78 @@ export interface IJobApplication {
   createdAt: string;
   isPublicApplication?: boolean;
   applicationResponseJson?: string;
+  aiStrengths?: string[];
+  aiWeaknesses?: string[];
+  aiVerdict?: string;
+  aiExtractedSkills?: string[];
+  aiGithubRepo?: string;
+  aiProjects?: Array<{
+    name: string;
+    description: string;
+    score: number;
+    technologies: string[];
+  }>;
+  aiMosaic?: Record<string, number>;
+  assessmentId?: string;
+  assessmentStatus?: string;
+  assessmentScore?: number;
+  assessmentVerdict?: string;
+  assessmentSubmittedAt?: string;
+}
+
+export interface IJobAssessment {
+  id: string;
+  jobId: string;
+  jobApplicationId?: string;
+  publicJobApplicationId?: string;
+  candidateName: string;
+  candidateEmail: string;
+  jobTitle: string;
+  companyName: string;
+  prompt: string;
+  instructions: string;
+  status: string;
+  submissionText: string;
+  submissionGithubRepo?: string;
+  score: number;
+  verdict: string;
+  strengths: string[];
+  weaknesses: string[];
+  tips: string[];
+  submittedAt?: string;
+  problems: IJobAssessmentProblem[];
+  workMode?: "frontend" | "backend" | "fullstack";
+  endpointHints?: string[];
+  interactiveQuestions?: string[];
+}
+
+export interface IAssessmentPromptResult {
+  problemId: string;
+  prompt: string;
+  response: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  proposals?: Array<{
+    title: string;
+    patch: string;
+    isHallucinationRisk: boolean;
+  }>;
+}
+
+export interface IJobAssessmentProblem {
+  id: string;
+  title: string;
+  description: string;
+  language: string;
+  starterCode: string;
+  maxScore: number;
+  order: number;
+  publicTests: Array<{
+    input: string;
+    expectedOutput: string;
+    hint?: string;
+  }>;
 }
 
 export interface IJobCandidate {
@@ -58,6 +130,7 @@ export interface IPublicJobsPage {
   primaryColor: string;
   layoutJson: string;
   applicationFormJson: string;
+  emailTemplateSettingsJson: string;
 }
 
 export interface IUpdateJobsPageSettingsInput {
@@ -67,6 +140,7 @@ export interface IUpdateJobsPageSettingsInput {
   primaryColor: string;
   layoutJson: string;
   applicationFormJson: string;
+  emailTemplateSettingsJson: string;
 }
 
 export interface IApplyToPublicJobInput {
@@ -120,6 +194,12 @@ export interface IJobActionContext {
   applyToJob: (jobId: string, payload?: { source?: number; resumeStoredFileId?: string }) => Promise<IJobApplication | undefined>;
   applyToPublicJob: (input: IApplyToPublicJobInput) => Promise<IJobApplication | undefined>;
   updateApplicationStatus: (jobApplicationId: string, status: number) => Promise<IJobApplication | undefined>;
+  bulkMoveToAssessment: (input: { jobId: string; minimumMatchScore?: number; currentStatuses?: number[] }) => Promise<number>;
+  sendApplicationEmail: (jobApplicationId: string, subject: string, message: string) => Promise<void>;
+  getAssessment: (assessmentId: string) => Promise<IJobAssessment>;
+  runAssessmentPrompt: (input: { assessmentId: string; problemId: string; prompt: string }) => Promise<IAssessmentPromptResult>;
+  saveAssessmentDraft: (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => Promise<IJobAssessment>;
+  submitAssessment: (input: { assessmentId: string; submissionText: string; githubRepoUrl?: string }) => Promise<IJobAssessment>;
 }
 
 export const INITIAL_STATE: IJobStateContext = {
@@ -148,4 +228,68 @@ export const JobActionContext = createContext<IJobActionContext>({
   applyToJob: async () => undefined,
   applyToPublicJob: async () => undefined,
   updateApplicationStatus: async () => undefined,
+  bulkMoveToAssessment: async () => 0,
+  sendApplicationEmail: async () => undefined,
+  getAssessment: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
+  }),
+  runAssessmentPrompt: async () => ({
+    problemId: "",
+    prompt: "",
+    response: "",
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  }),
+  saveAssessmentDraft: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
+  }),
+  submitAssessment: async () => ({
+    id: "",
+    jobId: "",
+    candidateName: "",
+    candidateEmail: "",
+    jobTitle: "",
+    companyName: "",
+    prompt: "",
+    instructions: "",
+    status: "pending",
+    submissionText: "",
+    score: 0,
+    verdict: "",
+    strengths: [],
+    weaknesses: [],
+    tips: [],
+    problems: [],
+  }),
 });

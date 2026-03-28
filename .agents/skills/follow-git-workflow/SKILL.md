@@ -8,6 +8,8 @@ description: Use this skill before starting ANY feature or fix. Covers branch na
 ## The Rule
 
 **No code is written without a branch. No branch is pushed without tests.**
+**No implementation starts until the user explicitly approves the plan.**
+**Never run migration commands; always ask the user to run migrations manually.**
 
 Every piece of work — no matter how small — follows this sequence:
 
@@ -192,7 +194,7 @@ Before writing a single line of code, the agent MUST output a plan in this exact
 - Department must be loaded first (departmentId FK)
 ```
 
-Only after the plan is shown and confirmed should the agent proceed.
+Only after the plan is shown and explicitly confirmed by the user should the agent proceed.
 
 ---
 

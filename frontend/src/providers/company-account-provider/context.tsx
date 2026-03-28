@@ -44,6 +44,13 @@ export interface IAddCompanyEmployeeInput {
   role: number;
 }
 
+export interface IUpdateMyCompanyInput {
+  name: string;
+  logoStoredFileId?: string;
+  website?: string;
+  email: string;
+}
+
 export interface ICompanyAccountStateContext {
   isPending: boolean;
   isSuccess: boolean;
@@ -61,6 +68,7 @@ export interface ICompanyAccountActionContext {
   fetchMyCompany: () => Promise<void>;
   fetchMyCompanyEmployees: () => Promise<void>;
   addCompanyEmployee: (input: IAddCompanyEmployeeInput) => Promise<void>;
+  updateMyCompany: (input: IUpdateMyCompanyInput) => Promise<ICompany | null>;
 }
 
 export const INITIAL_STATE: ICompanyAccountStateContext = {
@@ -79,4 +87,5 @@ export const CompanyAccountActionContext = createContext<ICompanyAccountActionCo
   fetchMyCompany: async () => undefined,
   fetchMyCompanyEmployees: async () => undefined,
   addCompanyEmployee: async () => undefined,
+  updateMyCompany: async () => null,
 });

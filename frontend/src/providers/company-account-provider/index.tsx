@@ -14,6 +14,7 @@ import {
   CompanyAccountStateContext,
   IAddCompanyEmployeeInput,
   ICreateCompanyAccountInput,
+  IUpdateMyCompanyInput,
   INITIAL_STATE,
 } from "./context";
 import { CompanyAccountReducer } from "./reducer";
@@ -76,6 +77,20 @@ export const CompanyAccountProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const updateMyCompany = async (input: IUpdateMyCompanyInput) => {
+    dispatch(companyAccountPending());
+
+    try {
+      const res = await instance.put(`${ENDPOINT}/UpdateMyCompany`, input);
+      const company = res.data?.result;
+      dispatch(companyAccountFetchSuccess(company));
+      return company;
+    } catch {
+      dispatch(companyAccountError());
+      return null;
+    }
+  };
+
   return (
     <CompanyAccountStateContext.Provider value={state}>
       <CompanyAccountActionContext.Provider
@@ -84,6 +99,7 @@ export const CompanyAccountProvider = ({ children }: PropsWithChildren) => {
           fetchMyCompany,
           fetchMyCompanyEmployees,
           addCompanyEmployee,
+          updateMyCompany,
         }}
       >
         {children}

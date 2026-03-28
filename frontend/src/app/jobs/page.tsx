@@ -23,7 +23,6 @@ const JobsPage = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
-    setIsPageLoading(true);
     Promise.allSettled([fetchOpenJobs(), fetchPublicJobsPage()]).finally(() => {
       setIsPageLoading(false);
     });
@@ -63,7 +62,9 @@ const JobsPage = () => {
       return [] as IBuilderBlock[];
     }
     try {
-      const parsed = JSON.parse(publicJobsPage.layoutJson) as { blocks?: IBuilderBlock[] };
+      const parsed = JSON.parse(publicJobsPage.layoutJson) as {
+        blocks?: IBuilderBlock[];
+      };
       return Array.isArray(parsed.blocks) ? parsed.blocks : [];
     } catch {
       return [] as IBuilderBlock[];
@@ -124,9 +125,11 @@ const JobsPage = () => {
                 {block.props?.title || publicJobsPage?.heroTitle || "Open Jobs"}
               </Typography.Title>
               <Typography.Paragraph className={styles.subtitle}>
-                {block.props?.subtitle || publicJobsPage?.heroSubtitle || `Showing open jobs for the current tenant (${companyLabel}).`}
+                {block.props?.subtitle ||
+                  publicJobsPage?.heroSubtitle ||
+                  `Showing open jobs for the current tenant (${companyLabel}).`}
               </Typography.Paragraph>
-              {(block.props?.imageUrl || publicJobsPage?.heroImageUrl) ? (
+              {block.props?.imageUrl || publicJobsPage?.heroImageUrl ? (
                 <img
                   src={block.props?.imageUrl || publicJobsPage?.heroImageUrl}
                   alt="Hero"
@@ -140,7 +143,10 @@ const JobsPage = () => {
         if (blockType === "job-list") {
           const showCount = (block.props?.showCount ?? "true") !== "false";
           return (
-            <section key={block.id || `job-list-${index}`} className={styles.section}>
+            <section
+              key={block.id || `job-list-${index}`}
+              className={styles.section}
+            >
               <Typography.Title level={3} className={styles.sectionTitle}>
                 {block.props?.title || "Our Openings"}
               </Typography.Title>
@@ -150,14 +156,18 @@ const JobsPage = () => {
               </Typography.Paragraph>
 
               {isPending && jobs.length === 0 ? <Spin /> : null}
-              {!isPending && jobs.length === 0 ? <Empty description="No open jobs right now." /> : null}
+              {!isPending && jobs.length === 0 ? (
+                <Empty description="No open jobs right now." />
+              ) : null}
 
               <div className={styles.list}>
                 {jobs.map((job) => (
                   <article key={job.id} className={styles.jobItem}>
                     <div className={styles.cardHeader}>
                       <div>
-                        <Typography.Title level={4}>{job.title}</Typography.Title>
+                        <Typography.Title level={4}>
+                          {job.title}
+                        </Typography.Title>
                         <Space size={8} wrap>
                           <Typography.Text className={styles.iconText}>
                             <MapPin size={14} />
@@ -167,10 +177,14 @@ const JobsPage = () => {
                             <Briefcase size={14} />
                             {job.employmentType}
                           </Typography.Text>
-                          {job.contractDuration ? <Tag>{job.contractDuration} months</Tag> : null}
+                          {job.contractDuration ? (
+                            <Tag>{job.contractDuration} months</Tag>
+                          ) : null}
                         </Space>
                       </div>
-                      <Tag color={job.isOpen ? "green" : "default"}>{job.isOpen ? "Open" : "Closed"}</Tag>
+                      <Tag color={job.isOpen ? "green" : "default"}>
+                        {job.isOpen ? "Open" : "Closed"}
+                      </Tag>
                     </div>
 
                     <Typography.Paragraph className={styles.description}>
@@ -183,7 +197,10 @@ const JobsPage = () => {
                           type="primary"
                           icon={<ArrowRight size={14} />}
                           style={{
-                            backgroundColor: block.props?.backgroundColor || publicJobsPage?.primaryColor || undefined,
+                            backgroundColor:
+                              block.props?.backgroundColor ||
+                              publicJobsPage?.primaryColor ||
+                              undefined,
                             color: block.props?.textColor || "#121212",
                           }}
                         >
@@ -200,9 +217,13 @@ const JobsPage = () => {
 
         if (blockType === "text") {
           return (
-            <section key={block.id || `text-${index}`} className={styles.section}>
+            <section
+              key={block.id || `text-${index}`}
+              className={styles.section}
+            >
               <Typography.Paragraph className={styles.multilineText}>
-                {block.props?.content || "Add text content in the page builder."}
+                {block.props?.content ||
+                  "Add text content in the page builder."}
               </Typography.Paragraph>
             </section>
           );
@@ -211,7 +232,10 @@ const JobsPage = () => {
         if (blockType === "image") {
           const imageUrl = block.props?.imageUrl || bannerImageUrl;
           return imageUrl ? (
-            <section key={block.id || `image-${index}`} className={styles.section}>
+            <section
+              key={block.id || `image-${index}`}
+              className={styles.section}
+            >
               <img src={imageUrl} alt="Banner" className={styles.bannerImage} />
             </section>
           ) : null;
@@ -219,12 +243,18 @@ const JobsPage = () => {
 
         if (blockType === "button") {
           return (
-            <section key={block.id || `button-${index}`} className={styles.section}>
+            <section
+              key={block.id || `button-${index}`}
+              className={styles.section}
+            >
               <div className={styles.actions}>
                 <Button
                   type="primary"
                   style={{
-                    backgroundColor: block.props?.backgroundColor || publicJobsPage?.primaryColor || undefined,
+                    backgroundColor:
+                      block.props?.backgroundColor ||
+                      publicJobsPage?.primaryColor ||
+                      undefined,
                     color: block.props?.textColor || "#121212",
                   }}
                 >
@@ -237,10 +267,16 @@ const JobsPage = () => {
 
         if (blockType === "faq") {
           return (
-            <section key={block.id || `faq-${index}`} className={styles.section}>
-              <Typography.Title level={4} className={styles.sectionTitle}>FAQ</Typography.Title>
+            <section
+              key={block.id || `faq-${index}`}
+              className={styles.section}
+            >
+              <Typography.Title level={4} className={styles.sectionTitle}>
+                FAQ
+              </Typography.Title>
               <Typography.Paragraph className={styles.subtitle}>
-                Applications are reviewed continuously. Include assessment responses for faster shortlisting.
+                Applications are reviewed continuously. Include assessment
+                responses for faster shortlisting.
               </Typography.Paragraph>
             </section>
           );
@@ -248,12 +284,16 @@ const JobsPage = () => {
 
         if (blockType === "cta") {
           return (
-            <section key={block.id || `cta-${index}`} className={styles.section}>
+            <section
+              key={block.id || `cta-${index}`}
+              className={styles.section}
+            >
               <Typography.Title level={4} className={styles.sectionTitle}>
                 {block.props?.title || "Ready to apply?"}
               </Typography.Title>
               <Typography.Paragraph className={styles.subtitle}>
-                {block.props?.subtitle || "Open any role to view details and apply. No login is required."}
+                {block.props?.subtitle ||
+                  "Open any role to view details and apply. No login is required."}
               </Typography.Paragraph>
             </section>
           );
@@ -261,12 +301,16 @@ const JobsPage = () => {
 
         if (blockType === "form") {
           return (
-            <section key={block.id || `form-${index}`} className={styles.section}>
+            <section
+              key={block.id || `form-${index}`}
+              className={styles.section}
+            >
               <Typography.Title level={4} className={styles.sectionTitle}>
                 {block.props?.title || "Submit your application"}
               </Typography.Title>
               <Typography.Paragraph className={styles.subtitle}>
-                {block.props?.subtitle || "The application form is shown on each job detail page."}
+                {block.props?.subtitle ||
+                  "The application form is shown on each job detail page."}
               </Typography.Paragraph>
               {block.props?.url ? (
                 <Typography.Paragraph style={{ marginBottom: 0 }}>

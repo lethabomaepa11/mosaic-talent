@@ -71,8 +71,19 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project-level AI feedback summary + strengths/improvements/tips + growth score
 - Company jobs:
   - company admin job posting management in `/app/jobs`
-  - developer job applications with source + lifecycle status
-  - job application review pipeline (applied -> shortlisted -> interview -> rejected/approved)
+  - developer + public job applications with source + lifecycle status
+  - anonymous resume upload (PDF-only) + CV parsing (skills/GitHub extraction)
+  - AI application assessment (match score, strengths, weaknesses, verdict)
+  - branded applicant emails with configurable template mode (manual/AI) from jobs page settings
+  - job application review pipeline (applied -> shortlisted -> assessment -> interview -> rejected/approved) + bulk assessment transition
+  - assessment workflow:
+    - assessment generated at application time
+    - application received email includes assessment link
+    - public `/assessment/[id]` submission page
+    - AI/heuristic scoring updates application score + verdict + reasons
+    - LeetPrompt-style coding experience with 2+ runnable problems and public test execution
+    - per-problem AI prompt assistant with token tracking and accepted-prompt selection
+    - final score blends public test pass-rate + prompt quality + token efficiency + code quality
 
 ## Documentation
 
@@ -81,6 +92,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [AI Simulator](docs/feature/ai-simulator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
+- [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
+- [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
+- [Company Analytics Dashboard](docs/feature/company-analytics.md)
 
 ## Tenant Resolution Rules
 
@@ -171,6 +185,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 
 ### Company jobs
 
+- `GET /api/services/app/CompanyJob/GetOpenJobs`
+- `POST /api/services/app/CompanyJob/ApplyToPublicJob`
+- `GET /api/services/app/CompanyJob/GetPublicJobsPage`
 - `GET /api/services/app/CompanyJob/GetMyJobs`
 - `GET /api/services/app/CompanyJob/GetJob`
 - `POST /api/services/app/CompanyJob/CreateJob`
@@ -179,11 +196,13 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/CompanyJob/GetJobApplications`
 - `POST /api/services/app/CompanyJob/ApplyToJob`
 - `PUT /api/services/app/CompanyJob/UpdateJobApplicationStatus`
+- `GET /api/services/app/CompanyJob/GetAssessment`
+- `POST /api/services/app/CompanyJob/SubmitAssessment`
 
 ### File upload (R2)
 
 - `POST /api/files/upload` (authorized)
-- `POST /api/files/upload-public` (public upload endpoint currently used by company signup)
+- `POST /api/files/upload-public` (public upload endpoint used by company signup + public job resumes)
 
 ## Environment Configuration
 
@@ -224,6 +243,8 @@ Also supported:
 - `Deepgram__TtsModel` (optional default fallback model)
 - `Vercel__Token`
 - `Brevo__ApiKey`
+- `Brevo__SenderEmail` (required for outbound emails)
+- `Brevo__SenderName` (optional)
 
 See example file:
 

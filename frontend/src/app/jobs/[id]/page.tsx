@@ -99,6 +99,10 @@ const JobApplyPage = () => {
     }
 
     const values = await form.validateFields();
+    if (!values.resumeStoredFileId) {
+      toast.error("Resume required", "Please upload your CV before applying.");
+      return;
+    }
     const responses = customFields.reduce<Record<string, string>>((acc, field) => {
       const value = values[field.key];
       if (typeof value === "string" && value.trim().length > 0) {
@@ -134,10 +138,17 @@ const JobApplyPage = () => {
   };
 
   const handleResumeUpload = async (file: File) => {
+    const isPdfType = file.type === "application/pdf" || file.type === "application/octet-stream";
+    const isPdfName = file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdfType && !isPdfName) {
+      toast.error("Invalid file", "Only PDF resumes are allowed.");
+      return;
+    }
+
     setUploadingResume(true);
     try {
       const uploaded = await uploadPublicFile(file, "job-resumes");
-      form.setFieldValue("resumeStoredFileId", uploaded.fileId);
+      form.setFieldValue("resumeStoredFileId", uploaded.url);
       setUploadedResumeName(file.name);
       toast.success("Resume uploaded", "Your resume was uploaded successfully.");
     } catch (error) {
@@ -215,6 +226,7 @@ const JobApplyPage = () => {
               <Form.Item label="Upload Resume">
                 <div className={styles.resumeUploadRow}>
                   <Upload
+                    accept=".pdf,application/pdf"
                     showUploadList={false}
                     beforeUpload={(file) => {
                       void handleResumeUpload(file as File);
@@ -231,7 +243,7 @@ const JobApplyPage = () => {
                     </Typography.Text>
                   ) : (
                     <Typography.Text className={styles.resumeHint}>
-                      PDF or document file
+                      PDF only
                     </Typography.Text>
                   )}
                 </div>

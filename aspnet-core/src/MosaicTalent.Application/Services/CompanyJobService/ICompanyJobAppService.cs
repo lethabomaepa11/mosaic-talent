@@ -21,5 +21,11 @@ public interface ICompanyJobAppService : IApplicationService
     Task<PublicJobsPageDto> GenerateMyJobsPageSettingsWithAi(GenerateJobsPageWithAiInput input);
     Task<JobApplicationDto> ApplyToPublicJob(ApplyToPublicJobInput input);
     Task<JobApplicationDto> ApplyToJob(ApplyToJobInput input);
+    Task<JobAssessmentDto> GetAssessment(GetAssessmentInput input);
+    Task<RunAssessmentPromptDto> RunAssessmentPrompt(RunAssessmentPromptInput input);
+    Task<JobAssessmentDto> SaveAssessmentDraft(SaveAssessmentDraftInput input);
+    Task<JobAssessmentDto> SubmitAssessment(SubmitAssessmentInput input);
     Task<JobApplicationDto> UpdateJobApplicationStatus(UpdateJobApplicationStatusInput input);
+    Task<int> BulkMoveApplicationsToAssessment(BulkMoveApplicationsToAssessmentInput input);
+    Task SendApplicationEmail(SendApplicationEmailInput input);
 }

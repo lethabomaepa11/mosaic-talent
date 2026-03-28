@@ -168,6 +168,23 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         return MapCompany(company);
     }
 
+    public async Task<CompanyDto> UpdateMyCompany(UpdateMyCompanyInput input)
+    {
+        var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyEntity(tenantId);
+        await EnsureIsCompanyAdmin(company.Id, userId);
+
+        company.Name = input.Name?.Trim();
+        company.LogoStoredFileId = input.LogoStoredFileId?.Trim();
+        company.Website = input.Website?.Trim();
+        company.Email = input.Email?.Trim();
+
+        await _companyRepository.UpdateAsync(company);
+        await CurrentUnitOfWork.SaveChangesAsync();
+        return MapCompany(company);
+    }
+
     public async Task<List<CompanyEmployeeDto>> GetMyCompanyEmployees()
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
