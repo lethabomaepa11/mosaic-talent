@@ -5,6 +5,7 @@ import { Button, Card, Empty, Input, Space, Spin, Typography, Upload } from "ant
 import { Plus } from "lucide-react";
 import { toast } from "@/components/providers";
 import { useCompanyAccountAction, useCompanyAccountState } from "@/providers/company-account-provider";
+import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
@@ -12,6 +13,7 @@ import { useStyles } from "./style";
 const CompanyDetailsPage = () => {
   const { styles } = useStyles();
   const { tenancyName } = useTenantResolutionState();
+  const { profile, isPending: profilePending } = useCompanyProfileState();
   const { company, isPending } = useCompanyAccountState();
   const { fetchMyCompany, updateMyCompany } = useCompanyAccountAction();
   const [saving, setSaving] = useState(false);
@@ -84,6 +86,18 @@ const CompanyDetailsPage = () => {
 
   if (!tenancyName) {
     return <Empty description="Company details are available in company workspaces only." />;
+  }
+
+  if (profilePending && !profile) {
+    return (
+      <div className={styles.loaderWrap}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (profile?.role !== 1) {
+    return <Empty description="Only company admins can access Company Details settings." />;
   }
 
   if (isPending && !company) {

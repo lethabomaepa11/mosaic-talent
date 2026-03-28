@@ -93,6 +93,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
 - [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
+- [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
 
 ## Tenant Resolution Rules
 

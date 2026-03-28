@@ -5,6 +5,7 @@ import { Button, Empty, Input, Select, Spin, Switch, Typography, Upload } from "
 import { UploadOutlined } from "@ant-design/icons";
 import { toast } from "@/components/providers";
 import { useJobAction, useJobState } from "@/providers/job-provider";
+import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { uploadPublicFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
@@ -146,6 +147,7 @@ const readDragPayload = (event: React.DragEvent): DragPayload | null => {
 const PageBuilder = () => {
   const { styles } = useStyles();
   const { tenancyName } = useTenantResolutionState();
+  const { profile, isPending: profilePending } = useCompanyProfileState();
   const isCompanyTenant = Boolean(tenancyName);
   const { publicJobsPage, isPending } = useJobState();
   const { getMyJobsPageSettings, updateMyJobsPageSettings, generateMyJobsPageSettingsWithAi } = useJobAction();
@@ -339,6 +341,14 @@ const PageBuilder = () => {
 
   if (!isCompanyTenant) {
     return <Empty description="Page Builder is available in company workspaces only." />;
+  }
+
+  if (profilePending && !profile) {
+    return <Spin />;
+  }
+
+  if (profile?.role !== 1) {
+    return <Empty description="Only company admins can access Page Builder settings." />;
   }
 
   return (
