@@ -127,7 +127,7 @@ const EmployeesSettingsPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="settings-employees">
       <div>
         <Typography.Title level={2} className={styles.title}>
           Employees
@@ -151,21 +151,21 @@ const EmployeesSettingsPage = () => {
               name="name"
               rules={[{ required: true, message: "Name is required." }]}
             >
-              <Input />
+              <Input data-ai-field="employee-name" />
             </Form.Item>
             <Form.Item
               label="Surname"
               name="surname"
               rules={[{ required: true, message: "Surname is required." }]}
             >
-              <Input />
+              <Input data-ai-field="employee-surname" />
             </Form.Item>
             <Form.Item
               label="Username"
               name="userName"
               rules={[{ required: true, message: "Username is required." }]}
             >
-              <Input />
+              <Input data-ai-field="employee-username" />
             </Form.Item>
             <Form.Item
               label="Email"
@@ -175,14 +175,14 @@ const EmployeesSettingsPage = () => {
                 { type: "email", message: "Enter a valid email." },
               ]}
             >
-              <Input />
+              <Input data-ai-field="employee-email" />
             </Form.Item>
             <Form.Item
               label="Password"
               name="password"
               rules={[{ required: true, message: "Password is required." }]}
             >
-              <Input.Password />
+              <Input.Password data-ai-field="employee-password" />
             </Form.Item>
             <Form.Item
               label="Role"
@@ -191,7 +191,12 @@ const EmployeesSettingsPage = () => {
             >
               <Select options={roleOptions} />
             </Form.Item>
-            <Button type="primary" htmlType="submit" loading={submitting}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              data-ai-action="submit-add-employee"
+            >
               Add Employee
             </Button>
           </Form>

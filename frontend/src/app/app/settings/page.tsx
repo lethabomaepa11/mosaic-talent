@@ -56,7 +56,7 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="settings">
       <div>
         <Typography.Title level={2} className={styles.title}>
           Settings
@@ -76,7 +76,7 @@ const SettingsPage = () => {
       <Row gutter={[16, 16]}>
         {visibleOptions.map((option) => (
           <Col xs={24} md={12} xl={8} key={option.key}>
-            <Link href={option.href} className={styles.cardLink}>
+            <Link href={option.href} className={styles.cardLink} data-ai-route={option.href}>
               <Card className={styles.optionCard}>
                 <div className={styles.optionHeader}>
                   <option.icon size={20} />

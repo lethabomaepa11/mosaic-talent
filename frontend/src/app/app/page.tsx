@@ -14,7 +14,7 @@ const AppEntryPage = () => {
   }
 
   return (
-    <div className={styles.content}>
+    <div className={styles.content} data-ai-page="dashboard">
       <Typography.Title level={3} className={styles.pageTitle}>
         {isCompanyTenant ? `${companyName || tenancyName} Dashboard` : "Developer Dashboard"}
       </Typography.Title>

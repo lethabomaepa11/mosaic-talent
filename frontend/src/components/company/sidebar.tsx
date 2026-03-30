@@ -84,7 +84,7 @@ export const CompanySidebar = () => {
           const active = isItemActive(pathname, item.href);
 
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} data-ai-route={item.href}>
               <Button
                 type="text"
                 className={cx(styles.navButton, active && styles.navButtonActive)}

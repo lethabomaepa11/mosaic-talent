@@ -171,7 +171,7 @@ const CandidateAssessmentPage = () => {
 
   return (
     <>
-      <div className={styles.page}>
+      <div className={styles.page} data-ai-page="job-application-detail">
         <Link href={`/app/jobs/${jobId}`} className={styles.backLink}><Button icon={<ArrowLeft size={14} />}>Back to Applications</Button></Link>
         <div className={styles.header}>
           <div className={styles.candidateBlock}>
@@ -195,7 +195,13 @@ const CandidateAssessmentPage = () => {
             <Card className={styles.matchCard}><Typography.Text type="secondary">Match Score</Typography.Text><div className={scoreClass}>{application.matchScore.toFixed(1)}%</div></Card>
             <Space direction="vertical">
               <Button icon={<Calendar size={14} />} onClick={() => void handleStatusUpdate(2)} loading={updatingStatus}>Schedule Interview</Button>
-              <Button icon={<MessageSquare size={14} />} onClick={openEmailModal}>Send Message</Button>
+              <Button
+                icon={<MessageSquare size={14} />}
+                onClick={openEmailModal}
+                data-ai-action="open-candidate-email"
+              >
+                Send Message
+              </Button>
               {application.resumeStoredFileId ? <a href={application.resumeStoredFileId} target="_blank" rel="noreferrer"><Button icon={<ExternalLink size={14} />}>Open Resume</Button></a> : null}
             </Space>
           </div>
@@ -271,11 +277,21 @@ const CandidateAssessmentPage = () => {
         <Card className={styles.stickyActions}>
           <div className={styles.stickyRow}>
             <div className={styles.actionGroup}>
-              <Button danger icon={<ThumbsDown size={14} />} loading={updatingStatus} onClick={() => void handleStatusUpdate(3)}>Reject</Button>
+              <Button
+                danger
+                icon={<ThumbsDown size={14} />}
+                loading={updatingStatus}
+                onClick={() => void handleStatusUpdate(3)}
+                data-ai-action="reject-candidate"
+              >
+                Reject
+              </Button>
               <Button icon={<Clock size={14} />} loading={updatingStatus} onClick={() => void handleStatusUpdate(0)}>Keep in Pipeline</Button>
             </div>
             <div className={styles.actionGroup}>
-              <Button icon={<MessageSquare size={14} />} onClick={openEmailModal}>Request More Info</Button>
+              <Button icon={<MessageSquare size={14} />} onClick={openEmailModal} data-ai-action="open-candidate-email">
+                Request More Info
+              </Button>
               <Button type="primary" icon={<CheckCircle size={14} />} loading={updatingStatus} onClick={() => void handleStatusUpdate(2)}>Move to Interview</Button>
             </div>
           </div>

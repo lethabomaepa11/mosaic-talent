@@ -109,7 +109,7 @@ const CompanyDetailsPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="settings-company-details">
       <div>
         <Typography.Title level={2} className={styles.title}>
           Company Details
@@ -127,6 +127,7 @@ const CompanyDetailsPage = () => {
               value={draft.name}
               onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
               placeholder="Company name"
+              data-ai-field="company-name"
             />
           </div>
 
@@ -136,6 +137,7 @@ const CompanyDetailsPage = () => {
               value={draft.email}
               onChange={(event) => setDraft((prev) => ({ ...prev, email: event.target.value }))}
               placeholder="hello@company.com"
+              data-ai-field="company-email"
             />
           </div>
 
@@ -145,6 +147,7 @@ const CompanyDetailsPage = () => {
               value={draft.website}
               onChange={(event) => setDraft((prev) => ({ ...prev, website: event.target.value }))}
               placeholder="https://company.com"
+              data-ai-field="company-website"
             />
           </div>
 
@@ -156,6 +159,7 @@ const CompanyDetailsPage = () => {
                 setDraft((prev) => ({ ...prev, logoStoredFileId: event.target.value }))
               }
               placeholder="https://..."
+              data-ai-field="company-logo-url"
             />
             <div className={styles.logoActions}>
               <Upload
@@ -176,7 +180,12 @@ const CompanyDetailsPage = () => {
             </div>
           </div>
 
-          <Button type="primary" loading={saving} onClick={() => void handleSave()}>
+          <Button
+            type="primary"
+            loading={saving}
+            onClick={() => void handleSave()}
+            data-ai-action="save-company-details"
+          >
             Save Company Details
           </Button>
         </Space>

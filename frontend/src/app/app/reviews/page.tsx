@@ -121,7 +121,7 @@ const ReviewsPage = () => {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="reviews">
       <div className={styles.header}>
         <div>
           <Typography.Title level={2} className={styles.title}>
@@ -138,6 +138,7 @@ const ReviewsPage = () => {
             onClick={() => void handleGenerateReviews()}
             disabled={!selectedProjectId}
             loading={isGenerating}
+            data-ai-action="generate-peer-reviews"
           >
             Generate Reviews
           </Button>
@@ -159,6 +160,8 @@ const ReviewsPage = () => {
                 size="small"
                 hoverable
                 onClick={() => setSelectedProjectId(item.projectId)}
+                data-ai-entity="review-project"
+                data-ai-entity-id={item.projectId}
                 className={cx(
                   styles.projectCard,
                   selectedProjectId === item.projectId && styles.selectedProjectCard,
@@ -227,6 +230,7 @@ const ReviewsPage = () => {
                               <Button
                                 onClick={() => void handleAnswerSubmit(question.id)}
                                 loading={Boolean(answerLoadingByQuestion[question.id])}
+                                data-ai-action="save-review-answer"
                               >
                                 Save answer
                               </Button>

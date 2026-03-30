@@ -50,7 +50,7 @@ const OpenProjectsPage = () => {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="projects-open">
       <motion.div
         className={styles.header}
         initial={false}
@@ -117,13 +117,14 @@ const OpenProjectsPage = () => {
               </AnimatePresence>
             </div>
             <div className={styles.swipeActions}>
-              <Button icon={<X size={14} />} onClick={handleSwipeSkip}>
+              <Button icon={<X size={14} />} onClick={handleSwipeSkip} data-ai-action="skip-open-project">
                 Skip
               </Button>
               <Button
                 type="primary"
                 icon={<Sparkles size={14} />}
                 onClick={() => void handleSwipeJoin(swipeProjects[0].id)}
+                data-ai-action="join-open-project"
               >
                 Join
               </Button>

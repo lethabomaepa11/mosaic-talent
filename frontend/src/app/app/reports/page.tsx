@@ -300,7 +300,7 @@ const ReportsPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="reports">
       <div className={styles.header}>
         <div>
           <Typography.Title level={2} className={styles.title}>
@@ -311,9 +311,9 @@ const ReportsPage = () => {
           </Typography.Paragraph>
         </div>
         <div className={styles.headerActions}>
-          <Button icon={<Calendar size={14} />}>Last 6 months</Button>
-          <Button icon={<Filter size={14} />}>Filter</Button>
-          <Button icon={<Download size={14} />}>Export</Button>
+          <Button icon={<Calendar size={14} />} data-ai-action="set-report-range">Last 6 months</Button>
+          <Button icon={<Filter size={14} />} data-ai-action="filter-reports">Filter</Button>
+          <Button icon={<Download size={14} />} data-ai-action="export-reports">Export</Button>
         </div>
       </div>
 

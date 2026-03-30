@@ -65,6 +65,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
   - communication dimension scoring per turn
+- AI app operator:
+  - full-page command execution across routes/forms/workflows
+  - Groq-backed intent planning with deterministic local fallback
+  - always-listening voice mode with user toggle
 - AI peer reviews:
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
@@ -90,6 +94,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
+- [AI App Operator](docs/feature/ai-app-operator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
 - [Assessment Connected Workspace UI](docs/feature/assessment-connected-workspace-ui.md)
@@ -174,6 +179,10 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/SimulationVoice/Turn`
 - `GET /api/services/app/SimulationVoice/GetVoiceModels`
 - `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
+
+### AI app operator
+
+- `POST /api/services/app/AppOperator/Plan`
 
 ### Company account
 
@@ -287,7 +296,7 @@ npm run dev
 
 Defaults:
 
-- Frontend: `http://localhost:3000`
+- Frontend: `http://localhost:300X` (can be 3000, 3001, ... 300X)
 - Backend: `http://localhost:44311` (or profile-specific)
 - Swagger: `http://localhost:44311/swagger`
 
@@ -295,7 +304,7 @@ Defaults:
 
 Add hosts entries as needed and test, for example:
 
-- `acme.localhost:3000`
+- `acme.localhost:300X`
 
 Tenant branding should appear on `/login` if tenancy is resolvable and company branding exists.
 

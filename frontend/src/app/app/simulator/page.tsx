@@ -798,7 +798,7 @@ export default function SimulatorPage() {
 
   if (currentSession) {
     return (
-      <div className={styles.activeWrap}>
+      <div className={styles.activeWrap} data-ai-page="simulator-session">
         <motion.div
           initial={false}
           animate={{ opacity: 1, y: 0 }}
@@ -854,6 +854,7 @@ export default function SimulatorPage() {
               disabled={currentSession.messages.length < 4 || isEnding}
               loading={isEnding}
               icon={<StopCircle size={14} />}
+              data-ai-action="end-simulation"
             >
               End Simulation
             </Button>
@@ -982,6 +983,7 @@ export default function SimulatorPage() {
                   <Button
                     onClick={toggleVoiceListening}
                     icon={isVoiceListening ? <MicOff size={14} /> : <Mic size={14} />}
+                    data-ai-action="toggle-simulator-voice"
                   />
                 </Tooltip>
               </div>
@@ -1007,6 +1009,7 @@ export default function SimulatorPage() {
                         !currentSession.awaitingUserInput)
                     }
                     icon={isVoiceListening ? <MicOff size={14} /> : <Mic size={14} />}
+                    data-ai-action="toggle-simulator-voice"
                   />
                 </Tooltip>
                 <Button
@@ -1040,7 +1043,7 @@ export default function SimulatorPage() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="simulator">
       <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
         <Typography.Title level={2} className={styles.title}>
           AI Teammate Simulator
@@ -1058,6 +1061,7 @@ export default function SimulatorPage() {
           <Button
             icon={<Plus size={14} />}
             onClick={() => setIsCreateOpen(true)}
+            data-ai-action="open-contribute-scenario"
           >
             Contribute Scenario
           </Button>
@@ -1080,6 +1084,8 @@ export default function SimulatorPage() {
                 onClick={() => void handleStartSimulation(scenario.id)}
                 icon={<ArrowRight size={14} />}
                 loading={isStarting && selectedScenarioId === scenario.id}
+                data-ai-action="start-scenario"
+                data-ai-entity-id={scenario.id}
               >
                 Start Scenario
               </Button>
@@ -1154,6 +1160,7 @@ export default function SimulatorPage() {
         }}
         confirmLoading={isContributing}
         okText="Submit"
+        okButtonProps={{ "data-ai-action": "submit-contribute-scenario" }}
       >
         <Form
           form={form}
@@ -1162,10 +1169,10 @@ export default function SimulatorPage() {
           initialValues={{ botCount: 2, requiredRoles: ["Teammate"] }}
         >
           <Form.Item label="Title" name="title" rules={[{ required: true }]}>
-            <Input />
+            <Input data-ai-field="scenario-title" />
           </Form.Item>
           <Form.Item label="Prompt" name="prompt" rules={[{ required: true }]}>
-            <Input.TextArea rows={4} />
+            <Input.TextArea rows={4} data-ai-field="scenario-prompt" />
           </Form.Item>
           <Form.Item
             label="Bot Count"

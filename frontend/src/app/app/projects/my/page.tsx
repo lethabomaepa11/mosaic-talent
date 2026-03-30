@@ -106,7 +106,7 @@ const MyProjectsPage = () => {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="projects-my">
       <motion.div
         className={styles.header}
         initial={false}
@@ -124,10 +124,15 @@ const MyProjectsPage = () => {
           <Link href="/app/projects/open">
             <Button>Browse Open Projects</Button>
           </Link>
-          <Button onClick={handleAIMatch} loading={isMatching} icon={<Sparkles size={14} />}>
+          <Button onClick={handleAIMatch} loading={isMatching} icon={<Sparkles size={14} />} data-ai-action="ai-match-project">
             AI Match Me
           </Button>
-          <Button type="primary" icon={<Plus size={14} />} onClick={() => setIsCreateOpen(true)}>
+          <Button
+            type="primary"
+            icon={<Plus size={14} />}
+            onClick={() => setIsCreateOpen(true)}
+            data-ai-action="open-create-project"
+          >
             New Project
           </Button>
         </div>
@@ -178,6 +183,7 @@ const MyProjectsPage = () => {
         onOk={handleCreateProject}
         confirmLoading={isCreating}
         okText="Create Project"
+        okButtonProps={{ "data-ai-action": "submit-create-project" }}
       >
         <Form
           form={form}
@@ -186,10 +192,10 @@ const MyProjectsPage = () => {
           initialValues={{ maxMembers: 4, type: 1, status: 1 }}
         >
           <Form.Item label="Project Title" name="title" rules={[{ required: true }]}> 
-            <Input placeholder="E-commerce Dashboard" />
+            <Input placeholder="E-commerce Dashboard" data-ai-field="project-title" />
           </Form.Item>
           <Form.Item label="Description" name="description" rules={[{ required: true }]}> 
-            <Input.TextArea rows={4} placeholder="Describe your project..." />
+            <Input.TextArea rows={4} placeholder="Describe your project..." data-ai-field="project-description" />
           </Form.Item>
           <Form.Item label="Max Team Members" name="maxMembers" rules={[{ required: true }]}> 
             <InputNumber min={2} max={8} className={styles.fullWidth} />

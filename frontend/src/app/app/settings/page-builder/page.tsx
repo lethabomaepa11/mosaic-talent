@@ -352,7 +352,7 @@ const PageBuilder = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="settings-page-builder">
       <div className={styles.header}>
         <div>
           <Typography.Title level={2} className={styles.title}>Jobs Page Builder</Typography.Title>
@@ -363,7 +363,14 @@ const PageBuilder = () => {
         <div className={styles.actionRow}>
           <Typography.Text>Preview</Typography.Text>
           <Switch checked={mode === "preview"} onChange={(checked) => setMode(checked ? "preview" : "edit")} />
-          <Button type="primary" loading={saving} onClick={() => void saveBuilder()}>Publish</Button>
+          <Button
+            type="primary"
+            loading={saving}
+            onClick={() => void saveBuilder()}
+            data-ai-action="publish-page-builder"
+          >
+            Publish
+          </Button>
         </div>
       </div>
 
@@ -426,8 +433,16 @@ const PageBuilder = () => {
               <div key={index} className={styles.aiBubble}>{message}</div>
             ))}
           </div>
-          <Input.TextArea rows={3} value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder="Ask AI to build/update this page..." />
-          <Button loading={aiLoading} onClick={() => void aiAssist()}>Ask AI Builder</Button>
+          <Input.TextArea
+            rows={3}
+            value={chatPrompt}
+            onChange={(e) => setChatPrompt(e.target.value)}
+            placeholder="Ask AI to build/update this page..."
+            data-ai-field="page-builder-prompt"
+          />
+          <Button loading={aiLoading} onClick={() => void aiAssist()} data-ai-action="ask-ai-page-builder">
+            Ask AI Builder
+          </Button>
         </aside>
 
         <main className={`${styles.canvas} ${mode === "preview" ? styles.canvasPreview : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={onDropCanvas}>

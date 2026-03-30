@@ -114,7 +114,7 @@ const EmailTemplatesPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="settings-email-templates">
       <div>
         <Typography.Title level={2} className={styles.title}>
           Email Templates
@@ -136,6 +136,7 @@ const EmailTemplatesPage = () => {
                   applicationReceived: { ...prev.applicationReceived, enabled: checked },
                 }))
               }
+              data-ai-field="email-template-enabled"
             />
           </div>
 
@@ -154,6 +155,7 @@ const EmailTemplatesPage = () => {
                   applicationReceived: { ...prev.applicationReceived, mode: value },
                 }))
               }
+              data-ai-field="email-template-mode"
             />
           </div>
 
@@ -167,6 +169,7 @@ const EmailTemplatesPage = () => {
                   applicationReceived: { ...prev.applicationReceived, subject: event.target.value },
                 }))
               }
+              data-ai-field="email-template-subject"
             />
           </div>
 
@@ -181,6 +184,7 @@ const EmailTemplatesPage = () => {
                   applicationReceived: { ...prev.applicationReceived, body: event.target.value },
                 }))
               }
+              data-ai-field="email-template-body"
             />
           </div>
 
@@ -195,7 +199,12 @@ const EmailTemplatesPage = () => {
             </div>
           </div>
 
-          <Button type="primary" loading={saving} onClick={() => void handleSave()}>
+          <Button
+            type="primary"
+            loading={saving}
+            onClick={() => void handleSave()}
+            data-ai-action="save-email-templates"
+          >
             Save Email Templates
           </Button>
         </Space>

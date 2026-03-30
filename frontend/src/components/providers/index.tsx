@@ -9,6 +9,7 @@ import { ProjectProvider } from "@/providers/project-provider";
 import { JobProvider } from "@/providers/job-provider";
 import { ReviewProvider } from "@/providers/review-provider";
 import { SimulationProvider } from "@/providers/simulation-provider";
+import { AppOperatorProvider } from "@/providers/app-operator-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -64,10 +65,12 @@ export function AppProviders({ children }: PropsWithChildren) {
                   <JobProvider>
                     <ReviewProvider>
                       <SimulationProvider>
-                        <AntdProvider>
-                          <AntdToastViewport />
-                          {children}
-                        </AntdProvider>
+                        <AppOperatorProvider>
+                          <AntdProvider>
+                            <AntdToastViewport />
+                            {children}
+                          </AntdProvider>
+                        </AppOperatorProvider>
                       </SimulationProvider>
                     </ReviewProvider>
                   </JobProvider>

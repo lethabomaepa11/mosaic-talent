@@ -338,7 +338,7 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="profile">
       <motion.div
         initial={false}
         animate={{ opacity: 1, y: 0 }}
@@ -423,6 +423,7 @@ const ProfilePage = () => {
                         }))
                       }
                       placeholder="First name"
+                      data-ai-field="profile-first-name"
                     />
                   </div>
                   <div className={styles.fullSpan}>
@@ -436,6 +437,7 @@ const ProfilePage = () => {
                         }))
                       }
                       placeholder="Last name"
+                      data-ai-field="profile-last-name"
                     />
                   </div>
                   <div className={styles.fullSpan}>
@@ -517,6 +519,7 @@ const ProfilePage = () => {
                             }))
                           }
                           placeholder="City, Country"
+                          data-ai-field="profile-location"
                         />
                       </div>
                       <div className={styles.fullSpan}>
@@ -531,6 +534,7 @@ const ProfilePage = () => {
                             }))
                           }
                           placeholder="Tell teams how you work and what you’re focused on."
+                          data-ai-field="profile-bio"
                         />
                       </div>
                       <div className={styles.fullSpan}>
@@ -741,6 +745,7 @@ const ProfilePage = () => {
                       }))
                     }
                     placeholder="GitHub username"
+                    data-ai-field="profile-github-username"
                     />
                   ) : null}
                   {!isCompanyTenant ? (
@@ -756,6 +761,7 @@ const ProfilePage = () => {
                       )
                     }
                     block
+                    data-ai-action="scan-github-profile"
                   >
                     {isScanning ? "Scanning..." : "Scan GitHub"}
                   </Button>
@@ -839,6 +845,7 @@ const ProfilePage = () => {
               loading={isSaving || isPending || isCompanyPending}
               icon={<Save size={14} />}
               block
+              data-ai-action="save-profile"
             >
               Save Profile
             </Button>

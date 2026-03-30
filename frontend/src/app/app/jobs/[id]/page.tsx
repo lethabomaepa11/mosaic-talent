@@ -299,7 +299,7 @@ const JobApplicationsPage = () => {
 
   return (
     <>
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="job-applications">
       <div className={styles.header}>
         <Link href="/app/jobs">
           <Button icon={<ArrowLeft size={14} />}>Back to Jobs</Button>
@@ -357,6 +357,7 @@ const JobApplicationsPage = () => {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search candidates by name or skill..."
+            data-ai-field="job-application-search"
           />
           <Select
             value={skillFilter}
@@ -379,7 +380,11 @@ const JobApplicationsPage = () => {
               { label: "Approved", value: "approved" },
             ]}
           />
-          <Button loading={bulkMoving} onClick={() => void handleBulkAssessment()}>
+          <Button
+            loading={bulkMoving}
+            onClick={() => void handleBulkAssessment()}
+            data-ai-action="bulk-move-assessment"
+          >
             Move Qualified To Assessment
           </Button>
         </div>
@@ -409,7 +414,12 @@ const JobApplicationsPage = () => {
                 .join("")
                 .toUpperCase();
               return (
-            <div className={styles.sidePanel}>
+            <div
+              className={styles.sidePanel}
+              data-ai-entity="job-application"
+              data-ai-entity-id={application.id}
+              data-ai-entity-name={application.candidateName}
+            >
               <div className={styles.appRow}>
                 <div className={styles.avatar}>{initials}</div>
                 <div className={styles.appMain}>
@@ -477,7 +487,7 @@ const JobApplicationsPage = () => {
                 </div>
                 <div className={styles.appActions}>
                   <Link href={`/app/jobs/${jobId}/application/${application.id}`}>
-                    <Button icon={<Eye size={14} />} block>
+                    <Button icon={<Eye size={14} />} block data-ai-action="view-application">
                       View Application
                     </Button>
                   </Link>

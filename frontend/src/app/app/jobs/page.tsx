@@ -135,7 +135,7 @@ const JobsPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="jobs">
       <div className={styles.header}>
         <div>
           <Typography.Title level={2} className={styles.title}>Job Postings</Typography.Title>
@@ -143,7 +143,14 @@ const JobsPage = () => {
             Create and manage your company opportunities.
           </Typography.Paragraph>
         </div>
-        <Button type="primary" icon={<Plus size={14} />} onClick={openCreateModal}>New Job</Button>
+        <Button
+          type="primary"
+          icon={<Plus size={14} />}
+          onClick={openCreateModal}
+          data-ai-action="open-create-job"
+        >
+          New Job
+        </Button>
       </div>
 
       {!isPending && jobs.length === 0 ? <Empty description="No jobs yet. Create your first posting." /> : null}
@@ -186,14 +193,15 @@ const JobsPage = () => {
         onOk={() => void handleSubmit()}
         confirmLoading={saving}
         title={editingJob ? "Edit Job" : "Create Job"}
+        okButtonProps={{ "data-ai-action": "submit-create-job" }}
       >
         <Form layout="vertical" form={form}>
           <div className={styles.modalGrid}>
             <Form.Item name="title" label="Title" className={styles.fullSpan} rules={[{ required: true }]}>
-              <Input placeholder="Frontend Engineer" />
+              <Input placeholder="Frontend Engineer" data-ai-field="job-title" />
             </Form.Item>
             <Form.Item name="location" label="Location" rules={[{ required: true }]}>
-              <Input placeholder="Johannesburg / Remote" />
+              <Input placeholder="Johannesburg / Remote" data-ai-field="job-location" />
             </Form.Item>
             <Form.Item name="employmentType" label="Employment Type" rules={[{ required: true }]}>
               <Select options={employmentTypeOptions} />
@@ -205,7 +213,11 @@ const JobsPage = () => {
               <Select options={[{ label: "Open", value: true }, { label: "Closed", value: false }]} />
             </Form.Item>
             <Form.Item name="description" label="Description" className={styles.fullSpan} rules={[{ required: true }]}>
-              <Input.TextArea rows={4} placeholder="Role summary and responsibilities." />
+              <Input.TextArea
+                rows={4}
+                placeholder="Role summary and responsibilities."
+                data-ai-field="job-description"
+              />
             </Form.Item>
             <Form.Item name="technicalAssessmentPrompt" label="Technical Assessment Prompt" className={styles.fullSpan}>
               <Input.TextArea rows={3} placeholder="Prompt for technical assessment." />

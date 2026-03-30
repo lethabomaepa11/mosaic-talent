@@ -1,0 +1,72 @@
+import { AxiosInstance } from "axios";
+import { describe, expect, it, vi } from "vitest";
+import { planOperatorIntent } from "../planner";
+
+const makeInstance = (post: AxiosInstance["post"]) =>
+  ({ post } as unknown as AxiosInstance);
+
+describe("planOperatorIntent", () => {
+  it("returns Groq plan when backend returns a valid action", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: {
+        result: {
+          type: "save_profile",
+          params: {
+            bio: "Senior React engineer focused on DX",
+          },
+        },
+      },
+    });
+
+    const result = await planOperatorIntent(
+      makeInstance(post),
+      "change my bio to Senior React engineer focused on DX",
+      "/app/profile",
+    );
+
+    expect(result.source).toBe("groq");
+    expect(result.intent.type).toBe("save_profile");
+    expect(result.intent.routeKey).toBe("profile");
+    expect(result.intent.params.bio).toContain("Senior React engineer");
+  });
+
+  it("falls back to rule-based parser when planner fails", async () => {
+    const post = vi.fn().mockRejectedValue(new Error("network"));
+
+    const result = await planOperatorIntent(
+      makeInstance(post),
+      "Create a new user called Simon Manga",
+      "/app/settings/employees",
+    );
+
+    expect(result.source).toBe("fallback");
+    expect(result.intent.type).toBe("create_user");
+    expect(result.intent.missingRequired).toEqual(["email", "password"]);
+  });
+
+  it("computes missing required fields for Groq action plans", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: {
+        result: {
+          type: "create_user",
+          params: {
+            name: "Simon",
+            surname: "Manga",
+            userName: "simon.manga",
+          },
+        },
+      },
+    });
+
+    const result = await planOperatorIntent(
+      makeInstance(post),
+      "create user Simon Manga",
+      "/app/settings/employees",
+    );
+
+    expect(result.source).toBe("groq");
+    expect(result.intent.type).toBe("create_user");
+    expect(result.intent.missingRequired).toEqual(["email", "password"]);
+    expect(result.intent.routeKey).toBe("employeesSettings");
+  });
+});
