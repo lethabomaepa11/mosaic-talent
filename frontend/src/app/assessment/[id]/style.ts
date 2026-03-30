@@ -108,22 +108,31 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   workbenchWithCopilot: css`
     width: 100%;
-    min-height: 640px;
+    height: calc(100vh - 220px);
+    min-height: 700px;
+    border: 1px solid ${token.colorBorderSecondary};
+    background: ${token.colorBgContainer};
+    overflow: hidden;
+  `,
+  workspaceToolbar: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-bottom: none;
+    background: ${token.colorBgContainer};
+    padding: ${token.paddingXS}px ${token.paddingSM}px;
   `,
   copilotRail: css`
-    @media (min-width: 1280px) {
-      position: sticky;
-      top: ${token.paddingSM}px;
-      max-height: calc(100vh - 120px);
-      overflow: auto;
-    }
+    height: 100%;
   `,
   panelGroup: css`
     width: 100%;
-    min-height: 640px;
+    height: 100%;
+    min-height: 700px;
   `,
   resizeHandle: css`
-    width: 6px;
+    width: 1px;
     background: ${token.colorBorderSecondary};
     cursor: col-resize;
   `,
@@ -168,10 +177,11 @@ export const useStyles = createStyles(({ token, css }) => ({
   vscodeColumn: css`
     display: flex;
     flex-direction: column;
-    min-height: 460px;
-    border: 1px solid ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadius}px;
+    height: 100%;
+    min-height: 0;
+    background: ${token.colorBgContainer};
     overflow: hidden;
+    position: relative;
   `,
   panelHeader: css`
     display: flex;
@@ -180,6 +190,52 @@ export const useStyles = createStyles(({ token, css }) => ({
     border-bottom: 1px solid ${token.colorBorderSecondary};
     padding: ${token.paddingXS}px ${token.paddingSM}px;
     background: ${token.colorBgContainerDisabled};
+  `,
+  workspacePanel: css`
+    height: 100%;
+    background: ${token.colorBgContainer};
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  `,
+  workbenchRoot: css`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 700px;
+    background: ${token.colorBgContainer};
+  `,
+  workbenchTopBar: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: ${token.paddingXS}px ${token.paddingSM}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+    gap: ${token.marginSM}px;
+    flex-wrap: wrap;
+  `,
+  filePanelBody: css`
+    padding: ${token.paddingSM}px;
+    overflow: auto;
+    min-width: 0;
+  `,
+  previewColumn: css`
+    height: 100%;
+    overflow: auto;
+    padding: ${token.paddingXS}px;
+    background: ${token.colorBgContainer};
+    min-width: 0;
+  `,
+  apiPlaygroundBody: css`
+    padding: ${token.paddingSM}px;
+    overflow: auto;
+  `,
+  editorHost: css`
+    position: relative;
+    height: clamp(320px, 52vh, 640px);
+    min-height: 320px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+    min-width: 0;
   `,
   editorArea: css`
     flex: 1;
@@ -193,13 +249,13 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   terminalPanel: css`
     border-top: 1px solid ${token.colorBorderSecondary};
-    padding: ${token.paddingSM}px;
+    padding: ${token.paddingXS}px ${token.paddingSM}px ${token.paddingSM}px;
     background: ${token.colorBgLayout};
-    min-height: 120px;
+    min-height: 140px;
   `,
   terminalShell: css`
     margin-top: ${token.marginXS}px;
-    height: 140px;
+    height: 130px;
     border: 1px solid ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusSM}px;
     overflow: hidden;
@@ -209,9 +265,52 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   previewFrame: css`
     width: 100%;
-    min-height: 420px;
+    min-height: 460px;
     border: none;
     background: ${token.colorBgBase};
+  `,
+  copilotPanel: css`
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: ${token.colorBgContainer};
+    min-width: 0;
+  `,
+  copilotBody: css`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  `,
+  copilotMessages: css`
+    flex: 1;
+    overflow: auto;
+    padding: ${token.paddingSM}px;
+  `,
+  chatItem: css`
+    border: 1px solid ${token.colorBorderSecondary};
+    padding: ${token.paddingSM}px;
+    background: ${token.colorBgContainer};
+  `,
+  chatItemHeader: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginXS}px;
+    margin-bottom: ${token.marginXS}px;
+  `,
+  copilotComposer: css`
+    border-top: 1px solid ${token.colorBorderSecondary};
+    padding: ${token.paddingSM}px;
+    background: ${token.colorBgContainer};
+  `,
+  copilotInput: css`
+    width: 100%;
+  `,
+  sendButton: css`
+    width: 38px;
+    min-width: 38px;
+    padding-inline: 0 !important;
   `,
   terminalList: css`
     margin: 0;

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Button, Card, Input, Space, Typography } from "antd";
-import { Bot } from "lucide-react";
+import { Button, Input, Space, Typography } from "antd";
+import { SendHorizontal } from "lucide-react";
 import { Proposal, PromptAttempt } from "./types";
 import { applyProposalPatch } from "./mockEngine";
 
@@ -20,6 +20,7 @@ type Props = {
   onAcceptPromptAttempt: (index: number) => void;
   onProposalDecision: (proposalId: string, decision: "accepted" | "declined") => void;
   onReviseProposal: (proposalId: string) => void;
+  styles: Record<string, string>;
 };
 
 const normalizeEditorLanguage = (language?: string): "typescript" | "javascript" | "typescriptreact" | "javascriptreact" => {
@@ -43,6 +44,7 @@ export const AiPanel = ({
   onAcceptPromptAttempt,
   onProposalDecision,
   onReviseProposal,
+  styles,
 }: Props) => {
   const monacoLanguage = useMemo(() => normalizeEditorLanguage(editorLanguage), [editorLanguage]);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -52,37 +54,36 @@ export const AiPanel = ({
   }, [attempts, proposals, loading]);
 
   return (
-    <Card title="Copilot Chat" className="h-full">
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 640, maxHeight: "calc(100vh - 180px)" }}>
-        <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
+    <div className={styles.copilotPanel}>
+      <div className={styles.panelHeader}>
+        <Typography.Text strong>Copilot Chat</Typography.Text>
+      </div>
+      <div className={styles.copilotBody}>
+        <div className={styles.copilotMessages}>
           <Space direction="vertical" size={10} style={{ width: "100%" }}>
             {attempts.map((attempt, index) => (
-              <Card
-                key={`attempt-${index}`}
-                size="small"
-                title={`Message ${index + 1}`}
-                extra={
+              <div key={`attempt-${index}`} className={styles.chatItem}>
+                <div className={styles.chatItemHeader}>
+                  <Typography.Text strong>{`Message ${index + 1}`}</Typography.Text>
                   <Button size="small" type={attempt.accepted ? "primary" : "default"} onClick={() => onAcceptPromptAttempt(index)}>
                     {attempt.accepted ? "Applied" : "Use response"}
                   </Button>
-                }
-              >
+                </div>
                 <Typography.Paragraph>
                   <Typography.Text strong>You:</Typography.Text> {attempt.prompt}
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ marginBottom: 0 }}>
                   <Typography.Text strong>AI:</Typography.Text> {attempt.response}
                 </Typography.Paragraph>
-              </Card>
+              </div>
             ))}
 
             {proposals.map((proposal) => (
-              <Card
-                key={proposal.id}
-                size="small"
-                title={proposal.title}
-                extra={proposal.isHallucination ? <Typography.Text type="secondary">Scope-risk</Typography.Text> : null}
-              >
+              <div key={proposal.id} className={styles.chatItem}>
+                <div className={styles.chatItemHeader}>
+                  <Typography.Text strong>{proposal.title}</Typography.Text>
+                  {proposal.isHallucination ? <Typography.Text type="secondary">Scope-risk</Typography.Text> : null}
+                </div>
                 <Typography.Paragraph>{proposal.description}</Typography.Paragraph>
                 {proposal.targetPath ? <Typography.Text type="secondary">Target file: {proposal.targetPath}</Typography.Text> : null}
                 <Typography.Text type="secondary">Suggested diff ({currentFilePath || "active file"})</Typography.Text>
@@ -112,17 +113,18 @@ export const AiPanel = ({
                     Revise
                   </Button>
                 </Space>
-              </Card>
+              </div>
             ))}
             <div ref={messageEndRef} />
           </Space>
         </div>
 
-        <div style={{ borderTop: "1px solid var(--ant-colorBorderSecondary)", paddingTop: 10 }}>
-          <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <div className={styles.copilotComposer}>
+          <Space size={8} style={{ width: "100%" }} align="end">
             <Input.TextArea
               rows={3}
-              placeholder="Ask AI for implementation help, trade-offs, or testing strategy..."
+              className={styles.copilotInput}
+              placeholder="Message Copilot. Enter to send, Shift+Enter for newline."
               value={promptInput}
               onChange={(event) => onPromptInput(event.target.value)}
               onPressEnter={(event) => {
@@ -132,12 +134,10 @@ export const AiPanel = ({
                 }
               }}
             />
-            <Button icon={<Bot size={14} />} loading={loading} onClick={onAskAi}>
-              Ask AI
-            </Button>
+            <Button type="primary" className={styles.sendButton} icon={<SendHorizontal size={14} />} loading={loading} onClick={onAskAi} />
           </Space>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

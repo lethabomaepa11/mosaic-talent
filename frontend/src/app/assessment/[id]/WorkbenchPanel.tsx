@@ -1,13 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Button, Card, Input, Space, Tag, Typography } from "antd";
-import { ChevronDown, ChevronRight, FilePlus2, FolderPlus, Play, Trash2 } from "lucide-react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import type { editor as MonacoEditor } from "monaco-editor";
+import { Button, Input, Space, Tag, Typography } from "antd";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FilePlus2,
+  FolderPlus,
+  Play,
+  Trash2,
+} from "lucide-react";
+import {
+  Group,
+  Panel,
+  PanelImperativeHandle,
+  Separator,
+} from "react-resizable-panels";
 import { SandpackLayout, SandpackPreview, SandpackProvider } from "@codesandbox/sandpack-react";
 import { AssessmentMode, SubmissionDraft } from "./types";
 import { TerminalView } from "./TerminalView";
+
+const DEFAULT_HTML_SCAFFOLD = `<html>
+<head>
+  <style>
+    *{
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Hello</h1>
+</body>
+</html>`;
 
 type Props = {
   draft: SubmissionDraft;
@@ -32,7 +60,12 @@ type Props = {
   modeLocked?: boolean;
 };
 
-type EditorLanguage = "typescript" | "javascript" | "typescriptreact" | "javascriptreact";
+type EditorLanguage =
+  | "typescript"
+  | "javascript"
+  | "typescriptreact"
+  | "javascriptreact"
+  | "html";
 
 const normalizeLanguage = (language?: string): EditorLanguage => {
   const value = (language ?? "").toLowerCase().trim();
@@ -49,6 +82,7 @@ const detectLanguageFromPath = (path: string, fallback?: string): EditorLanguage
   if (normalized.endsWith(".jsx")) return "javascriptreact";
   if (normalized.endsWith(".ts")) return "typescript";
   if (normalized.endsWith(".js")) return "javascript";
+  if (normalized.endsWith(".html") || normalized.endsWith(".htm")) return "html";
   if (normalized.endsWith(".json")) return "javascript";
   if (normalized.endsWith(".cs")) return "typescript";
   return normalizeLanguage(fallback);
@@ -59,6 +93,22 @@ const renderPreview = (code: string, mode: AssessmentMode, editorLanguage: Edito
     return null;
   }
 
+  if (editorLanguage === "html") {
+    return (
+      <div className={styles.workspacePanel}>
+        <div className={styles.panelHeader}>
+          <Typography.Text strong>Live Preview</Typography.Text>
+        </div>
+        <iframe
+          className={styles.previewFrame}
+          title="HTML Preview"
+          sandbox="allow-scripts allow-modals"
+          srcDoc={code?.trim().length ? code : DEFAULT_HTML_SCAFFOLD}
+        />
+      </div>
+    );
+  }
+
   const useTsTemplate = editorLanguage === "typescriptreact" || editorLanguage === "typescript";
   const appFile = useTsTemplate ? "/App.tsx" : "/App.jsx";
   const indexFile = useTsTemplate ? "/index.tsx" : "/index.jsx";
@@ -67,7 +117,10 @@ const renderPreview = (code: string, mode: AssessmentMode, editorLanguage: Edito
     : `export default function App() { return <div style={{padding:16,color:"#e2e8f0"}}>Build your UI here.</div>; }`;
 
   return (
-    <Card size="small" title="Live Preview" className={styles.workbenchPanel}>
+    <div className={styles.workspacePanel}>
+      <div className={styles.panelHeader}>
+        <Typography.Text strong>Live Preview</Typography.Text>
+      </div>
       <SandpackProvider
         template={useTsTemplate ? "react-ts" : "react"}
         files={{
@@ -78,23 +131,28 @@ const renderPreview = (code: string, mode: AssessmentMode, editorLanguage: Edito
         options={{ recompileMode: "immediate", recompileDelay: 300 }}
       >
         <SandpackLayout>
-          <SandpackPreview showOpenInCodeSandbox={false} showRefreshButton={false} />
+          <SandpackPreview className={styles.previewFrame} showOpenInCodeSandbox={false} showRefreshButton={false} />
         </SandpackLayout>
       </SandpackProvider>
-    </Card>
+    </div>
   );
 };
 
 const renderApiPlayground = (draft: SubmissionDraft, onApiChange: Props["onApiChange"], onRunApi: Props["onRunApi"], styles: Record<string, string>) => (
-  <Card size="small" title="API Playground" className={styles.workbenchPanel}>
-    <Space direction="vertical" size={8} style={{ width: "100%" }}>
-      <Input addonBefore="Method" value={draft.apiPlayground.method} onChange={(event) => onApiChange({ method: event.target.value as SubmissionDraft["apiPlayground"]["method"] })} />
-      <Input addonBefore="Path" value={draft.apiPlayground.path} onChange={(event) => onApiChange({ path: event.target.value })} />
-      <Input.TextArea rows={5} placeholder="Request body" value={draft.apiPlayground.body} onChange={(event) => onApiChange({ body: event.target.value })} />
-      <Button icon={<Play size={14} />} onClick={onRunApi}>Run request</Button>
-      <Input.TextArea rows={8} value={draft.apiPlayground.response} readOnly />
-    </Space>
-  </Card>
+  <div className={styles.workspacePanel}>
+    <div className={styles.panelHeader}>
+      <Typography.Text strong>API Playground</Typography.Text>
+    </div>
+    <div className={styles.apiPlaygroundBody}>
+      <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <Input addonBefore="Method" value={draft.apiPlayground.method} onChange={(event) => onApiChange({ method: event.target.value as SubmissionDraft["apiPlayground"]["method"] })} />
+        <Input addonBefore="Path" value={draft.apiPlayground.path} onChange={(event) => onApiChange({ path: event.target.value })} />
+        <Input.TextArea rows={5} placeholder="Request body" value={draft.apiPlayground.body} onChange={(event) => onApiChange({ body: event.target.value })} />
+        <Button icon={<Play size={14} />} onClick={onRunApi}>Run request</Button>
+        <Input.TextArea rows={8} value={draft.apiPlayground.response} readOnly />
+      </Space>
+    </div>
+  </div>
 );
 
 export const WorkbenchPanel = ({
@@ -123,8 +181,8 @@ export const WorkbenchPanel = ({
   const [newFolderPath, setNewFolderPath] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [dragTarget, setDragTarget] = useState<string>("");
-  const activeCode = files[activeFilePath] ?? "";
-  const editorLanguage = detectLanguageFromPath(activeFilePath, problemLanguage);
+  const [isFilesOpen, setIsFilesOpen] = useState(true);
+  const filesPanelRef = useRef<PanelImperativeHandle | null>(null);
   const sortedFiles = useMemo(() => {
     const paths = Object.keys(files);
     if (!Array.isArray(fileOrder) || fileOrder.length === 0) return paths.sort((a, b) => a.localeCompare(b));
@@ -132,11 +190,26 @@ export const WorkbenchPanel = ({
     const missing = paths.filter((path) => !ordered.includes(path)).sort((a, b) => a.localeCompare(b));
     return [...ordered, ...missing];
   }, [fileOrder, files]);
+  const resolvedActiveFilePath = useMemo(() => {
+    if (activeFilePath && Object.prototype.hasOwnProperty.call(files, activeFilePath)) {
+      return activeFilePath;
+    }
+    return sortedFiles[0] ?? "";
+  }, [activeFilePath, files, sortedFiles]);
+  const activeCode = files[resolvedActiveFilePath] ?? "";
+  const editorLanguage = detectLanguageFromPath(resolvedActiveFilePath, problemLanguage);
   const [previewCode, setPreviewCode] = useState(activeCode);
   const canRenderPreview = useMemo(() => {
-    const path = activeFilePath.toLowerCase();
-    return path.endsWith(".tsx") || path.endsWith(".jsx") || path.endsWith(".ts") || path.endsWith(".js");
-  }, [activeFilePath]);
+    const path = resolvedActiveFilePath.toLowerCase();
+    return (
+      path.endsWith(".tsx") ||
+      path.endsWith(".jsx") ||
+      path.endsWith(".ts") ||
+      path.endsWith(".js") ||
+      path.endsWith(".html") ||
+      path.endsWith(".htm")
+    );
+  }, [resolvedActiveFilePath]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewCode(activeCode), 300);
@@ -149,6 +222,12 @@ export const WorkbenchPanel = ({
       return [...folders];
     });
   }, [folders]);
+
+  useEffect(() => {
+    if (!resolvedActiveFilePath) return;
+    if (activeFilePath === resolvedActiveFilePath) return;
+    onSelectFile(resolvedActiveFilePath);
+  }, [activeFilePath, onSelectFile, resolvedActiveFilePath]);
 
   const rootFiles = useMemo(() => sortedFiles.filter((path) => !path.includes("/")), [sortedFiles]);
   const topFolders = useMemo(() => folders.filter((folder) => !folder.includes("/")).sort((a, b) => a.localeCompare(b)), [folders]);
@@ -169,6 +248,15 @@ export const WorkbenchPanel = ({
     const fileName = sourcePath.split("/").pop() ?? sourcePath;
     const targetPath = folderPath ? `${folderPath}/${fileName}` : fileName;
     onMoveFile(sourcePath, targetPath);
+  };
+
+  const toggleFilesPanel = () => {
+    if (!filesPanelRef.current) return;
+    if (isFilesOpen) {
+      filesPanelRef.current.collapse();
+      return;
+    }
+    filesPanelRef.current.expand();
   };
 
   const renderFileRow = (path: string, depth: number) => (
@@ -199,7 +287,14 @@ export const WorkbenchPanel = ({
       <Button type={path === activeFilePath ? "primary" : "default"} size="small" onClick={() => onSelectFile(path)} className={styles.fileButton}>
         {path.split("/").pop()}
       </Button>
-      <Button danger type="text" size="small" icon={<Trash2 size={14} />} onClick={() => onDeleteFile(path)} />
+      <Button
+        danger
+        type="text"
+        size="small"
+        icon={<Trash2 size={14} />}
+        disabled={sortedFiles.length <= 1}
+        onClick={() => onDeleteFile(path)}
+      />
     </div>
   );
 
@@ -241,8 +336,11 @@ export const WorkbenchPanel = ({
   };
 
   return (
-    <Card title={problemTitle ? `Assessment Workbench - ${problemTitle}` : "Assessment Workbench"}>
-      <Space direction="vertical" size={10} style={{ width: "100%" }}>
+    <div className={styles.workbenchRoot}>
+      <div className={styles.workbenchTopBar}>
+        <Typography.Text strong>
+          {problemTitle ? `Assessment Workbench - ${problemTitle}` : "Assessment Workbench"}
+        </Typography.Text>
         {!modeLocked ? (
           <Button.Group>
             <Button type={draft.mode === "frontend" ? "primary" : "default"} onClick={() => onModeChange("frontend")}>Frontend</Button>
@@ -252,10 +350,22 @@ export const WorkbenchPanel = ({
         ) : (
           <Tag>Mode locked by assessment: {draft.mode}</Tag>
         )}
+      </div>
 
-        <Group orientation="horizontal" className={styles.panelGroup}>
-          <Panel defaultSize={22} minSize={14}>
-            <Card size="small" title="Files" className={styles.workbenchPanel}>
+      <Group orientation="horizontal" className={styles.panelGroup}>
+        <Panel
+          panelRef={filesPanelRef}
+          defaultSize={20}
+          minSize={14}
+          collapsible
+          collapsedSize={0}
+          onResize={(size) => setIsFilesOpen(size.asPercentage > 0)}
+        >
+          <div className={styles.workspacePanel}>
+            <div className={styles.panelHeader}>
+              <Typography.Text strong>Files</Typography.Text>
+            </div>
+            <div className={styles.filePanelBody}>
               <Space direction="vertical" size={8} style={{ width: "100%" }}>
                 <Space.Compact style={{ width: "100%" }}>
                   <Input value={newFolderPath} onChange={(event) => setNewFolderPath(event.target.value)} placeholder="new-folder" />
@@ -286,42 +396,64 @@ export const WorkbenchPanel = ({
                   {rootFiles.map((path) => renderFileRow(path, 0))}
                 </Space>
               </Space>
-            </Card>
-          </Panel>
+            </div>
+          </div>
+        </Panel>
 
-          <Separator className={styles.resizeHandle} />
+        <Separator className={styles.resizeHandle} />
 
-          <Panel defaultSize={44} minSize={30}>
-            <div className={styles.vscodeColumn}>
-              <div className={styles.panelHeader}>
-                <Typography.Text strong>{activeFilePath || "No file selected"}</Typography.Text>
-                <Tag>{draft.mode}</Tag>
-              </div>
+        <Panel defaultSize={50} minSize={32}>
+          <div className={styles.vscodeColumn}>
+            <div className={styles.panelHeader}>
+              <Space size={8}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={isFilesOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                  onClick={toggleFilesPanel}
+                />
+                <Typography.Text strong>{resolvedActiveFilePath || "No file selected"}</Typography.Text>
+              </Space>
+              <Tag>{draft.mode}</Tag>
+            </div>
+            <div className={styles.editorHost}>
               <Editor
-                height="460px"
+                height="100%"
                 language={editorLanguage}
                 theme="vs-dark"
                 value={activeCode}
-                options={{ minimap: { enabled: true }, fontSize: 13, wordWrap: "on", automaticLayout: true }}
+                options={{
+                  minimap: { enabled: true },
+                  fontSize: 13,
+                  wordWrap: "on",
+                  automaticLayout: true,
+                  readOnly: false,
+                  domReadOnly: false,
+                }}
+                onMount={(editor: MonacoEditor.IStandaloneCodeEditor) => {
+                  editor.focus();
+                }}
                 onChange={(value) => onCodeChange(value ?? "")}
               />
-              <div className={styles.terminalPanel}>
-                <Typography.Text strong>Terminal</Typography.Text>
-                <TerminalView className={styles.terminalShell} lines={terminalLogs} />
-              </div>
             </div>
-          </Panel>
+            <div className={styles.terminalPanel}>
+              <Typography.Text strong>Terminal</Typography.Text>
+              <TerminalView className={styles.terminalShell} lines={terminalLogs} />
+            </div>
+          </div>
+        </Panel>
 
-          <Separator className={styles.resizeHandle} />
+        <Separator className={styles.resizeHandle} />
 
-          <Panel defaultSize={34} minSize={24}>
+        <Panel defaultSize={30} minSize={22}>
+          <div className={styles.previewColumn}>
             <Space direction="vertical" size={8} style={{ width: "100%" }}>
               {draft.mode !== "backend" && canRenderPreview ? renderPreview(previewCode, draft.mode, editorLanguage, styles) : null}
               {draft.mode !== "frontend" ? renderApiPlayground(draft, onApiChange, onRunApi, styles) : null}
             </Space>
-          </Panel>
-        </Group>
-      </Space>
-    </Card>
+          </div>
+        </Panel>
+      </Group>
+    </div>
   );
 };
