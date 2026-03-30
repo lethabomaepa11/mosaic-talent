@@ -179,7 +179,7 @@ export const WorkbenchPanel = ({
 }: Props) => {
   const [newFilePath, setNewFilePath] = useState("");
   const [newFolderPath, setNewFolderPath] = useState("");
-  const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
+  const [expandedFoldersState, setExpandedFoldersState] = useState<string[]>([]);
   const [dragTarget, setDragTarget] = useState<string>("");
   const [isFilesOpen, setIsFilesOpen] = useState(true);
   const filesPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -210,18 +210,15 @@ export const WorkbenchPanel = ({
       path.endsWith(".htm")
     );
   }, [resolvedActiveFilePath]);
+  const expandedFolders = useMemo(
+    () => (expandedFoldersState.length > 0 ? expandedFoldersState : folders),
+    [expandedFoldersState, folders],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewCode(activeCode), 300);
     return () => window.clearTimeout(timer);
   }, [activeCode]);
-
-  useEffect(() => {
-    setExpandedFolders((prev) => {
-      if (prev.length > 0) return prev;
-      return [...folders];
-    });
-  }, [folders]);
 
   useEffect(() => {
     if (!resolvedActiveFilePath) return;
@@ -241,7 +238,12 @@ export const WorkbenchPanel = ({
     sortedFiles.filter((path) => path.startsWith(`${folder}/`) && !path.slice(folder.length + 1).includes("/"));
 
   const toggleFolder = (folder: string) => {
-    setExpandedFolders((prev) => (prev.includes(folder) ? prev.filter((item) => item !== folder) : [...prev, folder]));
+    setExpandedFoldersState((prev) => {
+      const baseline = prev.length > 0 ? prev : [...folders];
+      return baseline.includes(folder)
+        ? baseline.filter((item) => item !== folder)
+        : [...baseline, folder];
+    });
   };
 
   const moveToFolder = (sourcePath: string, folderPath: string) => {

@@ -575,7 +575,9 @@ export const AppOperatorPanel = () => {
           <div className={styles.history}>
             {history.length === 0 ? (
               <Typography.Text type="secondary">
-                Try: "How do I create a frontend engineer job?" or "Create a frontend engineer job with React and TypeScript."
+                Try: &quot;How do I create a frontend engineer job?&quot; or
+                &nbsp;&quot;Create a frontend engineer job with React and
+                TypeScript.&quot;
               </Typography.Text>
             ) : null}
             {history.map((item) => (
