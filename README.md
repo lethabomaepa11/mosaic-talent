@@ -61,6 +61,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - open projects sorted by match score
   - AI Match redirect to best-fit project
   - match insight + likely learning outcomes on project details
+- AI learning path recommendations:
+  - profile-based skill-gap analysis against market role tracks
+  - personalized next-step actions for career progression goals
+  - resilient fallback recommendations when AI response is unavailable
 - Teamwork simulator:
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
@@ -116,6 +120,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Dark Mode Logo Asset Switching](docs/feature/darkmode-logo-asset-switching.md)
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
+- [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 
 ## Tenant Resolution Rules
 
@@ -160,6 +165,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
+- `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`
 - `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
 
 ### Developer projects

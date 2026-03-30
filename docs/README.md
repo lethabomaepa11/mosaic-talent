@@ -13,3 +13,4 @@ Project documentation index.
 - [Dark Mode Logo Asset Switching](feature/darkmode-logo-asset-switching.md)
 - [Assessment Submission Task/File Processing](feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](feature/github-candidate-background-analysis.md)
+- [AI Learning Path Recommendations](feature/ai-learning-path-recommendations.md)

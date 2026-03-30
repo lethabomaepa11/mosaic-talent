@@ -69,6 +69,27 @@ export const DeveloperReducer = handleActions<
       ...state,
       ...payload,
     }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_PENDING]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_SUCCESS]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_ERROR]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
   },
   INITIAL_STATE,
 );

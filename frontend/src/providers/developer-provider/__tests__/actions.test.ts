@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fetchLevelsSuccess,
+  fetchLearningPathSuccess,
   fetchProfileSuccess,
   fetchUserSuccess,
   saveProfileSuccess,
@@ -88,6 +89,39 @@ describe("developer-provider actions", () => {
         isPending: false,
         isSuccess: true,
         isError: false,
+      },
+    });
+  });
+
+  it("creates learning path payload action", () => {
+    expect(
+      fetchLearningPathSuccess({
+        source: "ai",
+        summary: "Path summary",
+        marketSignals: ["Backend Engineer: .NET, API Design"],
+        recommendations: [
+          {
+            goal: "Lead backend services",
+            priority: "high",
+            estimatedWeeks: 10,
+            gapSummary: "Strengthen API design depth.",
+            recommendedSkills: ["API Design", "Testing"],
+            suggestedActions: ["Build one API module with tests."],
+          },
+        ],
+      }),
+    ).toMatchObject({
+      payload: {
+        isLearningPathPending: false,
+        learningPath: {
+          source: "ai",
+          summary: "Path summary",
+          recommendations: [
+            {
+              goal: "Lead backend services",
+            },
+          ],
+        },
       },
     });
   });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fetchLevelsSuccess,
+  fetchLearningPathPending,
+  fetchLearningPathSuccess,
   fetchProfileSuccess,
   fetchUserSuccess,
   saveProfileSuccess,
@@ -64,5 +66,33 @@ describe("DeveloperReducer", () => {
     const state = DeveloperReducer(INITIAL_STATE, saveProfileSuccess(profile));
     expect(state.profile.goals).toContain("Leadership");
     expect(state.profile.skills).toContain("Node");
+  });
+
+  it("updates learning path state", () => {
+    const pendingState = DeveloperReducer(INITIAL_STATE, fetchLearningPathPending());
+    expect(pendingState.isLearningPathPending).toBe(true);
+
+    const successState = DeveloperReducer(
+      pendingState,
+      fetchLearningPathSuccess({
+        source: "fallback",
+        summary: "Generated from profile data.",
+        marketSignals: ["Full-Stack Engineer: TypeScript, React"],
+        recommendations: [
+          {
+            goal: "Become stronger in full-stack delivery",
+            priority: "medium",
+            estimatedWeeks: 8,
+            gapSummary: "Close testing and API design gaps.",
+            recommendedSkills: ["Testing", "API Design"],
+            suggestedActions: ["Ship one feature with tests."],
+          },
+        ],
+      }),
+    );
+
+    expect(successState.isLearningPathPending).toBe(false);
+    expect(successState.learningPath?.recommendations).toHaveLength(1);
+    expect(successState.learningPath?.source).toBe("fallback");
   });
 });

@@ -13,6 +13,9 @@ import {
   fetchUserError,
   fetchUserPending,
   fetchUserSuccess,
+  fetchLearningPathError,
+  fetchLearningPathPending,
+  fetchLearningPathSuccess,
   saveProfileError,
   saveProfilePending,
   saveProfileSuccess,
@@ -25,6 +28,7 @@ import {
   DeveloperStateContext,
   IDeveloperProfile,
   IGithubScanResult,
+  ILearningPathResult,
   INITIAL_PROFILE,
   INITIAL_STATE,
 } from "./context";
@@ -43,6 +47,23 @@ const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile 
   teamworkRating: input.teamworkRating ?? 0,
   skills: input.skills ?? [],
   goals: input.goals ?? [],
+});
+
+const normalizeLearningPath = (input: Partial<ILearningPathResult>): ILearningPathResult => ({
+  source: input.source === "ai" ? "ai" : "fallback",
+  summary: input.summary ?? "",
+  marketSignals: input.marketSignals ?? [],
+  recommendations: (input.recommendations ?? []).map((item) => ({
+    goal: item.goal ?? "",
+    priority:
+      item.priority === "high" || item.priority === "low"
+        ? item.priority
+        : "medium",
+    estimatedWeeks: Number(item.estimatedWeeks ?? 6),
+    gapSummary: item.gapSummary ?? "",
+    recommendedSkills: item.recommendedSkills ?? [],
+    suggestedActions: item.suggestedActions ?? [],
+  })),
 });
 
 const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
@@ -154,6 +175,20 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const fetchLearningPathRecommendations = async () => {
+    dispatch(fetchLearningPathPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyLearningPathRecommendations`);
+      const learningPath = normalizeLearningPath(res.data?.result ?? {});
+      dispatch(fetchLearningPathSuccess(learningPath));
+      return learningPath;
+    } catch {
+      dispatch(fetchLearningPathError());
+      return undefined;
+    }
+  };
+
   return (
     <DeveloperStateContext.Provider value={state}>
       <DeveloperActionContext.Provider
@@ -163,6 +198,7 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           fetchCurrentUser,
           upsertMyProfile,
           scanMyGithubProfile,
+          fetchLearningPathRecommendations,
         }}
       >
         {children}

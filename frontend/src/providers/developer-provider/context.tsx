@@ -25,6 +25,22 @@ export interface IGithubScanResult {
   insights: string[];
 }
 
+export interface ILearningPathRecommendation {
+  goal: string;
+  priority: "high" | "medium" | "low";
+  estimatedWeeks: number;
+  gapSummary: string;
+  recommendedSkills: string[];
+  suggestedActions: string[];
+}
+
+export interface ILearningPathResult {
+  source: "ai" | "fallback";
+  summary: string;
+  marketSignals: string[];
+  recommendations: ILearningPathRecommendation[];
+}
+
 export interface ICurrentUserSummary {
   id: number;
   userName: string;
@@ -40,6 +56,8 @@ export interface IDeveloperStateContext {
   profile: IDeveloperProfile;
   studyLevels: IStudyLevelOption[];
   scanResult?: IGithubScanResult;
+  learningPath?: ILearningPathResult;
+  isLearningPathPending: boolean;
   currentUser?: ICurrentUserSummary;
 }
 
@@ -49,6 +67,7 @@ export interface IDeveloperActionContext {
   fetchCurrentUser: () => Promise<void>;
   upsertMyProfile: (input: IDeveloperProfile) => Promise<void>;
   scanMyGithubProfile: () => Promise<IGithubScanResult | undefined>;
+  fetchLearningPathRecommendations: () => Promise<ILearningPathResult | undefined>;
 }
 
 export const INITIAL_PROFILE: IDeveloperProfile = {
@@ -71,6 +90,8 @@ export const INITIAL_STATE: IDeveloperStateContext = {
   profile: INITIAL_PROFILE,
   studyLevels: [],
   scanResult: undefined,
+  learningPath: undefined,
+  isLearningPathPending: false,
   currentUser: undefined,
 };
 
@@ -83,4 +104,5 @@ export const DeveloperActionContext = createContext<IDeveloperActionContext>({
   fetchCurrentUser: async () => undefined,
   upsertMyProfile: async () => undefined,
   scanMyGithubProfile: async () => undefined,
+  fetchLearningPathRecommendations: async () => undefined,
 });

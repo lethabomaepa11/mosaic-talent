@@ -132,4 +132,28 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     margin-bottom: ${token.marginXXS}px;
   `,
+  learningPathLoading: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginXS}px;
+  `,
+  marketSignals: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+  `,
+  learningPathItem: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+    padding: ${token.paddingSM}px;
+    border-radius: ${token.borderRadiusLG}px;
+    background: ${token.colorFillTertiary};
+  `,
+  learningPathHeader: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginXS}px;
+    flex-wrap: wrap;
+  `,
 }));

@@ -92,12 +92,21 @@ const ProfilePage = () => {
   const { styles } = useStyles();
   const { tenancyName } = useTenantResolutionState();
   const isCompanyTenant = Boolean(tenancyName);
-  const { profile, scanResult, currentUser, isPending, studyLevels } = useDeveloperState();
+  const {
+    profile,
+    scanResult,
+    learningPath,
+    currentUser,
+    isPending,
+    isLearningPathPending,
+    studyLevels,
+  } = useDeveloperState();
   const { profile: companyProfile, isPending: isCompanyPending } = useCompanyProfileState();
   const {
     fetchCurrentUser,
     fetchMyProfile,
     fetchStudyLevels,
+    fetchLearningPathRecommendations,
     scanMyGithubProfile,
     upsertMyProfile,
   } = useDeveloperAction();
@@ -112,6 +121,7 @@ const ProfilePage = () => {
     fetchCurrentUser();
     fetchMyProfile();
     fetchStudyLevels();
+    fetchLearningPathRecommendations();
   }, []);
 
   useEffect(() => {
@@ -837,6 +847,82 @@ const ProfilePage = () => {
                 </Space>
               </Card>
             </motion.div>
+            ) : null}
+
+            {!isCompanyTenant ? (
+              <motion.div
+                initial={false}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card
+                  title={
+                    <Space>
+                      <TrendingUp size={16} /> AI Learning Path
+                    </Space>
+                  }
+                  data-ai-section="learning-path"
+                >
+                  <Space direction="vertical" size={12} className={styles.fullWidth}>
+                    {isLearningPathPending ? (
+                      <div className={styles.learningPathLoading}>
+                        <Loader2 size={16} className={styles.spinIcon} />
+                        <Typography.Text type="secondary">
+                          Generating recommendations...
+                        </Typography.Text>
+                      </div>
+                    ) : null}
+
+                    {learningPath?.summary ? (
+                      <Typography.Text>{learningPath.summary}</Typography.Text>
+                    ) : (
+                      <Typography.Text type="secondary">
+                        Save your profile with skills and goals to unlock recommendations.
+                      </Typography.Text>
+                    )}
+
+                    {learningPath?.marketSignals?.length ? (
+                      <div className={styles.marketSignals}>
+                        {learningPath.marketSignals.slice(0, 3).map((signal) => (
+                          <Tag key={signal} color="blue">
+                            {signal}
+                          </Tag>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {learningPath?.recommendations?.slice(0, 3).map((recommendation) => (
+                      <div
+                        key={`${recommendation.goal}-${recommendation.priority}`}
+                        className={styles.learningPathItem}
+                      >
+                        <div className={styles.learningPathHeader}>
+                          <Typography.Text strong>{recommendation.goal}</Typography.Text>
+                          <Tag color={recommendation.priority === "high" ? "red" : "gold"}>
+                            {recommendation.priority} - {recommendation.estimatedWeeks}w
+                          </Tag>
+                        </div>
+                        <Typography.Text type="secondary">
+                          {recommendation.gapSummary}
+                        </Typography.Text>
+                        {recommendation.recommendedSkills.length > 0 ? (
+                          <div className={styles.marketSignals}>
+                            {recommendation.recommendedSkills.map((skill) => (
+                              <Tag key={`${recommendation.goal}-${skill}`}>{skill}</Tag>
+                            ))}
+                          </div>
+                        ) : null}
+                        {recommendation.suggestedActions.length > 0 ? (
+                          <ul className={styles.insights}>
+                            {recommendation.suggestedActions.slice(0, 3).map((action) => (
+                              <li key={`${recommendation.goal}-${action}`}>{action}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </Space>
+                </Card>
+              </motion.div>
             ) : null}
 
             <Button
