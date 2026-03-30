@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button, Tabs } from "antd";
 import { InsightReportDemo } from "@/components/landing/insight-report-demo";
+import { useAppearanceState } from "@/providers/appearance-provider";
 import { designTokens } from "@/theme/antdTheme";
 import { useStyles } from "./style";
 
@@ -110,7 +111,9 @@ const simulatorFeatures = [
 
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("developers");
+  const { mode } = useAppearanceState();
   const { styles } = useStyles();
+  const logoSrc = mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
 
   const tabItems = activeTab === "developers" ? devItems : companyItems;
 
@@ -121,7 +124,7 @@ const LandingPage = () => {
           <div className={styles.navInner}>
             <Link href="/" className={styles.brand}>
               <Image
-                src="/text-logo.svg"
+                src={logoSrc}
                 alt="Mosaic Talent"
                 width={156}
                 height={30}
@@ -436,7 +439,7 @@ const LandingPage = () => {
           <div className={styles.footerInner}>
             <Link href="/" className={styles.brand}>
               <Image
-                src="/text-logo.svg"
+                src={logoSrc}
                 alt="Mosaic Talent"
                 width={156}
                 height={30}

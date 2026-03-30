@@ -2115,6 +2115,13 @@ namespace MosaicTalent.Migrations
                     b.Property<DateTime?>("DeletionTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("GithubAccessTokenEncrypted")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<DateTime?>("GithubAccessTokenUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("GithubUsername")
                         .IsRequired()
                         .HasMaxLength(64)

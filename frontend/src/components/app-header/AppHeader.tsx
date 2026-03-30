@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Avatar, Button, Dropdown, Input, MenuProps } from "antd";
-import { Menu, Search, Settings } from "lucide-react";
+import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
+import {
+  useAppearanceAction,
+  useAppearanceState,
+} from "@/providers/appearance-provider";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useDeveloperState } from "@/providers/developer-provider";
@@ -22,6 +26,8 @@ export const AppHeader = ({
   const [searchValue, setSearchValue] = useState("");
 
   const { styles } = useStyles();
+  const { mode } = useAppearanceState();
+  const { toggleMode } = useAppearanceAction();
   const { user } = useAuthState();
   const { tenancyName } = useTenantResolutionState();
   const { currentUser, profile } = useDeveloperState();
@@ -133,6 +139,15 @@ export const AppHeader = ({
           onClick={onMenuClick}
         />
         <NotificationCenter buttonAriaLabel="Notifications" />
+
+        <Button
+          type="text"
+          shape="circle"
+          icon={mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          className={styles.iconButton}
+          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={toggleMode}
+        />
 
         <Button
           type="text"

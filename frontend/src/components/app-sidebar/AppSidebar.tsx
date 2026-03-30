@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button, Divider } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
+import { useAppearanceState } from "@/providers/appearance-provider";
 import { useStyles } from "./styles";
 
 interface INavItem {
@@ -45,8 +46,10 @@ export const AppSidebar = () => {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { logout } = useAuthAction();
+  const { mode } = useAppearanceState();
   const { styles } = useStyles();
   const navItems = developerNav;
+  const logoSrc = mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
 
   const handleLogout = async () => {
     await logout();
@@ -57,7 +60,7 @@ export const AppSidebar = () => {
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}>
         <Image
-          src="/text-logo.svg"
+          src={logoSrc}
           alt="Mosaic Talent"
           width={144}
           height={28}

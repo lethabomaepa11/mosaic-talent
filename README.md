@@ -94,6 +94,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - web push subscription management backed by VAPID
   - installable PWA manifest + service worker for push click routing
   - mobile wrapper scaffold (Capacitor) and desktop wrapper scaffold (Electron)
+- GitHub project repo picker:
+  - project creation requires connected GitHub account
+  - repositories are fetched from GitHub and selected from dropdown
+  - inline repository creation when no suitable repo exists
 
 ## Documentation
 
@@ -108,6 +112,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
 - [Company Analytics Dashboard](docs/feature/company-analytics.md)
 - [Notifications, PWA, Mobile, and Desktop](docs/feature/notifications-pwa-mobile-desktop.md)
+- [GitHub Repo Picker for Project Creation](docs/feature/github-repo-picker-project-create.md)
+- [Dark Mode Logo Asset Switching](docs/feature/darkmode-logo-asset-switching.md)
+- [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 
 ## Tenant Resolution Rules
 
@@ -159,6 +166,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/DeveloperProject/GetMyProjects`
 - `GET /api/services/app/DeveloperProject/GetOpenProjects`
 - `GET /api/services/app/DeveloperProject/GetProject`
+- `GET /api/services/app/DeveloperProject/GetGithubConnectionStatus`
+- `GET /api/services/app/DeveloperProject/GetMyGithubRepositories`
+- `POST /api/services/app/DeveloperProject/CreateGithubRepository`
 - `POST /api/services/app/DeveloperProject/CreateProject`
 - `POST /api/services/app/DeveloperProject/JoinProject`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
@@ -333,6 +343,9 @@ Tenant branding should appear on `/login` if tenancy is resolvable and company b
 # frontend tests
 cd frontend
 npm test
+
+# frontend e2e tests
+npm run test:e2e
 
 # frontend build
 npm run build

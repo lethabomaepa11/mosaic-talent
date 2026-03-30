@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
+import { useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./sidebar.styles";
 
@@ -50,8 +51,11 @@ export const CompanySidebar = () => {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { logout } = useAuthAction();
+  const { mode } = useAppearanceState();
   const { companyLogoUrl, companyName, tenancyName } = useTenantResolutionState();
   const { styles } = useStyles();
+  const defaultLogoSrc =
+    mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
 
   const handleLogout = async () => {
     await logout();
@@ -69,7 +73,7 @@ export const CompanySidebar = () => {
           />
         ) : (
           <Image
-            src="/text-logo.svg"
+            src={defaultLogoSrc}
             alt="Mosaic Talent"
             width={144}
             height={28}

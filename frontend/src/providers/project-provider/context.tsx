@@ -41,6 +41,25 @@ export interface IProjectMatchResult {
   learningOutcomes: string[];
 }
 
+export interface IGithubConnectionStatus {
+  isConnected: boolean;
+  githubUsername: string;
+}
+
+export interface IGithubRepository {
+  name: string;
+  fullName: string;
+  htmlUrl: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+}
+
+export interface ICreateGithubRepositoryInput {
+  name: string;
+  description?: string;
+  isPrivate?: boolean;
+}
+
 export interface ICreateProjectInput {
   title: string;
   description: string;
@@ -65,6 +84,11 @@ export interface IProjectActionContext {
   fetchMyProjects: () => Promise<void>;
   fetchOpenProjects: () => Promise<void>;
   fetchProjectById: (projectId: string) => Promise<IProject | undefined>;
+  getGithubConnectionStatus: () => Promise<IGithubConnectionStatus>;
+  getMyGithubRepositories: () => Promise<IGithubRepository[]>;
+  createGithubRepository: (
+    input: ICreateGithubRepositoryInput,
+  ) => Promise<IGithubRepository | undefined>;
   createProject: (input: ICreateProjectInput) => Promise<IProject | undefined>;
   joinProject: (projectId: string) => Promise<IProject | undefined>;
   aiMatchProject: () => Promise<IProject | undefined>;
@@ -102,6 +126,12 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   fetchMyProjects: async () => undefined,
   fetchOpenProjects: async () => undefined,
   fetchProjectById: async () => undefined,
+  getGithubConnectionStatus: async () => ({
+    isConnected: false,
+    githubUsername: "",
+  }),
+  getMyGithubRepositories: async () => [],
+  createGithubRepository: async () => undefined,
   createProject: async () => undefined,
   joinProject: async () => undefined,
   aiMatchProject: async () => undefined,

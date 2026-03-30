@@ -1,4 +1,9 @@
 export {
+  AppearanceProvider,
+  useAppearanceAction,
+  useAppearanceState,
+} from "./appearance-provider";
+export {
   AuthProvider,
   useAuthAction,
   useAuthState,

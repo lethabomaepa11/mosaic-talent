@@ -2138,7 +2138,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
 
     private async Task<AssessmentEvaluation> EvaluateAssessmentSubmissionAsync(Job job, JobAssessment assessment)
     {
-        var leetSubmission = ParseLeetPromptSubmission(assessment.SubmissionText);
+        var leetSubmission = ParseLeetPromptSubmission(assessment.SubmissionText, assessment.ContextJson);
         var fallback = BuildHeuristicAssessmentEvaluation(assessment.SubmissionText, assessment.SubmissionGithubRepo);
         if (leetSubmission != null)
         {
@@ -2154,12 +2154,14 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             var systemPrompt =
                 "You evaluate engineering assessments. Return JSON only with keys: " +
                 "score (0-100), verdict, summary, strengths (array), weaknesses (array), tips (array).";
+            var taskEvidence = BuildLeetPromptTaskEvidenceForAi(leetSubmission);
             var userPrompt =
                 $"Role: {job.Title}\n" +
                 $"Job description: {job.Description}\n" +
                 $"Assessment prompt: {assessment.Prompt}\n" +
                 $"Assessment instructions: {assessment.Instructions}\n" +
-                $"Submission: {assessment.SubmissionText}\n" +
+                $"Submission snapshot: {TruncateForPrompt(assessment.SubmissionText, 8000)}\n" +
+                $"Task/file evidence: {taskEvidence}\n" +
                 $"Github: {assessment.SubmissionGithubRepo}\n" +
                 $"Execution summary: {BuildLeetPromptSummaryForAi(leetSubmission)}\n" +
                 "Score for real-world readiness, clarity, trade-off quality, and AI-assistant usage maturity.";
@@ -2493,7 +2495,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         return root.ToJsonString();
     }
 
-    private static LeetPromptSubmission ParseLeetPromptSubmission(string submissionText)
+    private static LeetPromptSubmission ParseLeetPromptSubmission(string submissionText, string assessmentContextJson = null)
     {
         if (string.IsNullOrWhiteSpace(submissionText))
         {
@@ -2508,6 +2510,10 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 return null;
             }
 
+            var contextProblems = ParseLeetPromptProblems(assessmentContextJson)
+                .Where(x => !string.IsNullOrWhiteSpace(x.Id))
+                .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
             var submission = new LeetPromptSubmission();
             if (doc.RootElement.TryGetProperty("problems", out var problemsNode) && problemsNode.ValueKind == JsonValueKind.Array)
             {
@@ -2518,10 +2524,29 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                         continue;
                     }
 
+                    var problemId = node.TryGetProperty("problemId", out var idNode) ? idNode.GetString() ?? string.Empty : string.Empty;
+                    contextProblems.TryGetValue(problemId, out var contextProblem);
+                    var files = ParseSubmissionFiles(node);
+                    var code = node.TryGetProperty("code", out var codeNode) ? codeNode.GetString() ?? string.Empty : string.Empty;
+                    if (string.IsNullOrWhiteSpace(code) && files.Count > 0)
+                    {
+                        code = JoinSubmissionFiles(files);
+                    }
+
                     var problem = new LeetPromptSubmissionProblem
                     {
-                        ProblemId = node.TryGetProperty("problemId", out var idNode) ? idNode.GetString() ?? string.Empty : string.Empty,
-                        Code = node.TryGetProperty("code", out var codeNode) ? codeNode.GetString() ?? string.Empty : string.Empty,
+                        ProblemId = string.IsNullOrWhiteSpace(problemId) ? $"problem-{submission.Problems.Count + 1}" : problemId,
+                        Title = node.TryGetProperty("title", out var titleNode)
+                            ? titleNode.GetString() ?? string.Empty
+                            : contextProblem?.Title ?? string.Empty,
+                        Description = node.TryGetProperty("description", out var descriptionNode)
+                            ? descriptionNode.GetString() ?? string.Empty
+                            : contextProblem?.Description ?? string.Empty,
+                        Language = node.TryGetProperty("language", out var languageNode)
+                            ? languageNode.GetString() ?? string.Empty
+                            : contextProblem?.Language ?? string.Empty,
+                        Code = code,
+                        Files = files,
                         PassedPublic = node.TryGetProperty("passedPublic", out var passedNode) && passedNode.TryGetInt32(out var passed) ? Math.Max(0, passed) : 0,
                         TotalPublic = node.TryGetProperty("totalPublic", out var totalNode) && totalNode.TryGetInt32(out var total) ? Math.Max(0, total) : 0,
                         PromptAttempts = ParsePromptAttempts(node),
@@ -2531,21 +2556,58 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             }
             else
             {
-                // Workspace-style payload fallback: score from top-level code + AI usage logs.
-                var promptAttempts = ParsePromptAttemptsFromRoot(doc.RootElement);
-                var code = doc.RootElement.TryGetProperty("mainFlowCode", out var codeNode)
-                    ? codeNode.GetString() ?? string.Empty
-                    : doc.RootElement.TryGetProperty("submission", out var submissionNode)
-                        ? submissionNode.GetString() ?? string.Empty
-                        : string.Empty;
-                submission.Problems.Add(new LeetPromptSubmissionProblem
+                // Workspace-style payload fallback.
+                if (doc.RootElement.TryGetProperty("workspaceByProblem", out var workspaceNode) &&
+                    workspaceNode.ValueKind == JsonValueKind.Object)
                 {
-                    ProblemId = "workspace",
-                    Code = code,
-                    PassedPublic = 0,
-                    TotalPublic = 0,
-                    PromptAttempts = promptAttempts,
-                });
+                    foreach (var workspaceProperty in workspaceNode.EnumerateObject())
+                    {
+                        if (workspaceProperty.Value.ValueKind != JsonValueKind.Object)
+                        {
+                            continue;
+                        }
+
+                        var problemId = workspaceProperty.Name;
+                        contextProblems.TryGetValue(problemId, out var contextProblem);
+                        var files = ParseSubmissionFiles(workspaceProperty.Value);
+                        var code = files.Count > 0 ? JoinSubmissionFiles(files) : string.Empty;
+
+                        submission.Problems.Add(new LeetPromptSubmissionProblem
+                        {
+                            ProblemId = problemId,
+                            Title = contextProblem?.Title ?? string.Empty,
+                            Description = contextProblem?.Description ?? string.Empty,
+                            Language = contextProblem?.Language ?? string.Empty,
+                            Code = code,
+                            Files = files,
+                            PassedPublic = 0,
+                            TotalPublic = 0,
+                            PromptAttempts = ParsePromptAttempts(workspaceProperty.Value),
+                        });
+                    }
+                }
+
+                if (submission.Problems.Count == 0)
+                {
+                    var promptAttempts = ParsePromptAttemptsFromRoot(doc.RootElement);
+                    var code = doc.RootElement.TryGetProperty("mainFlowCode", out var codeNode)
+                        ? codeNode.GetString() ?? string.Empty
+                        : doc.RootElement.TryGetProperty("submission", out var submissionNode)
+                            ? submissionNode.GetString() ?? string.Empty
+                            : string.Empty;
+                    submission.Problems.Add(new LeetPromptSubmissionProblem
+                    {
+                        ProblemId = "workspace",
+                        Title = "Workspace submission",
+                        Description = string.Empty,
+                        Language = string.Empty,
+                        Code = code,
+                        Files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                        PassedPublic = 0,
+                        TotalPublic = 0,
+                        PromptAttempts = promptAttempts,
+                    });
+                }
             }
 
             return submission.Problems.Count == 0 ? null : submission;
@@ -2554,6 +2616,93 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         {
             return null;
         }
+    }
+
+    private static Dictionary<string, string> ParseSubmissionFiles(JsonElement node)
+    {
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!node.TryGetProperty("files", out var filesNode))
+        {
+            return files;
+        }
+
+        if (filesNode.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in filesNode.EnumerateObject())
+            {
+                var path = property.Name?.Trim();
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+
+                var content = property.Value.ValueKind == JsonValueKind.String
+                    ? property.Value.GetString() ?? string.Empty
+                    : property.Value.ToString();
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    continue;
+                }
+
+                files[path] = content;
+            }
+
+            return files;
+        }
+
+        if (filesNode.ValueKind != JsonValueKind.Array)
+        {
+            return files;
+        }
+
+        foreach (var item in filesNode.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var path = item.TryGetProperty("path", out var pathNode) ? pathNode.GetString()?.Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            var content = item.TryGetProperty("content", out var contentNode)
+                ? contentNode.GetString() ?? string.Empty
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                continue;
+            }
+
+            files[path] = content;
+        }
+
+        return files;
+    }
+
+    private static string JoinSubmissionFiles(Dictionary<string, string> files)
+    {
+        if (files == null || files.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        foreach (var entry in files.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            if (builder.Length > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine();
+            }
+
+            builder.Append("// FILE: ").AppendLine(entry.Key);
+            builder.Append(entry.Value ?? string.Empty);
+        }
+
+        return builder.ToString();
     }
 
     private static List<LeetPromptPromptAttempt> ParsePromptAttemptsFromRoot(JsonElement root)
@@ -2766,9 +2915,73 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         }
 
         var summary = submission.Problems
-            .Select(x => $"{x.ProblemId}:{x.PassedPublic}/{x.TotalPublic}")
+            .Take(6)
+            .Select(problem =>
+            {
+                var label = !string.IsNullOrWhiteSpace(problem.Title) ? problem.Title : problem.ProblemId;
+                var testSummary = problem.TotalPublic > 0
+                    ? $"{problem.PassedPublic}/{problem.TotalPublic}"
+                    : "n/a";
+                var fileSummary = problem.Files == null || problem.Files.Count == 0
+                    ? "files:none"
+                    : $"files:{string.Join("|", problem.Files.Keys.Take(5))}";
+                return $"{label} [{problem.ProblemId}] tests:{testSummary} {fileSummary}";
+            })
             .ToList();
-        return string.Join(", ", summary);
+        return string.Join("; ", summary);
+    }
+
+    private static string BuildLeetPromptTaskEvidenceForAi(LeetPromptSubmission submission)
+    {
+        if (submission?.Problems == null || submission.Problems.Count == 0)
+        {
+            return "No task evidence available.";
+        }
+
+        var builder = new StringBuilder();
+        foreach (var problem in submission.Problems.Take(4))
+        {
+            var label = !string.IsNullOrWhiteSpace(problem.Title) ? problem.Title : problem.ProblemId;
+            builder.Append("Task: ").AppendLine(label);
+            if (!string.IsNullOrWhiteSpace(problem.Description))
+            {
+                builder.Append("Task brief: ").AppendLine(TruncateForPrompt(problem.Description, 280));
+            }
+
+            if (problem.Files != null && problem.Files.Count > 0)
+            {
+                foreach (var file in problem.Files.Take(4))
+                {
+                    builder.Append("File: ").AppendLine(file.Key);
+                    builder.AppendLine(TruncateForPrompt(file.Value, 500));
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(problem.Code))
+            {
+                builder.AppendLine("Code:");
+                builder.AppendLine(TruncateForPrompt(problem.Code, 700));
+            }
+
+            builder.AppendLine("---");
+        }
+
+        return builder.ToString();
+    }
+
+    private static string TruncateForPrompt(string value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Length <= maxLength)
+        {
+            return normalized;
+        }
+
+        return normalized.Substring(0, maxLength) + "...";
     }
 
     private async Task<PromptAssistCompletion> TryCompleteAssessmentPromptWithUsage(
@@ -4156,7 +4369,11 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
     private sealed class LeetPromptSubmissionProblem
     {
         public string ProblemId { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Language { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+        public Dictionary<string, string> Files { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public int PassedPublic { get; set; }
         public int TotalPublic { get; set; }
         public List<LeetPromptPromptAttempt> PromptAttempts { get; set; } = new();

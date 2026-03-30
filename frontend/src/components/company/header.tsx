@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar, Button, Dropdown, Input, MenuProps } from "antd";
-import { Menu, Search, Settings } from "lucide-react";
+import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
+import {
+  useAppearanceAction,
+  useAppearanceState,
+} from "@/providers/appearance-provider";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./header.styles";
@@ -15,6 +19,8 @@ interface ICompanyHeaderProps {
 export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
   const router = useRouter();
   const { styles } = useStyles();
+  const { mode } = useAppearanceState();
+  const { toggleMode } = useAppearanceAction();
   const { profile } = useCompanyProfileState();
 
   const displayName = useMemo(() => {
@@ -82,6 +88,14 @@ export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
           onClick={onMenuClick}
         />
         <NotificationCenter buttonAriaLabel="Company notifications" />
+        <Button
+          type="text"
+          shape="circle"
+          icon={mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          className={styles.iconButton}
+          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={toggleMode}
+        />
         <Button
           type="text"
           shape="circle"

@@ -28,6 +28,10 @@ import {
 } from "./mockEngine";
 import { EMPTY_DRAFT, SubmissionDraft, TaskWorkspace } from "./types";
 import {
+  buildAssessmentSubmissionText,
+  hasAnyWorkspaceCode,
+} from "./submission";
+import {
   createEmptyWorkspace,
   ensureWorkspaceMap,
   upsertFileContent,
@@ -63,15 +67,6 @@ const getDefaultFileContent = (path: string): string => {
     return DEFAULT_HTML_SCAFFOLD;
   }
   return "";
-};
-
-const joinWorkspaceFiles = (workspace: TaskWorkspace): string => {
-  const files = Object.entries(workspace.files ?? {}).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
-  return files
-    .map(([path, content]) => `// FILE: ${path}\n${content ?? ""}`)
-    .join("\n\n");
 };
 
 const AssessmentPage = () => {
@@ -448,24 +443,12 @@ const AssessmentPage = () => {
 
   const submitFinal = async () => {
     if (!assessment) return;
-    const hasAnyCode = Object.values(draft.workspaceByProblem).some(
-      (workspace) =>
-        Object.values(workspace.files ?? {}).some(
-          (content) => (content ?? "").trim().length >= 20,
-        ),
-    );
+    const hasAnyCode = hasAnyWorkspaceCode(draft.workspaceByProblem);
 
     if (!hasAnyCode && githubRepoUrl.trim().length < 10) {
       toast.error(
         "Submission incomplete",
         "Provide implementation code/pseudocode or repository URL.",
-      );
-      return;
-    }
-    if (draft.collaborationResponse.trim().length < 10) {
-      toast.error(
-        "Submission incomplete",
-        "Respond to the collaboration scenario.",
       );
       return;
     }
@@ -477,28 +460,11 @@ const AssessmentPage = () => {
       return;
     }
 
-    const problemsPayload = (assessment.problems ?? []).map((problem) => {
-      const workspace =
-        draft.workspaceByProblem[problem.id] ?? createEmptyWorkspace();
-      return {
-        problemId: problem.id,
-        code: joinWorkspaceFiles(workspace),
-        files: workspace.files,
-        passedPublic: 0,
-        totalPublic: 0,
-        promptAttempts: workspace.promptAttempts,
-      };
-    });
-
-    const submissionText = JSON.stringify({
-      mode: draft.mode,
+    const submissionText = buildAssessmentSubmissionText({
+      problems: assessment.problems ?? [],
+      draft,
       selectedProblemId,
-      workspaceByProblem: draft.workspaceByProblem,
-      collaborationResponse: draft.collaborationResponse,
-      problems: problemsPayload,
-      questionnaireAnswers: draft.questionnaireAnswers,
       telemetry,
-      submittedAt: new Date().toISOString(),
     });
 
     setSubmitting(true);

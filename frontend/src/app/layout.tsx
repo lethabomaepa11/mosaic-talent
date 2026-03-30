@@ -52,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" data-theme="dark">
       <body className={`${syne.variable} ${dmSans.variable} ${dmMono.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>

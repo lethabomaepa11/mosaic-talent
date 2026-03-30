@@ -69,6 +69,21 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: grid;
     gap: ${token.marginSM}px;
   `,
+  githubStatusLoader: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginXS}px;
+    padding: ${token.paddingSM}px;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+    background: ${token.colorBgContainer};
+  `,
+  githubActionRow: css`
+    display: flex;
+    gap: ${token.marginXS}px;
+    flex-wrap: wrap;
+    margin-bottom: ${token.marginSM}px;
+  `,
   fullWidth: css`
     width: 100%;
   `,

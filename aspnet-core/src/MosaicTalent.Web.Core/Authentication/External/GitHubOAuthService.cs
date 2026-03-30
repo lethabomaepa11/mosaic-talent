@@ -20,6 +20,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.WebUtilities;
+using Abp.Runtime.Security;
 
 namespace MosaicTalent.Authentication.External
 {
@@ -62,16 +63,19 @@ namespace MosaicTalent.Authentication.External
             return _appConfiguration["App:ClientRootAddress"] + "/app";
         }
 
-        public string BuildAuthorizationUrl(string state)
+        public string BuildAuthorizationUrl(string state, bool includeRepositoryScope = false)
         {
             var clientId = _appConfiguration["GitHubOAuth:ClientId"];
             var redirectUri = _appConfiguration["GitHubOAuth:RedirectUri"];
+            var scope = includeRepositoryScope
+                ? "read:user user:email repo"
+                : "read:user user:email";
 
             return
                 "https://github.com/login/oauth/authorize" +
                 "?client_id=" + Uri.EscapeDataString(clientId) +
                 "&redirect_uri=" + Uri.EscapeDataString(redirectUri) +
-                "&scope=" + Uri.EscapeDataString("read:user user:email") +
+                "&scope=" + Uri.EscapeDataString(scope) +
                 "&state=" + Uri.EscapeDataString(state);
         }
 
@@ -160,7 +164,7 @@ namespace MosaicTalent.Authentication.External
         }
 
         [UnitOfWork]
-        public async Task<User> FindOrCreateTenantUserAsync(GitHubOAuthUserResponse gitHubUser, string emailAddress)
+        public async Task<User> FindOrCreateTenantUserAsync(GitHubOAuthUserResponse gitHubUser, string emailAddress, string accessToken)
         {
             var tenantId = _abpSession.TenantId ?? 1;
             var normalizedEmail = emailAddress?.Trim().ToUpperInvariant();
@@ -182,7 +186,7 @@ namespace MosaicTalent.Authentication.External
 
                     if (existingUserByGithub != null)
                     {
-                        await UpsertDeveloperAsync(existingUserByGithub.Id, gitHubUser);
+                        await UpsertDeveloperAsync(existingUserByGithub.Id, gitHubUser, accessToken);
                         return existingUserByGithub;
                     }
                 }
@@ -196,7 +200,7 @@ namespace MosaicTalent.Authentication.External
                     .FirstOrDefaultAsync();
                 if (existingUser != null)
                 {
-                    await UpsertDeveloperAsync(existingUser.Id, gitHubUser);
+                    await UpsertDeveloperAsync(existingUser.Id, gitHubUser, accessToken);
                     return existingUser;
                 }
 
@@ -240,7 +244,7 @@ namespace MosaicTalent.Authentication.External
                 var createResult = await _userManager.CreateAsync(user, User.CreateRandomPassword());
                 createResult.CheckErrors(LocalizationManager);
 
-                await UpsertDeveloperAsync(user.Id, gitHubUser);
+                await UpsertDeveloperAsync(user.Id, gitHubUser, accessToken);
 
                 return user;
             }
@@ -324,7 +328,7 @@ namespace MosaicTalent.Authentication.External
             return null;
         }
 
-        private async Task UpsertDeveloperAsync(long userId, GitHubOAuthUserResponse gitHubUser)
+        private async Task UpsertDeveloperAsync(long userId, GitHubOAuthUserResponse gitHubUser, string accessToken)
         {
             var githubUsername = gitHubUser?.Login;
             if (string.IsNullOrWhiteSpace(githubUsername))
@@ -348,12 +352,23 @@ namespace MosaicTalent.Authentication.External
                 await _developerRepository.InsertAsync(new Developer
                 {
                     UserId = userId,
-                    GithubUsername = githubUsername
+                    GithubUsername = githubUsername,
+                    GithubAccessTokenEncrypted = string.IsNullOrWhiteSpace(accessToken)
+                        ? null
+                        : SimpleStringCipher.Instance.Encrypt(accessToken),
+                    GithubAccessTokenUpdatedAt = string.IsNullOrWhiteSpace(accessToken)
+                        ? (DateTime?)null
+                        : DateTime.UtcNow,
                 });
                 return;
             }
 
             developer.GithubUsername = githubUsername;
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                developer.GithubAccessTokenEncrypted = SimpleStringCipher.Instance.Encrypt(accessToken);
+                developer.GithubAccessTokenUpdatedAt = DateTime.UtcNow;
+            }
             await _developerRepository.UpdateAsync(developer);
         }
     }
