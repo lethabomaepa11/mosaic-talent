@@ -107,6 +107,11 @@ export const useStyles = createStyles(({ token, css }) => ({
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   `,
+  githubSourceStatuses: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+  `,
   timelineRow: css`
     display: flex;
     gap: ${token.marginSM}px;

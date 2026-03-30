@@ -12,3 +12,4 @@ Project documentation index.
 - [GitHub Repo Picker for Project Creation](feature/github-repo-picker-project-create.md)
 - [Dark Mode Logo Asset Switching](feature/darkmode-logo-asset-switching.md)
 - [Assessment Submission Task/File Processing](feature/assessment-submission-task-file-processing.md)
+- [GitHub Candidate Background Analysis](feature/github-candidate-background-analysis.md)

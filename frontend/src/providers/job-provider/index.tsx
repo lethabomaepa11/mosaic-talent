@@ -65,6 +65,25 @@ const normalizeApplication = (input: Partial<IJobApplication>): IJobApplication 
   aiVerdict: input.aiVerdict ?? "",
   aiExtractedSkills: Array.isArray(input.aiExtractedSkills) ? input.aiExtractedSkills.filter((x): x is string => typeof x === "string") : [],
   aiGithubRepo: input.aiGithubRepo ?? "",
+  aiGithubUsername: input.aiGithubUsername ?? "",
+  aiGithubProfileSummary: input.aiGithubProfileSummary ?? "",
+  aiGithubDocumentationScore:
+    typeof input.aiGithubDocumentationScore === "number"
+      ? input.aiGithubDocumentationScore
+      : null,
+  aiGithubDocumentationNotes: Array.isArray(input.aiGithubDocumentationNotes)
+    ? input.aiGithubDocumentationNotes.filter((x): x is string => typeof x === "string")
+    : [],
+  aiGithubAnalysisConfidence: input.aiGithubAnalysisConfidence ?? "",
+  aiGithubAnalysisSourceStatus:
+    input.aiGithubAnalysisSourceStatus &&
+    typeof input.aiGithubAnalysisSourceStatus === "object"
+      ? Object.fromEntries(
+          Object.entries(
+            input.aiGithubAnalysisSourceStatus as Record<string, unknown>,
+          ).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+        )
+      : {},
   aiProjects: Array.isArray(input.aiProjects)
     ? input.aiProjects
         .filter((x) => typeof x === "object" && x !== null)

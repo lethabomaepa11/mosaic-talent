@@ -45,6 +45,18 @@ public class JobApplicationDto
 
     public Dictionary<string, double> AiMosaic { get; set; } = new();
 
+    public string AiGithubUsername { get; set; } = string.Empty;
+
+    public string AiGithubProfileSummary { get; set; } = string.Empty;
+
+    public double? AiGithubDocumentationScore { get; set; }
+
+    public List<string> AiGithubDocumentationNotes { get; set; } = new();
+
+    public string AiGithubAnalysisConfidence { get; set; } = string.Empty;
+
+    public Dictionary<string, string> AiGithubAnalysisSourceStatus { get; set; } = new();
+
     public List<string> AiExperienceHighlights { get; set; } = new();
 
     public double? AiTotalExperienceYears { get; set; }

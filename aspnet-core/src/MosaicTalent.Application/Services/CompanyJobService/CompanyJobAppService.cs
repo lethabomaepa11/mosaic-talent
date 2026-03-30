@@ -474,6 +474,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             AiVerdict = aiAssessment.Verdict,
             AiExtractedSkills = aiAssessment.ExtractedSkills,
             AiGithubRepo = aiAssessment.GithubRepo,
+            AiGithubUsername = aiAssessment.GithubUsername,
+            AiGithubProfileSummary = aiAssessment.GithubProfileSummary,
+            AiGithubDocumentationScore = aiAssessment.DocumentationScore,
+            AiGithubDocumentationNotes = aiAssessment.DocumentationNotes,
+            AiGithubAnalysisConfidence = aiAssessment.AnalysisConfidence,
+            AiGithubAnalysisSourceStatus = aiAssessment.AnalysisSourceStatus,
             AiProjects = ToProjectDtos(aiAssessment.Projects),
             AiMosaic = aiAssessment.Mosaic,
             AiExperienceHighlights = aiAssessment.ExperienceHighlights,
@@ -1022,6 +1028,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 AiVerdict = string.Empty,
                 AiExtractedSkills = new List<string>(),
                 AiGithubRepo = string.Empty,
+                AiGithubUsername = string.Empty,
+                AiGithubProfileSummary = string.Empty,
+                AiGithubDocumentationScore = null,
+                AiGithubDocumentationNotes = new List<string>(),
+                AiGithubAnalysisConfidence = string.Empty,
+                AiGithubAnalysisSourceStatus = new Dictionary<string, string>(),
                 AiProjects = new List<AiProjectDto>(),
                 AiMosaic = new Dictionary<string, double>(),
                 AiExperienceHighlights = new List<string>(),
@@ -1124,6 +1136,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 AiVerdict = assessment.Verdict,
                 AiExtractedSkills = assessment.ExtractedSkills,
                 AiGithubRepo = assessment.GithubRepo,
+                AiGithubUsername = assessment.GithubUsername,
+                AiGithubProfileSummary = assessment.GithubProfileSummary,
+                AiGithubDocumentationScore = assessment.DocumentationScore,
+                AiGithubDocumentationNotes = assessment.DocumentationNotes,
+                AiGithubAnalysisConfidence = assessment.AnalysisConfidence,
+                AiGithubAnalysisSourceStatus = assessment.AnalysisSourceStatus,
                 AiProjects = ToProjectDtos(assessment.Projects),
                 AiMosaic = assessment.Mosaic,
                 AiExperienceHighlights = assessment.ExperienceHighlights,
@@ -3816,6 +3834,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         string resumeText)
     {
         var fallback = BuildHeuristicAssessment(job, input, resumeText);
+        var githubAnalysis = await TryAnalyzeGithubBackgroundAsync(input, resumeText, fallback.GithubRepo);
+        fallback = MergeGithubAnalysisIntoAssessment(fallback, githubAnalysis);
         if (!_groqChatService.IsConfigured())
         {
             return fallback;
@@ -3827,6 +3847,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             "projects (array of objects with name, description, technologies array, score), " +
             "experienceHighlights (array), totalExperienceYears (number), " +
             "mosaic (object with technical, problemSolving, collaboration, communication between 0 and 100).";
+        var githubContext = BuildGithubAnalysisContextForAi(githubAnalysis);
         var userPrompt =
             $"Job title: {job.Title}\n" +
             $"Job description: {job.Description}\n" +
@@ -3837,6 +3858,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             $"Applicant email: {input.Email}\n" +
             $"Applicant responses: {input.ResponsesJson}\n" +
             $"Resume text: {resumeText}\n" +
+            $"GitHub analysis: {githubContext}\n" +
             "Evaluate fit and provide concise strengths/weaknesses and a verdict.";
 
         try
@@ -3865,7 +3887,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 : fallback.TotalExperienceYears;
             var mosaic = root.TryGetProperty("mosaic", out var mosaicNode) ? ReadMosaicScores(mosaicNode) : fallback.Mosaic;
 
-            return new ApplicationAssessment
+            var result = new ApplicationAssessment
             {
                 Score = ClampScore(score),
                 Summary = string.IsNullOrWhiteSpace(summary) ? fallback.Summary : summary.Trim(),
@@ -3879,6 +3901,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 TotalExperienceYears = totalExperienceYears,
                 Mosaic = mosaic.Count == 0 ? fallback.Mosaic : mosaic,
             };
+            return MergeGithubAnalysisIntoAssessment(result, githubAnalysis);
         }
         catch
         {
@@ -3921,6 +3944,675 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             TotalExperienceYears = EstimateExperienceYears(text),
             Mosaic = BuildFallbackMosaic(score),
         };
+    }
+
+    private ApplicationAssessment MergeGithubAnalysisIntoAssessment(
+        ApplicationAssessment assessment,
+        GithubBackgroundAnalysis analysis)
+    {
+        if (assessment == null || analysis == null)
+        {
+            return assessment;
+        }
+
+        if (!string.IsNullOrWhiteSpace(analysis.PrimaryRepositoryUrl) &&
+            string.IsNullOrWhiteSpace(assessment.GithubRepo))
+        {
+            assessment.GithubRepo = analysis.PrimaryRepositoryUrl;
+        }
+
+        assessment.GithubUsername = analysis.Username ?? string.Empty;
+        assessment.GithubProfileSummary = analysis.ProfileSummary ?? string.Empty;
+        assessment.DocumentationScore = analysis.DocumentationScore;
+        assessment.DocumentationNotes = analysis.DocumentationNotes?.Take(8).ToList() ?? new List<string>();
+        assessment.AnalysisConfidence = analysis.Confidence ?? "low";
+        assessment.AnalysisSourceStatus = analysis.SourceStatus != null
+            ? new Dictionary<string, string>(analysis.SourceStatus, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var mergedSkills = new List<string>(assessment.ExtractedSkills ?? new List<string>());
+        foreach (var language in analysis.TopLanguages ?? new List<string>())
+        {
+            if (string.IsNullOrWhiteSpace(language))
+            {
+                continue;
+            }
+
+            if (!mergedSkills.Any(x => string.Equals(x, language, StringComparison.OrdinalIgnoreCase)))
+            {
+                mergedSkills.Add(language);
+            }
+        }
+        assessment.ExtractedSkills = mergedSkills.Take(12).ToList();
+
+        if ((analysis.PublicRepoCount ?? 0) > 0)
+        {
+            var footprint = $"GitHub footprint: {analysis.PublicRepoCount} public repos, {analysis.TotalStars} total stars.";
+            if (!assessment.Strengths.Any(x => x.Contains("GitHub footprint", StringComparison.OrdinalIgnoreCase)))
+            {
+                assessment.Strengths.Insert(0, footprint);
+            }
+        }
+
+        if (analysis.DocumentationScore.HasValue)
+        {
+            var docScore = analysis.DocumentationScore.Value;
+            if (docScore >= 75)
+            {
+                assessment.Strengths.Insert(0, $"README/documentation quality is strong ({docScore:0.#}%).");
+            }
+            else if (docScore < 50)
+            {
+                assessment.Weaknesses.Insert(0, $"README/documentation quality needs improvement ({docScore:0.#}%).");
+            }
+        }
+
+        assessment.Strengths = assessment.Strengths
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+        assessment.Weaknesses = assessment.Weaknesses
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(analysis.ProfileSummary))
+        {
+            var summaryLead = SafeTrim(analysis.ProfileSummary);
+            if (summaryLead.Length > 260)
+            {
+                summaryLead = summaryLead.Substring(0, 260) + "...";
+            }
+
+            if (!string.IsNullOrWhiteSpace(summaryLead) &&
+                !assessment.Summary.Contains("GitHub", StringComparison.OrdinalIgnoreCase))
+            {
+                assessment.Summary = $"{assessment.Summary} GitHub signal: {summaryLead}";
+            }
+        }
+
+        return assessment;
+    }
+
+    private async Task<GithubBackgroundAnalysis> TryAnalyzeGithubBackgroundAsync(
+        ApplyToPublicJobInput input,
+        string resumeText,
+        string fallbackRepoUrl)
+    {
+        var analysis = new GithubBackgroundAnalysis
+        {
+            Username = string.Empty,
+            ProfileSummary = string.Empty,
+            PrimaryRepositoryUrl = fallbackRepoUrl ?? string.Empty,
+            Confidence = "low",
+            DocumentationScore = null,
+            DocumentationNotes = new List<string>(),
+            TopLanguages = new List<string>(),
+            SourceStatus = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["githubUser"] = "skipped:no-username",
+                ["githubRepos"] = "skipped:no-username",
+                ["profileSummary"] = "skipped:no-username",
+                ["readmeAnalysis"] = "skipped:no-username",
+            },
+        };
+
+        var probeText =
+            $"{input?.ResponsesJson}\n{input?.TechnicalAssessmentAnswer}\n{input?.BehaviouralAssessmentAnswer}\n{resumeText}\n{fallbackRepoUrl}";
+        var username = ResolveGithubUsernameFromText(probeText);
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            analysis.DocumentationNotes.Add("GitHub username not found; used resume/response heuristics only.");
+            return analysis;
+        }
+
+        analysis.Username = username;
+        analysis.SourceStatus["githubUser"] = "pending";
+        analysis.SourceStatus["githubRepos"] = "pending";
+        analysis.SourceStatus["profileSummary"] = "pending";
+        analysis.SourceStatus["readmeAnalysis"] = "pending";
+
+        var userProfile = await TryGetGithubUserProfileAsync(username);
+        analysis.SourceStatus["githubUser"] = userProfile.Status;
+        if (userProfile.Payload != null)
+        {
+            analysis.PublicRepoCount = userProfile.Payload.PublicRepoCount;
+            analysis.TotalFollowers = userProfile.Payload.Followers;
+            analysis.TotalFollowing = userProfile.Payload.Following;
+        }
+
+        var repoResponse = await TryGetGithubRepositoriesAsync(username);
+        analysis.SourceStatus["githubRepos"] = repoResponse.Status;
+        var repos = repoResponse.Payload ?? new List<GithubRepositorySnapshot>();
+        if (repos.Count > 0)
+        {
+            analysis.TotalStars = repos.Sum(x => Math.Max(0, x.Stars));
+            analysis.PrimaryRepositoryUrl = string.IsNullOrWhiteSpace(analysis.PrimaryRepositoryUrl)
+                ? repos.OrderByDescending(x => x.Stars).ThenByDescending(x => x.UpdatedAt).Select(x => x.HtmlUrl).FirstOrDefault() ?? string.Empty
+                : analysis.PrimaryRepositoryUrl;
+            analysis.TopLanguages = repos
+                .Where(x => !string.IsNullOrWhiteSpace(x.Language))
+                .GroupBy(x => x.Language, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(x => x.Count())
+                .ThenByDescending(x => x.Sum(y => y.Stars))
+                .Select(x => x.Key)
+                .Take(8)
+                .ToList();
+        }
+
+        var profileSummary = await TryGetGithubProfileSummaryAsync(username);
+        analysis.SourceStatus["profileSummary"] = profileSummary.Status;
+        if (!string.IsNullOrWhiteSpace(profileSummary.Payload))
+        {
+            analysis.ProfileSummary = profileSummary.Payload;
+        }
+
+        var readmeScores = new List<double>();
+        var readmeNotes = new List<string>();
+        var readmeCandidates = repos
+            .Where(x => !x.IsFork && !x.IsArchived)
+            .OrderByDescending(x => x.Stars)
+            .ThenByDescending(x => x.UpdatedAt)
+            .Take(4)
+            .ToList();
+        var readmeStatuses = new List<string>();
+        foreach (var repo in readmeCandidates)
+        {
+            var readmeResponse = await TryGetRepositoryReadmeAsync(username, repo.Name);
+            readmeStatuses.Add(readmeResponse.Status);
+            if (string.IsNullOrWhiteSpace(readmeResponse.Payload))
+            {
+                continue;
+            }
+
+            var evaluation = EvaluateReadmeStrength(readmeResponse.Payload, repo);
+            readmeScores.Add(evaluation.Score);
+            readmeNotes.AddRange(evaluation.Notes);
+        }
+
+        if (readmeScores.Count > 0)
+        {
+            analysis.DocumentationScore = ClampScore(readmeScores.Average());
+            analysis.DocumentationNotes = readmeNotes
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(10)
+                .ToList();
+            analysis.SourceStatus["readmeAnalysis"] = $"ok:{readmeScores.Count}/{readmeCandidates.Count}";
+        }
+        else
+        {
+            analysis.DocumentationScore = EstimateMetadataDocumentationScore(repos);
+            analysis.DocumentationNotes = new List<string>
+            {
+                "README content unavailable or inaccessible; documentation score estimated from repository metadata.",
+            };
+            analysis.SourceStatus["readmeAnalysis"] = readmeStatuses.Count == 0
+                ? "skipped:no-repositories"
+                : $"fallback:metadata ({string.Join(",", readmeStatuses.Take(3))})";
+        }
+
+        var sourceSuccessCount = analysis.SourceStatus.Values.Count(x => x.StartsWith("ok", StringComparison.OrdinalIgnoreCase));
+        analysis.Confidence = sourceSuccessCount >= 3
+            ? "high"
+            : sourceSuccessCount >= 2
+                ? "medium"
+                : "low";
+
+        if (analysis.TopLanguages.Count == 0 && repos.Count > 0)
+        {
+            analysis.DocumentationNotes.Add("Repository languages were sparse; confidence reduced.");
+            if (analysis.Confidence == "high")
+            {
+                analysis.Confidence = "medium";
+            }
+        }
+
+        return analysis;
+    }
+
+    private static string BuildGithubAnalysisContextForAi(GithubBackgroundAnalysis analysis)
+    {
+        if (analysis == null || string.IsNullOrWhiteSpace(analysis.Username))
+        {
+            return "No GitHub profile was resolved.";
+        }
+
+        var sourceStatus = analysis.SourceStatus == null || analysis.SourceStatus.Count == 0
+            ? "n/a"
+            : string.Join(", ", analysis.SourceStatus.Select(x => $"{x.Key}:{x.Value}"));
+        var topLanguages = analysis.TopLanguages == null || analysis.TopLanguages.Count == 0
+            ? "none"
+            : string.Join(", ", analysis.TopLanguages);
+        var notes = analysis.DocumentationNotes == null || analysis.DocumentationNotes.Count == 0
+            ? "none"
+            : string.Join("; ", analysis.DocumentationNotes.Take(4));
+        var profileSummary = string.IsNullOrWhiteSpace(analysis.ProfileSummary)
+            ? "none"
+            : TruncateForPrompt(analysis.ProfileSummary, 500);
+
+        return
+            $"username={analysis.Username}; repos={analysis.PublicRepoCount?.ToString() ?? "unknown"}; " +
+            $"stars={analysis.TotalStars}; followers={analysis.TotalFollowers?.ToString() ?? "unknown"}; " +
+            $"topLanguages={topLanguages}; docsScore={(analysis.DocumentationScore?.ToString("0.#") ?? "n/a")}; " +
+            $"confidence={analysis.Confidence}; sourceStatus={sourceStatus}; notes={notes}; profileSummary={profileSummary}";
+    }
+
+    private static string ResolveGithubUsernameFromText(string text)
+    {
+        var usernameFromRepo = ParseGithubUsernameFromRepositoryUrl(text);
+        if (!string.IsNullOrWhiteSpace(usernameFromRepo))
+        {
+            return usernameFromRepo;
+        }
+
+        var profilePattern = new Regex(@"https?:\/\/github\.com\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)(?:\/)?", RegexOptions.IgnoreCase);
+        var profileMatch = profilePattern.Match(text ?? string.Empty);
+        if (profileMatch.Success)
+        {
+            return profileMatch.Groups[1].Value;
+        }
+
+        return string.Empty;
+    }
+
+    private static string ParseGithubUsernameFromRepositoryUrl(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var repoPattern = new Regex(@"https?:\/\/github\.com\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)\/([A-Za-z0-9_.-]+)", RegexOptions.IgnoreCase);
+        var match = repoPattern.Match(text);
+        return match.Success ? match.Groups[1].Value : string.Empty;
+    }
+
+    private async Task<GithubApiResult<GithubUserProfileSnapshot>> TryGetGithubUserProfileAsync(string username)
+    {
+        var url = $"https://api.github.com/users/{username}";
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(12);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MosaicTalent/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+
+            using var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new GithubApiResult<GithubUserProfileSnapshot>
+                {
+                    Status = $"failed:{(int)response.StatusCode}",
+                };
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return new GithubApiResult<GithubUserProfileSnapshot> { Status = "failed:invalid-json" };
+            }
+
+            return new GithubApiResult<GithubUserProfileSnapshot>
+            {
+                Status = "ok",
+                Payload = new GithubUserProfileSnapshot
+                {
+                    PublicRepoCount = doc.RootElement.TryGetProperty("public_repos", out var reposNode) && reposNode.TryGetInt32(out var repos) ? Math.Max(0, repos) : 0,
+                    Followers = doc.RootElement.TryGetProperty("followers", out var followersNode) && followersNode.TryGetInt32(out var followers) ? Math.Max(0, followers) : 0,
+                    Following = doc.RootElement.TryGetProperty("following", out var followingNode) && followingNode.TryGetInt32(out var following) ? Math.Max(0, following) : 0,
+                    Bio = doc.RootElement.TryGetProperty("bio", out var bioNode) ? SafeTrim(bioNode.GetString()) : string.Empty,
+                },
+            };
+        }
+        catch
+        {
+            return new GithubApiResult<GithubUserProfileSnapshot> { Status = "failed:exception" };
+        }
+    }
+
+    private async Task<GithubApiResult<List<GithubRepositorySnapshot>>> TryGetGithubRepositoriesAsync(string username)
+    {
+        var url = $"https://api.github.com/users/{username}/repos?per_page=100&sort=updated";
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(14);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MosaicTalent/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+
+            using var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new GithubApiResult<List<GithubRepositorySnapshot>>
+                {
+                    Status = $"failed:{(int)response.StatusCode}",
+                    Payload = new List<GithubRepositorySnapshot>(),
+                };
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return new GithubApiResult<List<GithubRepositorySnapshot>>
+                {
+                    Status = "failed:invalid-json",
+                    Payload = new List<GithubRepositorySnapshot>(),
+                };
+            }
+
+            var repos = new List<GithubRepositorySnapshot>();
+            foreach (var node in doc.RootElement.EnumerateArray())
+            {
+                if (node.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var name = node.TryGetProperty("name", out var nameNode) ? SafeTrim(nameNode.GetString()) : string.Empty;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var updatedAt = DateTime.MinValue;
+                if (node.TryGetProperty("updated_at", out var updatedNode) &&
+                    DateTime.TryParse(updatedNode.GetString(), out var parsedUpdated))
+                {
+                    updatedAt = parsedUpdated;
+                }
+
+                repos.Add(new GithubRepositorySnapshot
+                {
+                    Name = name,
+                    Description = node.TryGetProperty("description", out var descNode) ? SafeTrim(descNode.GetString()) : string.Empty,
+                    HtmlUrl = node.TryGetProperty("html_url", out var htmlNode) ? SafeTrim(htmlNode.GetString()) : string.Empty,
+                    Language = node.TryGetProperty("language", out var languageNode) ? SafeTrim(languageNode.GetString()) : string.Empty,
+                    Stars = node.TryGetProperty("stargazers_count", out var starsNode) && starsNode.TryGetInt32(out var stars) ? Math.Max(0, stars) : 0,
+                    Forks = node.TryGetProperty("forks_count", out var forksNode) && forksNode.TryGetInt32(out var forks) ? Math.Max(0, forks) : 0,
+                    Size = node.TryGetProperty("size", out var sizeNode) && sizeNode.TryGetInt32(out var size) ? Math.Max(0, size) : 0,
+                    IsFork = node.TryGetProperty("fork", out var forkNode) && forkNode.ValueKind == JsonValueKind.True,
+                    IsArchived = node.TryGetProperty("archived", out var archivedNode) && archivedNode.ValueKind == JsonValueKind.True,
+                    UpdatedAt = updatedAt,
+                });
+            }
+
+            return new GithubApiResult<List<GithubRepositorySnapshot>>
+            {
+                Status = "ok",
+                Payload = repos,
+            };
+        }
+        catch
+        {
+            return new GithubApiResult<List<GithubRepositorySnapshot>>
+            {
+                Status = "failed:exception",
+                Payload = new List<GithubRepositorySnapshot>(),
+            };
+        }
+    }
+
+    private async Task<GithubApiResult<string>> TryGetGithubProfileSummaryAsync(string username)
+    {
+        var url = $"https://profile-summary-for-github.com/api/user/{username}";
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
+            using var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new GithubApiResult<string> { Status = $"failed:{(int)response.StatusCode}", Payload = string.Empty };
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return new GithubApiResult<string> { Status = "failed:empty", Payload = string.Empty };
+            }
+
+            var summary = ExtractGithubProfileSummary(body);
+            return new GithubApiResult<string>
+            {
+                Status = string.IsNullOrWhiteSpace(summary) ? "failed:no-summary" : "ok",
+                Payload = summary ?? string.Empty,
+            };
+        }
+        catch
+        {
+            return new GithubApiResult<string> { Status = "failed:exception", Payload = string.Empty };
+        }
+    }
+
+    private static string ExtractGithubProfileSummary(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.ValueKind == JsonValueKind.String)
+            {
+                return SafeTrim(doc.RootElement.GetString());
+            }
+
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                var keys = new[] { "summary", "profile", "introduction", "bio", "content", "message" };
+                foreach (var key in keys)
+                {
+                    if (doc.RootElement.TryGetProperty(key, out var node) &&
+                        node.ValueKind == JsonValueKind.String)
+                    {
+                        var text = SafeTrim(node.GetString());
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            return text;
+                        }
+                    }
+                }
+
+                var chunks = new List<string>();
+                foreach (var property in doc.RootElement.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var text = SafeTrim(property.Value.GetString());
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            chunks.Add(text);
+                        }
+                    }
+                }
+
+                if (chunks.Count > 0)
+                {
+                    return string.Join(" ", chunks).Trim();
+                }
+            }
+        }
+        catch
+        {
+            return SafeTrim(payload);
+        }
+
+        return SafeTrim(payload);
+    }
+
+    private async Task<GithubApiResult<string>> TryGetRepositoryReadmeAsync(string username, string repositoryName)
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(repositoryName))
+        {
+            return new GithubApiResult<string> { Status = "skipped:invalid-args", Payload = string.Empty };
+        }
+
+        var url = $"https://api.github.com/repos/{username}/{repositoryName}/readme";
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(12);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MosaicTalent/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+
+            using var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new GithubApiResult<string> { Status = $"failed:{(int)response.StatusCode}", Payload = string.Empty };
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return new GithubApiResult<string> { Status = "failed:invalid-json", Payload = string.Empty };
+            }
+
+            var encoding = doc.RootElement.TryGetProperty("encoding", out var encodingNode) ? encodingNode.GetString() ?? string.Empty : string.Empty;
+            var content = doc.RootElement.TryGetProperty("content", out var contentNode) ? contentNode.GetString() ?? string.Empty : string.Empty;
+            if (string.Equals(encoding, "base64", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(content))
+            {
+                try
+                {
+                    var normalized = content.Replace("\n", string.Empty).Replace("\r", string.Empty);
+                    var bytes = Convert.FromBase64String(normalized);
+                    var readme = DecodeUtf8(bytes);
+                    return new GithubApiResult<string> { Status = "ok", Payload = readme };
+                }
+                catch
+                {
+                    // ignore decode issue and continue fallback
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                return new GithubApiResult<string> { Status = "ok", Payload = content };
+            }
+
+            if (doc.RootElement.TryGetProperty("download_url", out var downloadNode))
+            {
+                var downloadUrl = SafeTrim(downloadNode.GetString());
+                if (!string.IsNullOrWhiteSpace(downloadUrl))
+                {
+                    var raw = await client.GetStringAsync(downloadUrl);
+                    return new GithubApiResult<string> { Status = "ok", Payload = raw };
+                }
+            }
+
+            return new GithubApiResult<string> { Status = "failed:no-content", Payload = string.Empty };
+        }
+        catch
+        {
+            return new GithubApiResult<string> { Status = "failed:exception", Payload = string.Empty };
+        }
+    }
+
+    private static GithubReadmeEvaluation EvaluateReadmeStrength(string readme, GithubRepositorySnapshot repository)
+    {
+        if (string.IsNullOrWhiteSpace(readme))
+        {
+            return new GithubReadmeEvaluation
+            {
+                Score = EstimateMetadataDocumentationScore(new List<GithubRepositorySnapshot> { repository }),
+                Notes = new List<string> { $"{repository.Name}: README unavailable, used repository metadata fallback." },
+            };
+        }
+
+        var text = readme.Trim();
+        var lower = text.ToLowerInvariant();
+        var score = 20d;
+        var notes = new List<string>();
+
+        if (Regex.IsMatch(text, @"^\s*#\s+", RegexOptions.Multiline))
+        {
+            score += 10;
+        }
+
+        if (lower.Contains("installation") || lower.Contains("setup") || lower.Contains("getting started") || lower.Contains("quick start"))
+        {
+            score += 18;
+            notes.Add($"{repository.Name}: includes setup instructions.");
+        }
+
+        if (lower.Contains("usage") || lower.Contains("how to use") || lower.Contains("run "))
+        {
+            score += 14;
+        }
+
+        if (lower.Contains("architecture") || lower.Contains("design") || lower.Contains("structure"))
+        {
+            score += 12;
+            notes.Add($"{repository.Name}: explains architecture/design.");
+        }
+
+        if (lower.Contains("api") || lower.Contains("endpoint") || lower.Contains("swagger") || lower.Contains("graphql"))
+        {
+            score += 12;
+            notes.Add($"{repository.Name}: documents API/endpoints.");
+        }
+
+        if (lower.Contains("example") || lower.Contains("sample") || lower.Contains("demo") || lower.Contains("screenshot"))
+        {
+            score += 8;
+        }
+
+        if (lower.Contains("test") || lower.Contains("unit") || lower.Contains("integration"))
+        {
+            score += 8;
+        }
+
+        if (lower.Contains("contributing") || lower.Contains("license"))
+        {
+            score += 6;
+        }
+
+        if (text.Length >= 900)
+        {
+            score += 8;
+        }
+        else if (text.Length >= 450)
+        {
+            score += 4;
+        }
+
+        if (!notes.Any())
+        {
+            notes.Add($"{repository.Name}: README present but limited structural guidance.");
+        }
+
+        return new GithubReadmeEvaluation
+        {
+            Score = ClampScore(score),
+            Notes = notes,
+        };
+    }
+
+    private static double EstimateMetadataDocumentationScore(List<GithubRepositorySnapshot> repositories)
+    {
+        if (repositories == null || repositories.Count == 0)
+        {
+            return 35;
+        }
+
+        var considered = repositories.Take(6).ToList();
+        var hasDescriptions = considered.Count(x => !string.IsNullOrWhiteSpace(x.Description));
+        var hasLanguages = considered.Count(x => !string.IsNullOrWhiteSpace(x.Language));
+        var recentlyUpdated = considered.Count(x => x.UpdatedAt > DateTime.UtcNow.AddMonths(-6));
+        var score =
+            30d +
+            (hasDescriptions / (double)considered.Count) * 25d +
+            (hasLanguages / (double)considered.Count) * 20d +
+            (recentlyUpdated / (double)considered.Count) * 15d;
+
+        return ClampScore(score);
     }
 
     private static List<string> BuildFallbackExperienceHighlights(string text)
@@ -4050,6 +4742,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         root["__ai_weaknesses"] = assessment.Weaknesses;
         root["__ai_skills"] = assessment.ExtractedSkills;
         root["__ai_github_repo"] = assessment.GithubRepo;
+        root["__ai_github_username"] = assessment.GithubUsername;
+        root["__ai_github_profile_summary"] = assessment.GithubProfileSummary;
+        root["__ai_documentation_score"] = assessment.DocumentationScore;
+        root["__ai_documentation_notes"] = assessment.DocumentationNotes;
+        root["__ai_analysis_confidence"] = assessment.AnalysisConfidence;
+        root["__ai_analysis_source_status"] = assessment.AnalysisSourceStatus;
         root["__ai_projects"] = assessment.Projects;
         root["__ai_experience_highlights"] = assessment.ExperienceHighlights;
         root["__ai_total_experience_years"] = assessment.TotalExperienceYears;
@@ -4070,6 +4768,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             Weaknesses = new List<string>(),
             ExtractedSkills = new List<string>(),
             GithubRepo = string.Empty,
+            GithubUsername = string.Empty,
+            GithubProfileSummary = string.Empty,
+            DocumentationScore = null,
+            DocumentationNotes = new List<string>(),
+            AnalysisConfidence = "low",
+            AnalysisSourceStatus = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             ExperienceHighlights = new List<string>(),
             TotalExperienceYears = null,
         };
@@ -4092,6 +4796,18 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             fallback.Weaknesses = doc.RootElement.TryGetProperty("__ai_weaknesses", out var weaknessesNode) ? ReadStringArray(weaknessesNode) : new List<string>();
             fallback.ExtractedSkills = doc.RootElement.TryGetProperty("__ai_skills", out var skillsNode) ? ReadStringArray(skillsNode) : new List<string>();
             fallback.GithubRepo = doc.RootElement.TryGetProperty("__ai_github_repo", out var repoNode) ? repoNode.GetString() ?? string.Empty : string.Empty;
+            fallback.GithubUsername = doc.RootElement.TryGetProperty("__ai_github_username", out var userNode) ? userNode.GetString() ?? string.Empty : string.Empty;
+            fallback.GithubProfileSummary = doc.RootElement.TryGetProperty("__ai_github_profile_summary", out var profileNode) ? profileNode.GetString() ?? string.Empty : string.Empty;
+            fallback.DocumentationScore = doc.RootElement.TryGetProperty("__ai_documentation_score", out var docScoreNode) && docScoreNode.TryGetDouble(out var parsedDocScore)
+                ? ClampScore(parsedDocScore)
+                : null;
+            fallback.DocumentationNotes = doc.RootElement.TryGetProperty("__ai_documentation_notes", out var docNotesNode) ? ReadStringArray(docNotesNode) : new List<string>();
+            fallback.AnalysisConfidence = doc.RootElement.TryGetProperty("__ai_analysis_confidence", out var confidenceNode)
+                ? confidenceNode.GetString() ?? "low"
+                : "low";
+            fallback.AnalysisSourceStatus = doc.RootElement.TryGetProperty("__ai_analysis_source_status", out var sourceNode)
+                ? ReadStringMap(sourceNode)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             fallback.Projects = doc.RootElement.TryGetProperty("__ai_projects", out var projectsNode) ? ReadProjectArray(projectsNode) : new List<ProjectInsight>();
             fallback.ExperienceHighlights = doc.RootElement.TryGetProperty("__ai_experience_highlights", out var experienceNode) ? ReadStringArray(experienceNode) : new List<string>();
             fallback.TotalExperienceYears = doc.RootElement.TryGetProperty("__ai_total_experience_years", out var yearsNode) && yearsNode.TryGetDouble(out var years) ? Math.Max(0, years) : null;
@@ -4117,6 +4833,33 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
             .ToList();
+    }
+
+    private static Dictionary<string, string> ReadStringMap(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var output = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var value = property.Value.GetString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            output[property.Name] = value.Trim();
+        }
+
+        return output;
     }
 
     private static List<ProjectInsight> ReadProjectArray(JsonElement element)
@@ -4297,6 +5040,12 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         public List<string> Weaknesses { get; set; } = new();
         public List<string> ExtractedSkills { get; set; } = new();
         public string GithubRepo { get; set; } = string.Empty;
+        public string GithubUsername { get; set; } = string.Empty;
+        public string GithubProfileSummary { get; set; } = string.Empty;
+        public double? DocumentationScore { get; set; }
+        public List<string> DocumentationNotes { get; set; } = new();
+        public string AnalysisConfidence { get; set; } = "low";
+        public Dictionary<string, string> AnalysisSourceStatus { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public List<ProjectInsight> Projects { get; set; } = new();
         public List<string> ExperienceHighlights { get; set; } = new();
         public double? TotalExperienceYears { get; set; }
@@ -4309,6 +5058,56 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         public string Description { get; set; } = string.Empty;
         public double Score { get; set; }
         public List<string> Technologies { get; set; } = new();
+    }
+
+    private sealed class GithubBackgroundAnalysis
+    {
+        public string Username { get; set; } = string.Empty;
+        public string PrimaryRepositoryUrl { get; set; } = string.Empty;
+        public string ProfileSummary { get; set; } = string.Empty;
+        public int? PublicRepoCount { get; set; }
+        public int? TotalFollowers { get; set; }
+        public int? TotalFollowing { get; set; }
+        public int TotalStars { get; set; }
+        public List<string> TopLanguages { get; set; } = new();
+        public double? DocumentationScore { get; set; }
+        public List<string> DocumentationNotes { get; set; } = new();
+        public string Confidence { get; set; } = "low";
+        public Dictionary<string, string> SourceStatus { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class GithubRepositorySnapshot
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string HtmlUrl { get; set; } = string.Empty;
+        public string Language { get; set; } = string.Empty;
+        public int Stars { get; set; }
+        public int Forks { get; set; }
+        public int Size { get; set; }
+        public bool IsFork { get; set; }
+        public bool IsArchived { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class GithubUserProfileSnapshot
+    {
+        public int PublicRepoCount { get; set; }
+        public int Followers { get; set; }
+        public int Following { get; set; }
+        public string Bio { get; set; } = string.Empty;
+    }
+
+    private sealed class GithubApiResult<T>
+    {
+        public string Status { get; set; } = "failed";
+        public T Payload { get; set; }
+    }
+
+    private sealed class GithubReadmeEvaluation
+    {
+        public double Score { get; set; }
+        public List<string> Notes { get; set; } = new();
     }
 
     private sealed class AssessmentWorkbenchConfig

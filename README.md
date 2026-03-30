@@ -115,6 +115,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [GitHub Repo Picker for Project Creation](docs/feature/github-repo-picker-project-create.md)
 - [Dark Mode Logo Asset Switching](docs/feature/darkmode-logo-asset-switching.md)
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
+- [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 
 ## Tenant Resolution Rules
 
