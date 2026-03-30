@@ -65,10 +65,11 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
   - communication dimension scoring per turn
-- AI app operator:
+- Ask Moahi (AI assistant/operator):
   - full-page command execution across routes/forms/workflows
   - Groq-backed intent planning with deterministic local fallback
-  - always-listening voice mode with user toggle
+  - chatbot + guided step-by-step mode for "how-to" questions
+  - manual voice mode (defaults off) with visual execution feedback
 - AI peer reviews:
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
@@ -94,7 +95,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
-- [AI App Operator](docs/feature/ai-app-operator.md)
+- [Ask Moahi](docs/feature/ai-app-operator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
 - [Assessment Connected Workspace UI](docs/feature/assessment-connected-workspace-ui.md)
@@ -180,7 +181,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/SimulationVoice/GetVoiceModels`
 - `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
 
-### AI app operator
+### Ask Moahi
 
 - `POST /api/services/app/AppOperator/Plan`
 

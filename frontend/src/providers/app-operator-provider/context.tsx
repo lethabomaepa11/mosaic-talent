@@ -2,7 +2,7 @@
 
 import { createContext } from "react";
 import { IAppOperatorIntent } from "@/lib/app-operator/types";
-import { IAppOperatorPlanningResult } from "@/lib/app-operator/planner";
+import { IAppOperatorPlanStep, IAppOperatorPlanningResult } from "@/lib/app-operator/planner";
 
 export interface IOperatorHistoryItem {
   id: string;
@@ -13,6 +13,7 @@ export interface IOperatorHistoryItem {
 export interface IOperatorPendingConfirmation {
   intent: IAppOperatorIntent;
   summary: string;
+  steps?: IAppOperatorPlanStep[];
 }
 
 export interface IAppOperatorStateContext {
@@ -66,5 +67,9 @@ export const AppOperatorActionContext =
         requiresConfirmation: false,
       },
       source: "fallback",
+      mode: "execute",
+      assistantReply: "",
+      shouldOfferExecution: false,
+      steps: [],
     }),
   });

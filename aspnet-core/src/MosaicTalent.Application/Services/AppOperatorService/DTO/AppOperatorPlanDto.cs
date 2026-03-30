@@ -4,6 +4,8 @@ namespace MosaicTalent.Services.AppOperatorService.DTO;
 
 public class AppOperatorPlanDto
 {
+    public string Mode { get; set; } = "execute";
+
     public string Type { get; set; } = "navigate";
 
     public string RouteKey { get; set; }
@@ -15,6 +17,12 @@ public class AppOperatorPlanDto
     public bool RequiresConfirmation { get; set; }
 
     public string Narration { get; set; }
+
+    public string AssistantReply { get; set; }
+
+    public bool ShouldOfferExecution { get; set; }
+
+    public List<AppOperatorPlanStepDto> Steps { get; set; } = new();
 
     public bool UsedAi { get; set; }
 }

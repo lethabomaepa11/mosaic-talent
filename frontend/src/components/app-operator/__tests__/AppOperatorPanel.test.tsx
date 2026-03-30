@@ -39,8 +39,8 @@ describe("AppOperatorPanel", () => {
       </AppOperatorProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /ai operator/i }));
-    fireEvent.change(screen.getByPlaceholderText("Type a command..."), {
+    fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
       target: { value: "Create a new user called Simon Manga" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -59,8 +59,8 @@ describe("AppOperatorPanel", () => {
       </AppOperatorProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /ai operator/i }));
-    fireEvent.change(screen.getByPlaceholderText("Type a command..."), {
+    fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
       target: { value: "Shortlist all candidates with React and teamwork above 8" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -74,6 +74,7 @@ describe("AppOperatorPanel", () => {
     mocks.plannerPost.mockResolvedValue({
       data: {
         result: {
+          mode: "execute",
           type: "navigate",
           routeKey: "dashboard",
           params: {},
@@ -87,15 +88,51 @@ describe("AppOperatorPanel", () => {
       </AppOperatorProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /ai operator/i }));
-    fireEvent.change(screen.getByPlaceholderText("Type a command..."), {
+    fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
       target: { value: "go home" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Planned with Groq AI.")).toBeInTheDocument();
       expect(mocks.push).toHaveBeenCalledWith("/app");
+    });
+  });
+
+  it("shows chat guidance and run-now offer for guided responses", async () => {
+    mocks.plannerPost.mockResolvedValue({
+      data: {
+        result: {
+          mode: "guided",
+          type: "create_job",
+          assistantReply: "You can do this in three steps.",
+          shouldOfferExecution: true,
+          steps: ["Open Jobs", "Click Create Job", "Submit role details"],
+          params: {
+            title: "Frontend Engineer",
+            location: "Remote",
+            description: "Role summary",
+          },
+        },
+      },
+    });
+
+    render(
+      <AppOperatorProvider>
+        <AppOperatorPanel />
+      </AppOperatorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
+      target: { value: "How do I create a frontend role?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send command" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/three steps/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /run it now/i })).toBeInTheDocument();
+      expect(screen.getByText("Open Jobs")).toBeInTheDocument();
     });
   });
 });

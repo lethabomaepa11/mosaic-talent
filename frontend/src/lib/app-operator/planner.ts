@@ -31,11 +31,25 @@ const SUPPORTED_INTENT_TYPES: AppOperatorIntentType[] = [
   "send_candidate_email",
 ];
 
+const SUPPORTED_MODES = ["execute", "chat", "guided"] as const;
+
 export type AppOperatorPlanningSource = "groq" | "fallback";
+export type AppOperatorPlanMode = (typeof SUPPORTED_MODES)[number];
+export type AppOperatorStepStatus = "pending" | "in_progress" | "done" | "blocked";
+
+export interface IAppOperatorPlanStep {
+  id: string;
+  title: string;
+  status: AppOperatorStepStatus;
+}
 
 export interface IAppOperatorPlanningResult {
   intent: IAppOperatorIntent;
   source: AppOperatorPlanningSource;
+  mode: AppOperatorPlanMode;
+  assistantReply: string;
+  shouldOfferExecution: boolean;
+  steps: IAppOperatorPlanStep[];
 }
 
 interface IPlannerPayload {
@@ -104,6 +118,16 @@ const toIntentType = (value: unknown): AppOperatorIntentType | null => {
   return matched ?? null;
 };
 
+const toMode = (value: unknown): AppOperatorPlanMode | null => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const matched = SUPPORTED_MODES.find((mode) => mode === normalized);
+  return matched ?? null;
+};
+
 const toRouteKey = (value: unknown): string | undefined => {
   const normalized = String(value ?? "").trim();
   if (!normalized) {
@@ -115,6 +139,52 @@ const toRouteKey = (value: unknown): string | undefined => {
   );
 
   return matched;
+};
+
+const normalizeSteps = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [] as IAppOperatorPlanStep[];
+  }
+
+  const mapped = value
+    .map((entry, index) => {
+      if (typeof entry === "string") {
+        const title = entry.trim();
+        if (!title) {
+          return null;
+        }
+        return {
+          id: `step-${index + 1}`,
+          title,
+          status: "pending" as AppOperatorStepStatus,
+        };
+      }
+
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const title = String(
+        readCaseInsensitive(entry, "title") ??
+          readCaseInsensitive(entry, "text") ??
+          readCaseInsensitive(entry, "label") ??
+          "",
+      ).trim();
+
+      if (!title) {
+        return null;
+      }
+
+      const id = String(readCaseInsensitive(entry, "id") ?? `step-${index + 1}`).trim();
+      return {
+        id: id || `step-${index + 1}`,
+        title,
+        status: "pending" as AppOperatorStepStatus,
+      };
+    })
+    .filter((step): step is IAppOperatorPlanStep => Boolean(step));
+
+  return mapped.slice(0, 8);
 };
 
 const buildPayload = (command: string, currentPath: string): IPlannerPayload => ({
@@ -137,13 +207,9 @@ const buildPayload = (command: string, currentPath: string): IPlannerPayload => 
 });
 
 const normalizePlannedIntent = (
-  candidate: unknown,
+  candidate: Record<string, unknown>,
   fallback: IAppOperatorIntent,
 ): IAppOperatorIntent | null => {
-  if (!isRecord(candidate)) {
-    return null;
-  }
-
   const type = toIntentType(readCaseInsensitive(candidate, "type"));
   if (!type) {
     return null;
@@ -191,6 +257,133 @@ const normalizePlannedIntent = (
   };
 };
 
+const looksLikeHowTo = (command: string) =>
+  /(how|where|what|explain|help|guide|walk me through|step by step|can i|could i)/i.test(
+    command,
+  );
+
+const looksLikeGuided = (command: string) =>
+  /(walk me through|step by step|guide me|show me steps)/i.test(command);
+
+const buildDefaultStepsFromIntent = (intent: IAppOperatorIntent): IAppOperatorPlanStep[] => {
+  if (intent.type === "navigate") {
+    const route = intent.routeKey ? APP_ROUTE_REGISTRY[intent.routeKey] : undefined;
+    const title = route ? `Open ${route.label}` : "Open the requested page";
+    return [{ id: "step-1", title, status: "pending" }];
+  }
+
+  const action = APP_ACTION_REGISTRY[intent.type];
+  if (!action) {
+    return [];
+  }
+
+  const routeStep =
+    action.routeKey && APP_ROUTE_REGISTRY[action.routeKey]
+      ? {
+          id: "step-1",
+          title: `Open ${APP_ROUTE_REGISTRY[action.routeKey].label}`,
+          status: "pending" as AppOperatorStepStatus,
+        }
+      : null;
+
+  const steps: IAppOperatorPlanStep[] = [];
+  if (routeStep) {
+    steps.push(routeStep);
+  }
+
+  if (action.uiTargets.openButton) {
+    steps.push({
+      id: `step-${steps.length + 1}`,
+      title: `Open ${action.name}`,
+      status: "pending",
+    });
+  }
+
+  if (action.uiTargets.fields && Object.keys(action.uiTargets.fields).length > 0) {
+    steps.push({
+      id: `step-${steps.length + 1}`,
+      title: "Fill required details",
+      status: "pending",
+    });
+  }
+
+  if (action.uiTargets.submitButton) {
+    steps.push({
+      id: `step-${steps.length + 1}`,
+      title: "Submit and verify result",
+      status: "pending",
+    });
+  }
+
+  if (steps.length === 0) {
+    steps.push({
+      id: "step-1",
+      title: `Run ${action.name}`,
+      status: "pending",
+    });
+  }
+
+  return steps;
+};
+
+const buildFallbackReply = (command: string, intent: IAppOperatorIntent) => {
+  const action = APP_ACTION_REGISTRY[intent.type];
+  if (intent.type === "navigate") {
+    const route = intent.routeKey ? APP_ROUTE_REGISTRY[intent.routeKey] : undefined;
+    return route
+      ? `You can open ${route.label} from the sidebar, or I can take you there now.`
+      : "I can guide you through this, or execute it for you now.";
+  }
+
+  if (action) {
+    return `Here is how to do "${action.name}": follow the steps below. I can also run it for you now.`;
+  }
+
+  if (looksLikeHowTo(command)) {
+    return "Here is a quick way to do that. If you want, I can take over and run it for you.";
+  }
+
+  return "I can help with this and execute it for you when you're ready.";
+};
+
+const toPlanningResult = (
+  source: AppOperatorPlanningSource,
+  mode: AppOperatorPlanMode,
+  intent: IAppOperatorIntent,
+  assistantReply: string,
+  shouldOfferExecution: boolean,
+  steps: IAppOperatorPlanStep[],
+): IAppOperatorPlanningResult => ({
+  source,
+  mode,
+  intent,
+  assistantReply,
+  shouldOfferExecution,
+  steps,
+});
+
+const buildFallbackPlanning = (
+  command: string,
+  fallbackIntent: IAppOperatorIntent,
+): IAppOperatorPlanningResult => {
+  const howTo = looksLikeHowTo(command);
+  const mode: AppOperatorPlanMode = howTo
+    ? looksLikeGuided(command)
+      ? "guided"
+      : "chat"
+    : "execute";
+
+  const steps = buildDefaultStepsFromIntent(fallbackIntent);
+  return toPlanningResult(
+    "fallback",
+    mode,
+    fallbackIntent,
+    buildFallbackReply(command, fallbackIntent),
+    howTo,
+    howTo ? steps : [],
+  );
+};
+
 export const planOperatorIntent = async (
   instance: AxiosInstance,
   command: string,
@@ -201,13 +394,32 @@ export const planOperatorIntent = async (
 
   try {
     const response = await instance.post(OPERATOR_PLANNER_ENDPOINT, payload);
-    const plannedIntent = normalizePlannedIntent(response?.data?.result, fallbackIntent);
-    if (!plannedIntent) {
-      return { intent: fallbackIntent, source: "fallback" };
+    const candidate = response?.data?.result;
+    if (!isRecord(candidate)) {
+      return buildFallbackPlanning(command, fallbackIntent);
     }
 
-    return { intent: plannedIntent, source: "groq" };
+    const mode = toMode(readCaseInsensitive(candidate, "mode")) ?? "execute";
+    const plannedIntent = normalizePlannedIntent(candidate, fallbackIntent) ?? fallbackIntent;
+    const assistantReply = String(readCaseInsensitive(candidate, "assistantReply") ?? "").trim();
+    const shouldOfferExecution = Boolean(readCaseInsensitive(candidate, "shouldOfferExecution"));
+    const stepsFromModel = normalizeSteps(readCaseInsensitive(candidate, "steps"));
+    const steps =
+      stepsFromModel.length > 0
+        ? stepsFromModel
+        : mode !== "execute"
+          ? buildDefaultStepsFromIntent(plannedIntent)
+          : [];
+
+    return toPlanningResult(
+      "groq",
+      mode,
+      plannedIntent,
+      assistantReply || buildFallbackReply(command, plannedIntent),
+      shouldOfferExecution,
+      steps,
+    );
   } catch {
-    return { intent: fallbackIntent, source: "fallback" };
+    return buildFallbackPlanning(command, fallbackIntent);
   }
 };

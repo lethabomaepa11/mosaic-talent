@@ -1,8 +1,8 @@
-# AI App Operator
+# Ask Moahi
 
 ## Summary
 
-MosaicTalent now includes an embedded **AI App Operator** that executes natural-language commands across the authenticated app shell.
+MosaicTalent now includes **Ask Moahi**, an embedded AI assistant/operator that executes natural-language commands across the authenticated app shell.
 
 The operator is not only a chat box. It is execution-oriented:
 
@@ -45,6 +45,10 @@ New ABP app service: `aspnet-core/src/MosaicTalent.Application/Services/AppOpera
 - uses `IGroqChatService` for intent planning
 - sanitizes model output against known routes/actions
 - computes missing required fields and confirmation flags server-side
+- supports planner modes:
+  - `execute`: immediate execution
+  - `chat`: explain/answer only
+  - `guided`: step-by-step walkthrough
 
 ### 4) UI Surface
 
@@ -52,7 +56,9 @@ Global panel: `frontend/src/components/app-operator/AppOperatorPanel.tsx`
 
 - available from the authenticated app layout
 - supports command entry, execution logs, and confirm/cancel flow
-- indicates when a command was planned through Groq AI
+- supports both chatbot responses and direct app execution
+- includes guided step timeline for multi-step requests
+- includes visual execution feedback (virtual cursor + target highlight)
 
 ## Stable Metadata Added
 
@@ -105,18 +111,21 @@ Metadata keys used:
 
 ## Voice Input
 
-The AI Operator now includes **always-listening voice input**:
+Ask Moahi now includes **manual voice input**:
 
-- voice listening defaults to on when speech recognition is supported
+- voice listening defaults to off
 - recognized speech is processed as commands (same pipeline as typed input)
-- listening auto-restarts after recognition end/errors while enabled
-- user can turn voice off at any time via the operator voice toggle
+- no always-listening auto-restart loop
+- user can toggle voice mode and tap **Listen** when needed
 
 ## Safety and Behavior
 
 - planning path:
   - try backend Groq planner first
   - fallback to deterministic local parser if AI is unavailable or invalid
+- chatbot mode:
+  - when user asks "how do I..." or similar, Ask Moahi can explain steps first
+  - Ask Moahi asks whether it should execute the workflow now
 - missing required fields return immediate follow-up prompts
 - risky actions require explicit confirmation
 - execution never reports success unless steps actually run

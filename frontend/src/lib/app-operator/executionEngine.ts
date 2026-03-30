@@ -8,6 +8,14 @@ import { IAppOperatorIntent, IExecutionResult } from "./types";
 interface IExecutionContext {
   currentPath: string;
   navigate: (path: string) => void;
+  onTarget?: (target: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    label: string;
+  }) => void;
+  onProgress?: (label: string) => void;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,16 +28,46 @@ const queryOne = (selector?: string) => {
   return document.querySelector<HTMLElement>(selector);
 };
 
-const clickElement = (selector?: string) => {
+const emitTarget = (
+  element: HTMLElement,
+  context: IExecutionContext,
+  label: string,
+) => {
+  if (!context.onTarget) {
+    return;
+  }
+
+  const rect = element.getBoundingClientRect();
+  context.onTarget({
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    width: rect.width,
+    height: rect.height,
+    label,
+  });
+};
+
+const clickElement = (
+  selector: string | undefined,
+  context: IExecutionContext,
+  label: string,
+) => {
   const target = queryOne(selector);
   if (!target) {
     return false;
   }
+  emitTarget(target, context, label);
+  context.onProgress?.(label);
   target.click();
   return true;
 };
 
-const setFieldValue = (selector: string | undefined, value: string) => {
+const setFieldValue = (
+  selector: string | undefined,
+  value: string,
+  context: IExecutionContext,
+  label: string,
+) => {
   if (!selector) {
     return false;
   }
@@ -39,6 +77,8 @@ const setFieldValue = (selector: string | undefined, value: string) => {
     return false;
   }
 
+  emitTarget(input, context, label);
+  context.onProgress?.(label);
   input.focus();
   input.value = value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -61,6 +101,7 @@ const withRoute = async (
   }
 
   if (context.currentPath !== targetPath) {
+    context.onProgress?.(`Navigate to ${targetPath}`);
     context.navigate(targetPath);
     narration.push(`I navigated to ${targetPath}.`);
     await sleep(320);
@@ -77,7 +118,11 @@ const executeRegisteredAction = async (
   await withRoute(action.routeKey, context, narration);
 
   if (action.uiTargets.openButton) {
-    const opened = clickElement(action.uiTargets.openButton);
+    const opened = clickElement(
+      action.uiTargets.openButton,
+      context,
+      `Open ${action.name}`,
+    );
     if (!opened) {
       return {
         success: false,
@@ -94,14 +139,23 @@ const executeRegisteredAction = async (
   if (fieldKeys.length > 0) {
     fieldKeys.forEach((key) => {
       if (intent.params[key]) {
-        setFieldValue(fields[key], intent.params[key]);
+        setFieldValue(
+          fields[key],
+          intent.params[key],
+          context,
+          `Fill ${key}`,
+        );
       }
     });
     narration.push("I filled the known form fields.");
   }
 
   if (action.uiTargets.submitButton) {
-    const submitted = clickElement(action.uiTargets.submitButton);
+    const submitted = clickElement(
+      action.uiTargets.submitButton,
+      context,
+      `Execute ${action.name}`,
+    );
     if (!submitted) {
       return {
         success: false,
@@ -117,6 +171,7 @@ const executeRegisteredAction = async (
 
 const executeOpenCandidateApplication = async (
   intent: IAppOperatorIntent,
+  context: IExecutionContext,
 ): Promise<IExecutionResult> => {
   const narration: string[] = [];
   const cards = Array.from(
@@ -144,6 +199,8 @@ const executeOpenCandidateApplication = async (
     };
   }
 
+  emitTarget(viewButton, context, `Open ${intent.params.candidateName}'s application`);
+  context.onProgress?.(`Open ${intent.params.candidateName}'s application`);
   viewButton.click();
   narration.push(`I opened ${intent.params.candidateName}'s application.`);
   return { success: true, narration };
@@ -151,13 +208,23 @@ const executeOpenCandidateApplication = async (
 
 const executeShortlistCandidates = async (
   intent: IAppOperatorIntent,
+  context: IExecutionContext,
 ): Promise<IExecutionResult> => {
   const narration: string[] = [];
   const action = APP_ACTION_REGISTRY.shortlist_candidates;
-  setFieldValue(action.uiTargets.fields?.search, intent.params.skill ?? "");
+  setFieldValue(
+    action.uiTargets.fields?.search,
+    intent.params.skill ?? "",
+    context,
+    "Filter candidates",
+  );
   narration.push(`I filtered candidates by "${intent.params.skill ?? ""}".`);
 
-  const moved = clickElement(action.uiTargets.submitButton);
+  const moved = clickElement(
+    action.uiTargets.submitButton,
+    context,
+    "Move shortlisted candidates",
+  );
   if (!moved) {
     return {
       success: false,
@@ -196,16 +263,17 @@ export const executeOperatorIntent = async (
       return { success: false, narration: [], error: "I could not resolve the destination route." };
     }
 
+    context.onProgress?.(`Navigate to ${route}`);
     context.navigate(route);
     return { success: true, narration: [`I navigated to ${route}.`] };
   }
 
   if (intent.type === "open_candidate_application") {
-    return executeOpenCandidateApplication(intent);
+    return executeOpenCandidateApplication(intent, context);
   }
 
   if (intent.type === "shortlist_candidates") {
-    return executeShortlistCandidates(intent);
+    return executeShortlistCandidates(intent, context);
   }
 
   const actionByType: Partial<Record<IAppOperatorIntent["type"], keyof typeof APP_ACTION_REGISTRY>> = {

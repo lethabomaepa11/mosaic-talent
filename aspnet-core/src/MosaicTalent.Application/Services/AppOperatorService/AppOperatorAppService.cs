@@ -13,6 +13,13 @@ namespace MosaicTalent.Services.AppOperatorService;
 [AbpAuthorize]
 public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorAppService
 {
+    private static readonly HashSet<string> AllowedModes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "execute",
+        "chat",
+        "guided",
+    };
+
     private readonly IGroqChatService _groqChatService;
 
     public AppOperatorAppService(IGroqChatService groqChatService)
@@ -43,7 +50,7 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
         }
 
         var parsed = TryParsePlan(completion);
-        if (parsed == null || !IsSupportedType(parsed.Type, context))
+        if (parsed == null)
         {
             throw new UserFriendlyException("AI planner response was malformed.");
         }
@@ -90,14 +97,17 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
             "You are the MosaicTalent app operator planner. " +
             "Convert each user command into a strict JSON execution plan. " +
             "Return JSON only with this shape: " +
-            "{\"type\":\"navigate|action_id\",\"routeKey\":\"optional\",\"params\":{},\"missingRequired\":[],\"requiresConfirmation\":false,\"narration\":\"short\"}. " +
+            "{\"mode\":\"execute|chat|guided\",\"type\":\"navigate|action_id\",\"routeKey\":\"optional\",\"params\":{},\"missingRequired\":[],\"requiresConfirmation\":false,\"narration\":\"short\",\"assistantReply\":\"short\",\"shouldOfferExecution\":false,\"steps\":[{\"id\":\"s1\",\"title\":\"step\"}]}. " +
             "Rules: " +
-            "1) type must be navigate or one of the provided action ids. " +
-            "2) routeKey must be one of the provided route keys when present. " +
-            "3) params values must be plain strings. " +
-            "4) Never invent routes or actions. " +
-            "5) If required inputs are missing, list them in missingRequired. " +
-            "6) Keep narration concise.";
+            "1) mode=execute for direct actions, chat for explanation only, guided for step walkthrough. " +
+            "2) type must be navigate or one of the provided action ids when execution is intended. " +
+            "3) routeKey must be one of the provided route keys when present. " +
+            "4) params values must be plain strings. " +
+            "5) Never invent routes or actions. " +
+            "6) If required inputs are missing, list them in missingRequired. " +
+            "7) For chat/guided, provide assistantReply. " +
+            "8) For guided, provide 3-8 concise steps. " +
+            "9) Keep narration concise.";
     }
 
     private static string BuildUserPrompt(PlannerContext context)
@@ -140,12 +150,16 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
 
             return new AppOperatorPlanDto
             {
+                Mode = ReadString(root, "mode"),
                 Type = ReadString(root, "type"),
                 RouteKey = ReadString(root, "routeKey"),
                 Params = ReadStringMap(root, "params"),
                 MissingRequired = ReadStringList(root, "missingRequired"),
                 RequiresConfirmation = ReadBoolean(root, "requiresConfirmation"),
                 Narration = ReadString(root, "narration"),
+                AssistantReply = ReadString(root, "assistantReply"),
+                ShouldOfferExecution = ReadBoolean(root, "shouldOfferExecution"),
+                Steps = ReadSteps(root, "steps"),
             };
         }
         catch
@@ -156,15 +170,25 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
 
     private static AppOperatorPlanDto NormalizePlan(AppOperatorPlanDto plan, PlannerContext context)
     {
+        var mode = NormalizeMode(plan.Mode);
+        var rawType = string.IsNullOrWhiteSpace(plan.Type) ? "navigate" : plan.Type.Trim();
+        var isExecutionTypeSupported = IsSupportedType(rawType, context);
+        var normalizedType = isExecutionTypeSupported
+            ? rawType
+            : "navigate";
         string canonicalRouteKey;
         var normalized = new AppOperatorPlanDto
         {
-            Type = string.IsNullOrWhiteSpace(plan.Type) ? "navigate" : plan.Type.Trim(),
+            Mode = mode,
+            Type = normalizedType,
             RouteKey = plan.RouteKey?.Trim(),
             Params = NormalizeStringMap(plan.Params),
             MissingRequired = new List<string>(),
             RequiresConfirmation = plan.RequiresConfirmation,
             Narration = plan.Narration?.Trim(),
+            AssistantReply = plan.AssistantReply?.Trim(),
+            ShouldOfferExecution = plan.ShouldOfferExecution && isExecutionTypeSupported,
+            Steps = NormalizeSteps(plan.Steps),
         };
 
         if (string.Equals(normalized.Type, "navigate", StringComparison.OrdinalIgnoreCase))
@@ -195,6 +219,12 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
 
         normalized.RouteKey = canonicalRouteKey;
         normalized.MissingRequired = ResolveMissingRequired(action.RequiredInputs, normalized.Params);
+
+        if (!normalized.ShouldOfferExecution && string.Equals(normalized.Mode, "execute", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized.ShouldOfferExecution = true;
+        }
+
         return normalized;
     }
 
@@ -211,6 +241,12 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
         }
 
         return context.Actions.ContainsKey(type.Trim());
+    }
+
+    private static string NormalizeMode(string mode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(mode) ? "execute" : mode.Trim().ToLowerInvariant();
+        return AllowedModes.Contains(normalized) ? normalized : "execute";
     }
 
     private static List<string> ResolveMissingRequired(List<string> requiredInputs, Dictionary<string, string> parameters)
@@ -324,6 +360,72 @@ public class AppOperatorAppService : MosaicTalentAppServiceBase, IAppOperatorApp
         }
 
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static List<AppOperatorPlanStepDto> ReadSteps(JsonElement root, string propertyName)
+    {
+        var steps = new List<AppOperatorPlanStepDto>();
+        if (!TryGetPropertyIgnoreCase(root, propertyName, out var listElement) ||
+            listElement.ValueKind != JsonValueKind.Array)
+        {
+            return steps;
+        }
+
+        var index = 0;
+        foreach (var item in listElement.EnumerateArray())
+        {
+            index++;
+            var title = ReadStepTitle(item);
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                continue;
+            }
+
+            steps.Add(new AppOperatorPlanStepDto
+            {
+                Id = $"s{index}",
+                Title = title,
+            });
+        }
+
+        return steps;
+    }
+
+    private static string ReadStepTitle(JsonElement item)
+    {
+        if (item.ValueKind == JsonValueKind.String)
+        {
+            return (item.GetString() ?? string.Empty).Trim();
+        }
+
+        if (item.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return ReadString(item, "title")
+               ?? ReadString(item, "text")
+               ?? ReadString(item, "label");
+    }
+
+    private static List<AppOperatorPlanStepDto> NormalizeSteps(List<AppOperatorPlanStepDto> steps)
+    {
+        if (steps == null || steps.Count == 0)
+        {
+            return new List<AppOperatorPlanStepDto>();
+        }
+
+        var normalized = steps
+            .Select((step, index) => new AppOperatorPlanStepDto
+            {
+                Id = string.IsNullOrWhiteSpace(step.Id) ? $"s{index + 1}" : step.Id.Trim(),
+                Title = step.Title?.Trim() ?? string.Empty,
+            })
+            .Where(step => !string.IsNullOrWhiteSpace(step.Title))
+            .Take(8)
+            .ToList();
+
+        return normalized;
     }
 
     private static string ReadString(JsonElement root, string propertyName)
