@@ -3,6 +3,7 @@ using MosaicTalent.Authorization.Roles;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
+using MosaicTalent.Domains.Notifications;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
 using MosaicTalent.Domains.Simulations;
@@ -40,6 +41,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<OrchestratorLog> OrchestratorLogs { get; set; }
     public DbSet<AssessorObservation> AssessorObservations { get; set; }
     public DbSet<AssessorDimensionScore> AssessorDimensionScores { get; set; }
+    public DbSet<PushSubscription> PushSubscriptions { get; set; }
 
     public MosaicTalentDbContext(DbContextOptions<MosaicTalentDbContext> options)
         : base(options)
@@ -209,6 +211,12 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         modelBuilder.Entity<AssessorDimensionScore>(builder =>
         {
             builder.HasIndex(x => new { x.ObservationId, x.Dimension }).IsUnique();
+        });
+
+        modelBuilder.Entity<PushSubscription>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.UserId, x.Endpoint }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.UserId, x.IsActive });
         });
     }
 }

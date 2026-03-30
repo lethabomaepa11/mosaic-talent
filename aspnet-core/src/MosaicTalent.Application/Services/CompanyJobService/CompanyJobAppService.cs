@@ -11,6 +11,7 @@ using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Services.CompanyJobService.DTO;
+using MosaicTalent.Services.NotificationChannelService;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -46,7 +47,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly INotificationPublisher _notificationPublisher;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
 
     public CompanyJobAppService(
         IRepository<Company, Guid> companyRepository,
@@ -62,7 +63,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         IHttpContextAccessor httpContextAccessor,
-        INotificationPublisher notificationPublisher)
+        INotificationEventDispatcher notificationEventDispatcher)
     {
         _companyRepository = companyRepository;
         _companyEmployeeRepository = companyEmployeeRepository;
@@ -77,7 +78,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
-        _notificationPublisher = notificationPublisher;
+        _notificationEventDispatcher = notificationEventDispatcher;
     }
 
     [AbpAllowAnonymous]
@@ -338,6 +339,17 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         try
         {
             var recipient = await ResolveMemberApplicationRecipientAsync(application);
+            var candidateName = string.IsNullOrWhiteSpace(recipient.Name) ? "A candidate" : recipient.Name;
+            await NotifyCompanyAboutNewApplicationAsync(job, candidateName);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch member application notification.", ex);
+        }
+
+        try
+        {
+            var recipient = await ResolveMemberApplicationRecipientAsync(application);
             await CreateAssessmentRecordAsync(
                 job,
                 recipient.Name,
@@ -405,6 +417,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         {
             await _publicJobApplicationRepository.InsertAsync(publicApplication);
             await CurrentUnitOfWork.SaveChangesAsync();
+            await NotifyCompanyAboutNewApplicationAsync(job, publicApplication.FullName);
         }
         catch (Exception ex) when (IsMissingRelation(ex))
         {
@@ -594,6 +607,7 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         await ApplyAssessmentOutcomeToApplication(assessment, evaluated);
         await CurrentUnitOfWork.SaveChangesAsync();
         await PublishAssessmentCompletedNotificationAsync(job, assessment);
+        await NotifyCandidateAssessmentReceivedAsync(assessment, job);
 
         return MapAssessmentDto(assessment, job, company, evaluated);
     }
@@ -739,6 +753,16 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             {
                 await TrySendAssessmentInviteForMemberApplication(job, application);
             }
+            try
+            {
+                var recipient = await ResolveMemberApplicationRecipientAsync(application);
+                var userId = await ResolveMemberApplicationUserIdAsync(application);
+                await NotifyCandidateStatusChangedAsync(job, userId, recipient.Name, status);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to dispatch member application status notification.", ex);
+            }
 
             var mapped = await MapApplications(new List<JobApplication> { application });
             return mapped.First();
@@ -766,6 +790,15 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             if (status == ApplicationStatus.Assessment)
             {
                 await TrySendAssessmentInviteForPublicApplication(job, publicApplication);
+            }
+            try
+            {
+                var userId = await ResolvePublicApplicationUserIdAsync(publicApplication);
+                await NotifyCandidateStatusChangedAsync(job, userId, publicApplication.FullName, status);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to dispatch public application status notification.", ex);
             }
 
             var mappedPublic = await MapPublicApplications(new List<PublicJobApplication> { publicApplication });
@@ -806,6 +839,16 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 await _jobApplicationRepository.UpdateAsync(app);
                 updatedCount++;
                 await TrySendAssessmentInviteForMemberApplication(job, app);
+                try
+                {
+                    var recipient = await ResolveMemberApplicationRecipientAsync(app);
+                    var userId = await ResolveMemberApplicationUserIdAsync(app);
+                    await NotifyCandidateStatusChangedAsync(job, userId, recipient.Name, ApplicationStatus.Assessment);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn("Failed to dispatch bulk member assessment notification.", ex);
+                }
             }
         }
 
@@ -832,6 +875,15 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                     await _publicJobApplicationRepository.UpdateAsync(app);
                     updatedCount++;
                     await TrySendAssessmentInviteForPublicApplication(job, app);
+                    try
+                    {
+                        var userId = await ResolvePublicApplicationUserIdAsync(app);
+                        await NotifyCandidateStatusChangedAsync(job, userId, app.FullName, ApplicationStatus.Assessment);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn("Failed to dispatch bulk public assessment notification.", ex);
+                    }
                 }
             }
             catch (Exception ex) when (IsMissingRelation(ex))
@@ -1642,6 +1694,52 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         }
     }
 
+    private async Task<long?> ResolveMemberApplicationUserIdAsync(JobApplication application)
+    {
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+        {
+            var developer = await _developerRepository.FirstOrDefaultAsync(application.CandidateDeveloperId);
+            return developer?.UserId;
+        }
+    }
+
+    private async Task<long?> ResolvePublicApplicationUserIdAsync(PublicJobApplication application)
+    {
+        if (!application.CandidateDeveloperId.HasValue)
+        {
+            return null;
+        }
+
+        using (CurrentUnitOfWork.DisableFilter(AbpDataFilters.MayHaveTenant, AbpDataFilters.MustHaveTenant))
+        {
+            var developer = await _developerRepository.FirstOrDefaultAsync(application.CandidateDeveloperId.Value);
+            return developer?.UserId;
+        }
+    }
+
+    private async Task<long?> ResolveAssessmentCandidateUserIdAsync(JobAssessment assessment)
+    {
+        if (assessment.JobApplicationId.HasValue)
+        {
+            var memberApplication = await _jobApplicationRepository.FirstOrDefaultAsync(assessment.JobApplicationId.Value);
+            if (memberApplication != null)
+            {
+                return await ResolveMemberApplicationUserIdAsync(memberApplication);
+            }
+        }
+
+        if (assessment.PublicJobApplicationId.HasValue)
+        {
+            var publicApplication = await _publicJobApplicationRepository.FirstOrDefaultAsync(assessment.PublicJobApplicationId.Value);
+            if (publicApplication != null)
+            {
+                return await ResolvePublicApplicationUserIdAsync(publicApplication);
+            }
+        }
+
+        return null;
+    }
+
     private async Task TrySendAssessmentInviteForMemberApplication(Job job, JobApplication application)
     {
         try
@@ -2229,16 +2327,86 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
             }
 
             var message = $"{assessment.CandidateName} completed an assessment for {job.Title}.";
-            await _notificationPublisher.PublishAsync(
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                assessment.TenantId,
+                userIdentifiers.Select(x => x.UserId),
                 "MosaicTalent.AssessmentCompleted",
-                new MessageNotificationData(message),
-                severity: NotificationSeverity.Success,
-                userIds: userIdentifiers);
+                message,
+                NotificationSeverity.Success,
+                $"/app/jobs/{job.Id}",
+                "Assessment completed",
+                message);
         }
         catch (Exception ex)
         {
             Logger.Warn("Failed to publish assessment completion notification.", ex);
         }
+    }
+
+    private async Task NotifyCompanyAboutNewApplicationAsync(Job job, string candidateName)
+    {
+        var companyUserIds = await _companyEmployeeRepository.GetAll()
+            .Where(x => x.CompanyId == job.CompanyId)
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToListAsync();
+        if (companyUserIds.Count == 0)
+        {
+            return;
+        }
+
+        var safeCandidate = string.IsNullOrWhiteSpace(candidateName) ? "A candidate" : candidateName.Trim();
+        var message = $"{safeCandidate} applied for {job.Title}.";
+        await _notificationEventDispatcher.NotifyUsersAsync(
+            job.TenantId,
+            companyUserIds,
+            "MosaicTalent.JobApplicationReceived",
+            message,
+            NotificationSeverity.Info,
+            $"/app/jobs/{job.Id}",
+            "New job application",
+            message);
+    }
+
+    private async Task NotifyCandidateStatusChangedAsync(Job job, long? candidateUserId, string candidateName, ApplicationStatus status)
+    {
+        if (!candidateUserId.HasValue || candidateUserId.Value <= 0)
+        {
+            return;
+        }
+
+        var label = ToStatusLabel(status);
+        var safeCandidate = string.IsNullOrWhiteSpace(candidateName) ? "Your application" : candidateName.Trim();
+        var message = $"{safeCandidate}: status changed to {label} for {job.Title}.";
+        await _notificationEventDispatcher.NotifyUsersAsync(
+            job.TenantId,
+            new[] { candidateUserId.Value },
+            "MosaicTalent.ApplicationStatusChanged",
+            message,
+            NotificationSeverity.Info,
+            $"/app/jobs/{job.Id}",
+            "Application status updated",
+            message);
+    }
+
+    private async Task NotifyCandidateAssessmentReceivedAsync(JobAssessment assessment, Job job)
+    {
+        var candidateUserId = await ResolveAssessmentCandidateUserIdAsync(assessment);
+        if (!candidateUserId.HasValue || candidateUserId.Value <= 0)
+        {
+            return;
+        }
+
+        var message = $"Your assessment for {job.Title} was received and reviewed.";
+        await _notificationEventDispatcher.NotifyUsersAsync(
+            assessment.TenantId,
+            new[] { candidateUserId.Value },
+            "MosaicTalent.AssessmentReviewedForCandidate",
+            message,
+            NotificationSeverity.Success,
+            $"/app/jobs/{job.Id}",
+            "Assessment reviewed",
+            message);
     }
 
     private static string DefaultStarterCode(string workMode, int order, Job job, JobAssessment assessment)

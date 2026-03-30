@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Menu, Search, Settings } from "lucide-react";
+import { Avatar, Button, Dropdown, Input, MenuProps } from "antd";
+import { Menu, Search, Settings } from "lucide-react";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useDeveloperState } from "@/providers/developer-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
@@ -131,15 +132,7 @@ export const AppHeader = ({
           aria-label="Open navigation menu"
           onClick={onMenuClick}
         />
-        <Badge dot color="gold">
-          <Button
-            type="text"
-            shape="circle"
-            icon={<Bell size={18} />}
-            className={styles.iconButton}
-            aria-label="Notifications"
-          />
-        </Badge>
+        <NotificationCenter buttonAriaLabel="Notifications" />
 
         <Button
           type="text"

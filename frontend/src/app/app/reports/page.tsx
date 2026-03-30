@@ -26,7 +26,11 @@ import {
   Briefcase,
   Clock,
 } from "lucide-react";
-import { useJobAction, useJobState, IJobApplication } from "@/providers/job-provider";
+import {
+  useJobAction,
+  useJobState,
+  IJobApplication,
+} from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
 
@@ -41,7 +45,9 @@ const asStatus = (value: string) => (value ?? "").trim().toLowerCase();
 
 const isProgressedStatus = (status: string) => {
   const normalized = asStatus(status);
-  return ["shortlisted", "assessment", "interview", "approved"].includes(normalized);
+  return ["shortlisted", "assessment", "interview", "approved"].includes(
+    normalized,
+  );
 };
 
 const isHireStatus = (status: string) => asStatus(status) === "approved";
@@ -75,10 +81,14 @@ const ReportsPage = () => {
     }
 
     void fetchMyJobs();
-  }, [isCompanyTenant, router, fetchMyJobs]);
+  }, [isCompanyTenant, router]);
 
   const jobSignature = useMemo(
-    () => jobs.map((job) => job.id).sort().join("|"),
+    () =>
+      jobs
+        .map((job) => job.id)
+        .sort()
+        .join("|"),
     [jobs],
   );
 
@@ -88,6 +98,7 @@ const ReportsPage = () => {
     }
 
     if (!jobSignature) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setApplications([]);
       setLoading(false);
       return;
@@ -115,7 +126,7 @@ const ReportsPage = () => {
     };
 
     void load();
-  }, [isCompanyTenant, jobs, jobSignature, loadedSignature, fetchJobApplications]);
+  }, []);
 
   const jobById = useMemo(() => {
     const map = new Map<string, string>();
@@ -126,15 +137,25 @@ const ReportsPage = () => {
   const totals = useMemo(() => {
     const totalApplications = applications.length;
     const openPositions = jobs.filter((job) => job.isOpen).length;
-    const assessmentsSubmitted = applications.filter(
-      (item) => Boolean(item.assessmentSubmittedAt),
+    const assessmentsSubmitted = applications.filter((item) =>
+      Boolean(item.assessmentSubmittedAt),
     ).length;
-    const approved = applications.filter((item) => isHireStatus(item.status)).length;
-    const shortlisted = applications.filter((item) => asStatus(item.status) === "shortlisted").length;
-    const rejected = applications.filter((item) => asStatus(item.status) === "rejected").length;
+    const approved = applications.filter((item) =>
+      isHireStatus(item.status),
+    ).length;
+    const shortlisted = applications.filter(
+      (item) => asStatus(item.status) === "shortlisted",
+    ).length;
+    const rejected = applications.filter(
+      (item) => asStatus(item.status) === "rejected",
+    ).length;
     const offerAcceptanceBase = approved + rejected;
-    const offerAcceptance = offerAcceptanceBase > 0 ? (approved / offerAcceptanceBase) * 100 : 0;
-    const assessmentCompletion = totalApplications > 0 ? (assessmentsSubmitted / totalApplications) * 100 : 0;
+    const offerAcceptance =
+      offerAcceptanceBase > 0 ? (approved / offerAcceptanceBase) * 100 : 0;
+    const assessmentCompletion =
+      totalApplications > 0
+        ? (assessmentsSubmitted / totalApplications) * 100
+        : 0;
 
     const assessmentDurations = applications
       .map((item) =>
@@ -145,7 +166,8 @@ const ReportsPage = () => {
       .filter((value): value is number => typeof value === "number");
     const avgAssessmentTurnaround =
       assessmentDurations.length > 0
-        ? assessmentDurations.reduce((acc, value) => acc + value, 0) / assessmentDurations.length
+        ? assessmentDurations.reduce((acc, value) => acc + value, 0) /
+          assessmentDurations.length
         : 0;
 
     return {
@@ -177,8 +199,18 @@ const ReportsPage = () => {
       const date = new Date(item.createdAt);
       const slot = points.find(
         (_, idx) =>
-          date.getMonth() === new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1).getMonth() &&
-          date.getFullYear() === new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1).getFullYear(),
+          date.getMonth() ===
+            new Date(
+              now.getFullYear(),
+              now.getMonth() - (5 - idx),
+              1,
+            ).getMonth() &&
+          date.getFullYear() ===
+            new Date(
+              now.getFullYear(),
+              now.getMonth() - (5 - idx),
+              1,
+            ).getFullYear(),
       );
       if (!slot) return;
 
@@ -192,7 +224,8 @@ const ReportsPage = () => {
 
   const pipeline = useMemo(() => {
     const total = applications.length || 1;
-    const count = (status: string) => applications.filter((item) => asStatus(item.status) === status).length;
+    const count = (status: string) =>
+      applications.filter((item) => asStatus(item.status) === status).length;
 
     const rows = [
       { key: "applied", label: "Applied", value: count("applied") },
@@ -233,22 +266,31 @@ const ReportsPage = () => {
     const validAssessment = applications
       .map((item) => item.assessmentScore)
       .filter((value): value is number => Number.isFinite(value));
-    const withAssessmentVerdict = applications.filter(
-      (item) => Boolean(item.assessmentVerdict),
+    const withAssessmentVerdict = applications.filter((item) =>
+      Boolean(item.assessmentVerdict),
     );
     const strongVerdicts = withAssessmentVerdict.filter((item) => {
       const verdict = (item.assessmentVerdict ?? "").toLowerCase();
-      return verdict.includes("strong") || verdict.includes("approved") || verdict.includes("pass");
+      return (
+        verdict.includes("strong") ||
+        verdict.includes("approved") ||
+        verdict.includes("pass")
+      );
     }).length;
 
     const matchAvg =
-      validMatch.length > 0 ? validMatch.reduce((acc, value) => acc + value, 0) / validMatch.length : 0;
+      validMatch.length > 0
+        ? validMatch.reduce((acc, value) => acc + value, 0) / validMatch.length
+        : 0;
     const assessmentAvg =
       validAssessment.length > 0
-        ? validAssessment.reduce((acc, value) => acc + value, 0) / validAssessment.length
+        ? validAssessment.reduce((acc, value) => acc + value, 0) /
+          validAssessment.length
         : 0;
     const strongRate =
-      withAssessmentVerdict.length > 0 ? (strongVerdicts / withAssessmentVerdict.length) * 100 : 0;
+      withAssessmentVerdict.length > 0
+        ? (strongVerdicts / withAssessmentVerdict.length) * 100
+        : 0;
 
     const roleSpeed = Array.from(
       applications.reduce((acc, item) => {
@@ -307,13 +349,23 @@ const ReportsPage = () => {
             Company Analytics
           </Typography.Title>
           <Typography.Paragraph className={styles.subtitle}>
-            Live hiring intelligence from your jobs, applications, assessments, and outcomes.
+            Live hiring intelligence from your jobs, applications, assessments,
+            and outcomes.
           </Typography.Paragraph>
         </div>
         <div className={styles.headerActions}>
-          <Button icon={<Calendar size={14} />} data-ai-action="set-report-range">Last 6 months</Button>
-          <Button icon={<Filter size={14} />} data-ai-action="filter-reports">Filter</Button>
-          <Button icon={<Download size={14} />} data-ai-action="export-reports">Export</Button>
+          <Button
+            icon={<Calendar size={14} />}
+            data-ai-action="set-report-range"
+          >
+            Last 6 months
+          </Button>
+          <Button icon={<Filter size={14} />} data-ai-action="filter-reports">
+            Filter
+          </Button>
+          <Button icon={<Download size={14} />} data-ai-action="export-reports">
+            Export
+          </Button>
         </div>
       </div>
 
@@ -321,7 +373,10 @@ const ReportsPage = () => {
         <Card className={styles.kpiCard}>
           <div className={styles.kpiBody}>
             <div>
-              <Statistic title="Total Applications" value={totals.totalApplications} />
+              <Statistic
+                title="Total Applications"
+                value={totals.totalApplications}
+              />
               <div className={styles.kpiMeta}>Across all company jobs</div>
             </div>
             <Users size={20} />
@@ -331,7 +386,9 @@ const ReportsPage = () => {
           <div className={styles.kpiBody}>
             <div>
               <Statistic title="Open Positions" value={totals.openPositions} />
-              <div className={styles.kpiMeta}>Active postings currently open</div>
+              <div className={styles.kpiMeta}>
+                Active postings currently open
+              </div>
             </div>
             <Briefcase size={20} />
           </div>
@@ -339,8 +396,14 @@ const ReportsPage = () => {
         <Card className={styles.kpiCard}>
           <div className={styles.kpiBody}>
             <div>
-              <Statistic title="Avg Assessment Turnaround" value={totals.avgAssessmentTurnaround.toFixed(1)} suffix="days" />
-              <div className={styles.kpiMeta}>Created-to-submitted assessment cycle</div>
+              <Statistic
+                title="Avg Assessment Turnaround"
+                value={totals.avgAssessmentTurnaround.toFixed(1)}
+                suffix="days"
+              />
+              <div className={styles.kpiMeta}>
+                Created-to-submitted assessment cycle
+              </div>
             </div>
             <Clock size={20} />
           </div>
@@ -348,8 +411,14 @@ const ReportsPage = () => {
         <Card className={styles.kpiCard}>
           <div className={styles.kpiBody}>
             <div>
-              <Statistic title="Offer Acceptance" value={totals.offerAcceptance.toFixed(1)} suffix="%" />
-              <div className={styles.kpiMeta}>Approved vs rejected outcomes</div>
+              <Statistic
+                title="Offer Acceptance"
+                value={totals.offerAcceptance.toFixed(1)}
+                suffix="%"
+              />
+              <div className={styles.kpiMeta}>
+                Approved vs rejected outcomes
+              </div>
             </div>
             <Target size={20} />
           </div>
@@ -364,14 +433,24 @@ const ReportsPage = () => {
             label: "Overview",
             children: (
               <div className={styles.panelGrid}>
-                <Card title="Hiring Trend (6 months)" className={styles.chartCard}>
+                <Card
+                  title="Hiring Trend (6 months)"
+                  className={styles.chartCard}
+                >
                   <div className={styles.rows}>
                     {trends.map((point) => {
-                      const max = Math.max(...trends.map((x) => x.applications), 1);
-                      const percent = Math.round((point.applications / max) * 100);
+                      const max = Math.max(
+                        ...trends.map((x) => x.applications),
+                        1,
+                      );
+                      const percent = Math.round(
+                        (point.applications / max) * 100,
+                      );
                       return (
                         <div key={point.monthLabel} className={styles.row}>
-                          <span className={styles.rowLabel}>{point.monthLabel}</span>
+                          <span className={styles.rowLabel}>
+                            {point.monthLabel}
+                          </span>
                           <div className={styles.progressWrap}>
                             <Progress percent={percent} showInfo={false} />
                           </div>
@@ -385,15 +464,34 @@ const ReportsPage = () => {
                 </Card>
 
                 <Card title="Hiring Momentum" className={styles.chartCard}>
-                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={12}
+                    style={{ width: "100%" }}
+                  >
                     <Tag color="blue">Shortlisted: {totals.shortlisted}</Tag>
-                    <Tag color="purple">Assessments Submitted: {applications.filter((x) => Boolean(x.assessmentSubmittedAt)).length}</Tag>
+                    <Tag color="purple">
+                      Assessments Submitted:{" "}
+                      {
+                        applications.filter((x) =>
+                          Boolean(x.assessmentSubmittedAt),
+                        ).length
+                      }
+                    </Tag>
                     <Tag color="green">Hired: {totals.approved}</Tag>
                     <Badge
-                      className={totals.assessmentCompletion >= 50 ? styles.badgeUp : styles.badgeDown}
+                      className={
+                        totals.assessmentCompletion >= 50
+                          ? styles.badgeUp
+                          : styles.badgeDown
+                      }
                       count={
                         <span>
-                          {totals.assessmentCompletion >= 50 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}{" "}
+                          {totals.assessmentCompletion >= 50 ? (
+                            <TrendingUp size={12} />
+                          ) : (
+                            <TrendingDown size={12} />
+                          )}{" "}
                           {totals.assessmentCompletion.toFixed(1)}% completion
                         </span>
                       }
@@ -432,31 +530,56 @@ const ReportsPage = () => {
                 <Card title="Quality Scoreboard" className={styles.chartCard}>
                   <div className={styles.kpiGrid}>
                     <Card>
-                      <Statistic title="Avg Match Score" value={quality.matchAvg.toFixed(1)} suffix="%" />
+                      <Statistic
+                        title="Avg Match Score"
+                        value={quality.matchAvg.toFixed(1)}
+                        suffix="%"
+                      />
                     </Card>
                     <Card>
-                      <Statistic title="Avg Assessment Score" value={quality.assessmentAvg.toFixed(1)} suffix="%" />
+                      <Statistic
+                        title="Avg Assessment Score"
+                        value={quality.assessmentAvg.toFixed(1)}
+                        suffix="%"
+                      />
                     </Card>
                     <Card>
-                      <Statistic title="Strong Verdict Rate" value={quality.strongRate.toFixed(1)} suffix="%" />
+                      <Statistic
+                        title="Strong Verdict Rate"
+                        value={quality.strongRate.toFixed(1)}
+                        suffix="%"
+                      />
                     </Card>
                   </div>
                 </Card>
-                <Card title="Fastest Assessment Turnaround by Role" className={styles.chartCard}>
+                <Card
+                  title="Fastest Assessment Turnaround by Role"
+                  className={styles.chartCard}
+                >
                   {quality.roleSpeed.length === 0 ? (
                     <Empty description="No submitted assessments yet." />
                   ) : (
                     <div className={styles.rows}>
                       {quality.roleSpeed.map((item) => {
-                        const max = Math.max(...quality.roleSpeed.map((x) => x.days), 1);
-                        const inversePercent = Math.round((1 - item.days / max) * 100);
+                        const max = Math.max(
+                          ...quality.roleSpeed.map((x) => x.days),
+                          1,
+                        );
+                        const inversePercent = Math.round(
+                          (1 - item.days / max) * 100,
+                        );
                         return (
                           <div key={item.role} className={styles.row}>
                             <span className={styles.rowLabel}>{item.role}</span>
                             <div className={styles.progressWrap}>
-                              <Progress percent={Math.max(5, inversePercent)} showInfo={false} />
+                              <Progress
+                                percent={Math.max(5, inversePercent)}
+                                showInfo={false}
+                              />
                             </div>
-                            <span className={styles.rowValue}>{item.days.toFixed(1)} days</span>
+                            <span className={styles.rowValue}>
+                              {item.days.toFixed(1)} days
+                            </span>
                           </div>
                         );
                       })}
@@ -480,7 +603,10 @@ const ReportsPage = () => {
                         <div key={item.source} className={styles.row}>
                           <span className={styles.rowLabel}>{item.source}</span>
                           <div className={styles.progressWrap}>
-                            <Progress percent={item.percentage} showInfo={false} />
+                            <Progress
+                              percent={item.percentage}
+                              showInfo={false}
+                            />
                           </div>
                           <span className={styles.rowValue}>
                             {item.count} ({item.percentage}%)
@@ -493,9 +619,13 @@ const ReportsPage = () => {
                 <Card title="Source Insight" className={styles.chartCard}>
                   {topSource ? (
                     <div className={styles.sourceHint}>
-                      <div className={styles.sourceHintTitle}>Top Channel: {topSource.source}</div>
+                      <div className={styles.sourceHintTitle}>
+                        Top Channel: {topSource.source}
+                      </div>
                       <p className={styles.sourceHintText}>
-                        {topSource.count} applications ({topSource.percentage}%) came from this channel. Prioritize this source for near-term hiring velocity.
+                        {topSource.count} applications ({topSource.percentage}%)
+                        came from this channel. Prioritize this source for
+                        near-term hiring velocity.
                       </p>
                     </div>
                   ) : (

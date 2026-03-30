@@ -1,5 +1,6 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Notifications;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
@@ -8,6 +9,7 @@ using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Services.PeerReviewService;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
+using MosaicTalent.Services.NotificationChannelService;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,6 +32,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
     private readonly IGroqChatService _groqChatService;
     private readonly IPeerReviewGenerationService _peerReviewGenerationService;
+    private readonly IProjectJoinNotificationDispatcher _projectJoinNotificationDispatcher;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
 
     public DeveloperProjectAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -42,7 +46,9 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
         IGroqChatService groqChatService,
-        IPeerReviewGenerationService peerReviewGenerationService)
+        IPeerReviewGenerationService peerReviewGenerationService,
+        IProjectJoinNotificationDispatcher projectJoinNotificationDispatcher,
+        INotificationEventDispatcher notificationEventDispatcher)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -55,6 +61,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _developerProfileGoalRepository = developerProfileGoalRepository;
         _groqChatService = groqChatService;
         _peerReviewGenerationService = peerReviewGenerationService;
+        _projectJoinNotificationDispatcher = projectJoinNotificationDispatcher;
+        _notificationEventDispatcher = notificationEventDispatcher;
     }
 
     public async Task<List<DeveloperProjectDto>> GetMyProjects()
@@ -200,6 +208,15 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         });
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        try
+        {
+            await _projectJoinNotificationDispatcher.NotifyOwnerAboutJoinAsync(project, developer, tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Project join notifications failed.", ex);
+        }
+
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
     }
@@ -303,6 +320,27 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             }
 
             await CurrentUnitOfWork.SaveChangesAsync();
+
+            if (selectedCandidates.Count > 0)
+            {
+                try
+                {
+                    var message = $"You were added to \"{project.Title}\".";
+                    await _notificationEventDispatcher.NotifyUsersAsync(
+                        tenantId,
+                        selectedCandidates.Select(x => x.UserId),
+                        "MosaicTalent.ProjectMemberAdded",
+                        message,
+                        NotificationSeverity.Info,
+                        $"/app/projects/{project.Id}",
+                        "Added to project",
+                        message);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn("Failed to dispatch project member added notifications.", ex);
+                }
+            }
         }
 
         var mapped = await MapProjects(new List<Project> { project });
@@ -453,6 +491,31 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         await _peerReviewGenerationService.EnsureGeneratedForProject(project.Id, project.TenantId);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        try
+        {
+            var memberUserIds = await ResolveProjectMemberUserIds(project.Id);
+            var recipients = memberUserIds
+                .Where(userId => userId != developer.UserId)
+                .ToList();
+            if (recipients.Count > 0)
+            {
+                var message = $"\"{project.Title}\" was marked complete. Peer review is now available.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    recipients,
+                    "MosaicTalent.ProjectCompleted",
+                    message,
+                    NotificationSeverity.Success,
+                    "/app/reviews",
+                    "Project completed",
+                    message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch project completion notifications.", ex);
+        }
+
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
     }
@@ -568,6 +631,25 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 Tasks = taskDtos,
             };
         }).ToList();
+    }
+
+    private async Task<List<long>> ResolveProjectMemberUserIds(Guid projectId)
+    {
+        var memberDeveloperIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.DeveloperId)
+            .Distinct()
+            .ToListAsync();
+        if (memberDeveloperIds.Count == 0)
+        {
+            return new List<long>();
+        }
+
+        return await _developerRepository.GetAll()
+            .Where(x => memberDeveloperIds.Contains(x.Id))
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToListAsync();
     }
 
     private async Task<ProjectMatchSelection> SelectProjectWithGroq(

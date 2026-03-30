@@ -1,11 +1,13 @@
 using Abp.Dependency;
 using Abp.Domain.Repositories;
+using Abp.Notifications;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
 using MosaicTalent.Services.AiService;
+using MosaicTalent.Services.NotificationChannelService;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +31,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
     private readonly IRepository<AIReviewQuestion, Guid> _questionRepository;
     private readonly IRepository<AIReviewFeedback, Guid> _feedbackRepository;
     private readonly IGroqChatService _groqChatService;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
 
     public PeerReviewGenerationService(
         IRepository<Project, Guid> projectRepository,
@@ -43,7 +46,8 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         IRepository<PeerReview, Guid> peerReviewRepository,
         IRepository<AIReviewQuestion, Guid> questionRepository,
         IRepository<AIReviewFeedback, Guid> feedbackRepository,
-        IGroqChatService groqChatService)
+        IGroqChatService groqChatService,
+        INotificationEventDispatcher notificationEventDispatcher)
     {
         _projectRepository = projectRepository;
         _projectMemberRepository = projectMemberRepository;
@@ -58,6 +62,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         _questionRepository = questionRepository;
         _feedbackRepository = feedbackRepository;
         _groqChatService = groqChatService;
+        _notificationEventDispatcher = notificationEventDispatcher;
     }
 
     public async Task EnsureGeneratedForProject(Guid projectId, int tenantId)
@@ -80,6 +85,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         var existingReviews = await _peerReviewRepository.GetAll()
             .Where(x => x.ProjectId == projectId)
             .ToListAsync();
+        var newAssignmentsByReviewer = new Dictionary<Guid, int>();
 
         var memberIds = members.Select(x => x.DeveloperId).Distinct().ToList();
         var developers = await _developerRepository.GetAll()
@@ -114,6 +120,11 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                     Rating = 5,
                 };
                 await _peerReviewRepository.InsertAsync(review);
+                if (!newAssignmentsByReviewer.ContainsKey(reviewerId))
+                {
+                    newAssignmentsByReviewer[reviewerId] = 0;
+                }
+                newAssignmentsByReviewer[reviewerId] += 1;
 
                 var questions = await GenerateQuestions(
                     project,
@@ -134,8 +145,31 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                         Type = question.Type,
                         RelatedGoal = question.RelatedGoal,
                         Category = question.Category,
-                    });
+                });
+        }
+
+        if (newAssignmentsByReviewer.Count > 0)
+        {
+            foreach (var assignment in newAssignmentsByReviewer)
+            {
+                var reviewer = developers.FirstOrDefault(x => x.Id == assignment.Key);
+                if (reviewer == null || reviewer.UserId <= 0)
+                {
+                    continue;
                 }
+
+                var message = $"You have {assignment.Value} new peer review assignment(s) for \"{project.Title}\".";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    tenantId,
+                    new[] { reviewer.UserId },
+                    "MosaicTalent.PeerReviewAssigned",
+                    message,
+                    NotificationSeverity.Info,
+                    "/app/reviews",
+                    "Peer review assigned",
+                    message);
+            }
+        }
             }
         }
 

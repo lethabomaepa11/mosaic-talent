@@ -89,6 +89,11 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
     - LeetPrompt-style coding experience with 2+ runnable problems and public test execution
     - per-problem AI prompt assistant with token tracking and accepted-prompt selection
     - final score blends public test pass-rate + prompt quality + token efficiency + code quality
+- Notification channels + PWA:
+  - in-app notification feed with unread counters and mark-as-read actions
+  - web push subscription management backed by VAPID
+  - installable PWA manifest + service worker for push click routing
+  - mobile wrapper scaffold (Capacitor) and desktop wrapper scaffold (Electron)
 
 ## Documentation
 
@@ -102,6 +107,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
 - [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
 - [Company Analytics Dashboard](docs/feature/company-analytics.md)
+- [Notifications, PWA, Mobile, and Desktop](docs/feature/notifications-pwa-mobile-desktop.md)
 
 ## Tenant Resolution Rules
 
@@ -185,6 +191,15 @@ After successful company creation, frontend redirects user to tenant login URL.
 
 - `POST /api/services/app/AppOperator/Plan`
 
+### Notifications
+
+- `GET /api/services/app/NotificationChannel/GetMyNotifications`
+- `POST /api/services/app/NotificationChannel/MarkNotificationAsRead`
+- `POST /api/services/app/NotificationChannel/MarkAllNotificationsAsRead`
+- `GET /api/services/app/NotificationChannel/GetPushPreferences`
+- `POST /api/services/app/NotificationChannel/UpsertPushSubscription`
+- `POST /api/services/app/NotificationChannel/RemovePushSubscription`
+
 ### Company account
 
 - `POST /api/services/app/CompanyAccount/CreateCompanyAccount`
@@ -256,6 +271,9 @@ Also supported:
 - `Brevo__ApiKey`
 - `Brevo__SenderEmail` (required for outbound emails)
 - `Brevo__SenderName` (optional)
+- `WebPush__PublicKey`
+- `WebPush__PrivateKey`
+- `WebPush__Subject`
 
 See example file:
 

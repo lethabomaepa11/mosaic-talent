@@ -2,9 +2,10 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Menu, Search, Settings } from "lucide-react";
+import { Avatar, Button, Dropdown, Input, MenuProps } from "antd";
+import { Menu, Search, Settings } from "lucide-react";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
+import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./header.styles";
 
 interface ICompanyHeaderProps {
@@ -80,15 +81,7 @@ export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
           aria-label="Open company navigation menu"
           onClick={onMenuClick}
         />
-        <Badge dot color="gold">
-          <Button
-            type="text"
-            shape="circle"
-            icon={<Bell size={18} />}
-            className={styles.iconButton}
-            aria-label="Company notifications"
-          />
-        </Badge>
+        <NotificationCenter buttonAriaLabel="Company notifications" />
         <Button
           type="text"
           shape="circle"

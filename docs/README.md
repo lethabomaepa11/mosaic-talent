@@ -8,3 +8,4 @@ Project documentation index.
 - [AI Simulator](feature/ai-simulator.md) (includes realtime SignalR voice flow)
 - [AI Peer Reviews](feature/ai-peer-reviews.md)
 - [Company Jobs](feature/company-jobs.md)
+- [Notifications, PWA, Mobile, and Desktop](feature/notifications-pwa-mobile-desktop.md)

@@ -1,11 +1,13 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Notifications;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
+using MosaicTalent.Services.NotificationChannelService;
 using MosaicTalent.Services.PeerReviewService.DTO;
 using System;
 using System.Collections.Generic;
@@ -27,6 +29,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
     private readonly IRepository<ReviewAnswer, Guid> _answerRepository;
     private readonly IRepository<AIReviewFeedback, Guid> _feedbackRepository;
     private readonly IPeerReviewGenerationService _generationService;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
 
     public PeerReviewAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -37,7 +40,8 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         IRepository<AIReviewQuestion, Guid> questionRepository,
         IRepository<ReviewAnswer, Guid> answerRepository,
         IRepository<AIReviewFeedback, Guid> feedbackRepository,
-        IPeerReviewGenerationService generationService)
+        IPeerReviewGenerationService generationService,
+        INotificationEventDispatcher notificationEventDispatcher)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -48,6 +52,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         _answerRepository = answerRepository;
         _feedbackRepository = feedbackRepository;
         _generationService = generationService;
+        _notificationEventDispatcher = notificationEventDispatcher;
     }
 
     public async Task<List<ProjectPeerReviewsDto>> GetMyProjectPeerReviews()
@@ -135,8 +140,21 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             throw new UserFriendlyException("Answer text is required.");
         }
 
+        var reviewQuestionIds = await _questionRepository.GetAll()
+            .Where(x => x.PeerReviewId == review.Id)
+            .Select(x => x.Id)
+            .ToListAsync();
+        var answeredBeforeIds = reviewQuestionIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await _answerRepository.GetAll()
+                .Where(x => reviewQuestionIds.Contains(x.AIReviewQuestionId) && !string.IsNullOrWhiteSpace(x.Text))
+                .Select(x => x.AIReviewQuestionId)
+                .ToListAsync()).ToHashSet();
+        var wasComplete = reviewQuestionIds.Count > 0 && reviewQuestionIds.All(answeredBeforeIds.Contains);
+
         var existingAnswer = await _answerRepository.GetAll()
             .FirstOrDefaultAsync(x => x.AIReviewQuestionId == question.Id);
+        var hadAnswerBefore = existingAnswer != null && !string.IsNullOrWhiteSpace(existingAnswer.Text);
 
         if (existingAnswer == null)
         {
@@ -155,6 +173,40 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         }
 
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        var answeredAfterIds = new HashSet<Guid>(answeredBeforeIds);
+        if (!hadAnswerBefore)
+        {
+            answeredAfterIds.Add(question.Id);
+        }
+        var isComplete = reviewQuestionIds.Count > 0 && reviewQuestionIds.All(answeredAfterIds.Contains);
+
+        if (!wasComplete && isComplete)
+        {
+            try
+            {
+                var reviewee = await _developerRepository.FirstOrDefaultAsync(review.RevieweeDeveloperId);
+                if (reviewee != null && reviewee.UserId > 0)
+                {
+                    var project = await _projectRepository.FirstOrDefaultAsync(review.ProjectId);
+                    var title = project?.Title ?? "your project";
+                    var message = $"A teammate completed your peer review for \"{title}\".";
+                    await _notificationEventDispatcher.NotifyUsersAsync(
+                        review.TenantId,
+                        new[] { reviewee.UserId },
+                        "MosaicTalent.PeerReviewCompleted",
+                        message,
+                        NotificationSeverity.Info,
+                        "/app/reviews",
+                        "Peer review complete",
+                        message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to dispatch peer review completion notification.", ex);
+            }
+        }
 
         return new PeerReviewQuestionDto
         {
