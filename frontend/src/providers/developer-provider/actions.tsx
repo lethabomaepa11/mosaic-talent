@@ -3,6 +3,7 @@ import {
   ICurrentUserSummary,
   IDeveloperProfile,
   IDeveloperStateContext,
+  IGamificationSummary,
   IGithubScanResult,
   ILearningPathResult,
   IStudyLevelOption,
@@ -29,6 +30,9 @@ export enum DeveloperStateEnums {
   DEVELOPER_FETCH_LEARNING_PATH_PENDING = "DEVELOPER_FETCH_LEARNING_PATH_PENDING",
   DEVELOPER_FETCH_LEARNING_PATH_SUCCESS = "DEVELOPER_FETCH_LEARNING_PATH_SUCCESS",
   DEVELOPER_FETCH_LEARNING_PATH_ERROR = "DEVELOPER_FETCH_LEARNING_PATH_ERROR",
+  DEVELOPER_FETCH_GAMIFICATION_PENDING = "DEVELOPER_FETCH_GAMIFICATION_PENDING",
+  DEVELOPER_FETCH_GAMIFICATION_SUCCESS = "DEVELOPER_FETCH_GAMIFICATION_SUCCESS",
+  DEVELOPER_FETCH_GAMIFICATION_ERROR = "DEVELOPER_FETCH_GAMIFICATION_ERROR",
 }
 
 export const fetchProfilePending = createAction<DeveloperStatePatch>(
@@ -150,5 +154,27 @@ export const fetchLearningPathError = createAction<DeveloperStatePatch>(
   DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_ERROR,
   () => ({
     isLearningPathPending: false,
+  }),
+);
+
+export const fetchGamificationPending = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_PENDING,
+  () => ({
+    isGamificationPending: true,
+  }),
+);
+
+export const fetchGamificationSuccess = createAction<
+  DeveloperStatePatch,
+  IGamificationSummary
+>(DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_SUCCESS, (gamificationSummary) => ({
+  isGamificationPending: false,
+  gamificationSummary,
+}));
+
+export const fetchGamificationError = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_ERROR,
+  () => ({
+    isGamificationPending: false,
   }),
 );

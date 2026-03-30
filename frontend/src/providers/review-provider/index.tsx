@@ -49,6 +49,14 @@ const normalizeQuestion = (input: Partial<IReviewQuestion>): IReviewQuestion => 
   relatedGoal: input.relatedGoal ?? "",
   category: input.category ?? "",
   answerText: input.answerText ?? "",
+  gamificationReward: input.gamificationReward
+    ? {
+        pointsAwarded: Number(input.gamificationReward.pointsAwarded ?? 0),
+        totalPoints: Number(input.gamificationReward.totalPoints ?? 0),
+        level: Number(input.gamificationReward.level ?? 1),
+        badgesUnlocked: input.gamificationReward.badgesUnlocked ?? [],
+      }
+    : undefined,
 });
 
 const normalizeReview = (input: Partial<IPeerReview>): IPeerReview => ({
@@ -62,6 +70,14 @@ const normalizeReview = (input: Partial<IPeerReview>): IPeerReview => ({
   rating: Number(input.rating ?? 5),
   isCompleted: Boolean(input.isCompleted),
   questions: (input.questions ?? []).map(normalizeQuestion),
+  gamificationReward: input.gamificationReward
+    ? {
+        pointsAwarded: Number(input.gamificationReward.pointsAwarded ?? 0),
+        totalPoints: Number(input.gamificationReward.totalPoints ?? 0),
+        level: Number(input.gamificationReward.level ?? 1),
+        badgesUnlocked: input.gamificationReward.badgesUnlocked ?? [],
+      }
+    : undefined,
 });
 
 const normalizeFeedback = (input?: Partial<IAIReviewFeedback>): IAIReviewFeedback | undefined => {

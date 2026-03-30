@@ -90,8 +90,16 @@ const ReviewsPage = () => {
   const handleRatingChange = async (review: IPeerReview, rating: number) => {
     setRatingLoadingByReview((prev) => ({ ...prev, [review.id]: true }));
     try {
-      await setPeerReviewRating(review.id, rating);
+      const updated = await setPeerReviewRating(review.id, rating);
       toast.success("Rating updated", `${review.revieweeName} was rated ${rating}/10.`);
+      if (updated?.gamificationReward?.pointsAwarded) {
+        const badges = updated.gamificationReward.badgesUnlocked;
+        const badgeText = badges.length > 0 ? ` Badges: ${badges.join(", ")}.` : "";
+        toast.success(
+          "Points earned",
+          `+${updated.gamificationReward.pointsAwarded} points. Level ${updated.gamificationReward.level}.${badgeText}`,
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update rating.";
       toast.error("Update failed", message);
@@ -109,9 +117,17 @@ const ReviewsPage = () => {
 
     setAnswerLoadingByQuestion((prev) => ({ ...prev, [questionId]: true }));
     try {
-      await submitReviewAnswer(questionId, text);
+      const question = await submitReviewAnswer(questionId, text);
       setDraftAnswers((prev) => ({ ...prev, [questionId]: "" }));
       toast.success("Answer saved", "Your response has been recorded.");
+      if (question?.gamificationReward?.pointsAwarded) {
+        const badges = question.gamificationReward.badgesUnlocked;
+        const badgeText = badges.length > 0 ? ` Badges: ${badges.join(", ")}.` : "";
+        toast.success(
+          "Progress updated",
+          `+${question.gamificationReward.pointsAwarded} points. Level ${question.gamificationReward.level}.${badgeText}`,
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save answer.";
       toast.error("Save failed", message);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fetchLevelsSuccess,
+  fetchGamificationPending,
+  fetchGamificationSuccess,
   fetchLearningPathPending,
   fetchLearningPathSuccess,
   fetchProfileSuccess,
@@ -94,5 +96,39 @@ describe("DeveloperReducer", () => {
     expect(successState.isLearningPathPending).toBe(false);
     expect(successState.learningPath?.recommendations).toHaveLength(1);
     expect(successState.learningPath?.source).toBe("fallback");
+  });
+
+  it("updates gamification state", () => {
+    const pendingState = DeveloperReducer(INITIAL_STATE, fetchGamificationPending());
+    expect(pendingState.isGamificationPending).toBe(true);
+
+    const successState = DeveloperReducer(
+      pendingState,
+      fetchGamificationSuccess({
+        totalPoints: 225,
+        level: 3,
+        nextLevelPoints: 300,
+        progressPercent: 25,
+        badges: [
+          {
+            code: "project_finisher",
+            name: "Project Finisher",
+            description: "Completed first project",
+            earnedAt: "2026-03-30T00:00:00.000Z",
+          },
+        ],
+        recentEvents: [
+          {
+            eventType: "project_completed_lead",
+            pointsAwarded: 60,
+            occurredAt: "2026-03-30T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    expect(successState.isGamificationPending).toBe(false);
+    expect(successState.gamificationSummary?.level).toBe(3);
+    expect(successState.gamificationSummary?.badges[0].code).toBe("project_finisher");
   });
 });

@@ -7,6 +7,8 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Services.DeveloperOnboardingService.DTO;
+using MosaicTalent.Services.GamificationService;
+using MosaicTalent.Services.GamificationService.DTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +25,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
     private readonly IRepository<DeveloperProfileGoal, Guid> _profileGoalRepository;
     private readonly IRepository<User, long> _userRepository;
     private readonly IGroqChatService _groqChatService;
+    private readonly IDeveloperGamificationService _developerGamificationService;
 
     public DeveloperOnboardingAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -30,7 +33,8 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         IRepository<DeveloperProfileSkill, Guid> profileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> profileGoalRepository,
         IRepository<User, long> userRepository,
-        IGroqChatService groqChatService)
+        IGroqChatService groqChatService,
+        IDeveloperGamificationService developerGamificationService)
     {
         _developerRepository = developerRepository;
         _profileRepository = profileRepository;
@@ -38,6 +42,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         _profileGoalRepository = profileGoalRepository;
         _userRepository = userRepository;
         _groqChatService = groqChatService;
+        _developerGamificationService = developerGamificationService;
     }
 
     public async Task<DeveloperOnboardingDto> GetMyProfile()
@@ -96,6 +101,21 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
                 Label = x.ToString(),
             })
             .ToList();
+    }
+
+    public async Task<DeveloperGamificationSummaryDto> GetMyGamificationSummary()
+    {
+        var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+
+        var developer = await _developerRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.UserId == userId);
+        if (developer == null)
+        {
+            return new DeveloperGamificationSummaryDto();
+        }
+
+        return await _developerGamificationService.GetSummaryAsync(tenantId, developer.Id);
     }
 
     public async Task<DeveloperOnboardingDto> UpsertMyProfile(UpsertDeveloperOnboardingInput input)

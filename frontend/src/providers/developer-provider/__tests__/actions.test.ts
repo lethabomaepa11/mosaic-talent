@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fetchLevelsSuccess,
+  fetchGamificationSuccess,
   fetchLearningPathSuccess,
   fetchProfileSuccess,
   fetchUserSuccess,
@@ -121,6 +122,41 @@ describe("developer-provider actions", () => {
               goal: "Lead backend services",
             },
           ],
+        },
+      },
+    });
+  });
+
+  it("creates gamification payload action", () => {
+    expect(
+      fetchGamificationSuccess({
+        totalPoints: 180,
+        level: 2,
+        nextLevelPoints: 200,
+        progressPercent: 80,
+        badges: [
+          {
+            code: "first_contribution",
+            name: "First Contribution",
+            description: "First point milestone",
+            earnedAt: "2026-03-30T00:00:00.000Z",
+          },
+        ],
+        recentEvents: [
+          {
+            eventType: "peer_review_completed",
+            pointsAwarded: 30,
+            occurredAt: "2026-03-30T00:00:00.000Z",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      payload: {
+        isGamificationPending: false,
+        gamificationSummary: {
+          totalPoints: 180,
+          level: 2,
+          badges: [{ code: "first_contribution" }],
         },
       },
     });

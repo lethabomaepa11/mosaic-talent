@@ -14,3 +14,4 @@ Project documentation index.
 - [Assessment Submission Task/File Processing](feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](feature/github-candidate-background-analysis.md)
 - [AI Learning Path Recommendations](feature/ai-learning-path-recommendations.md)
+- [Gamification: Badges, Points, and Levels](feature/gamification-badges-points-levels.md)

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  Award,
   CheckCircle,
   Code,
   Loader2,
@@ -96,9 +97,11 @@ const ProfilePage = () => {
     profile,
     scanResult,
     learningPath,
+    gamificationSummary,
     currentUser,
     isPending,
     isLearningPathPending,
+    isGamificationPending,
     studyLevels,
   } = useDeveloperState();
   const { profile: companyProfile, isPending: isCompanyPending } = useCompanyProfileState();
@@ -107,6 +110,7 @@ const ProfilePage = () => {
     fetchMyProfile,
     fetchStudyLevels,
     fetchLearningPathRecommendations,
+    fetchMyGamificationSummary,
     scanMyGithubProfile,
     upsertMyProfile,
   } = useDeveloperAction();
@@ -122,6 +126,7 @@ const ProfilePage = () => {
     fetchMyProfile();
     fetchStudyLevels();
     fetchLearningPathRecommendations();
+    fetchMyGamificationSummary();
   }, []);
 
   useEffect(() => {
@@ -266,6 +271,7 @@ const ProfilePage = () => {
         skills: draft.skills,
         goals: draft.goals,
       });
+      await fetchMyGamificationSummary();
       toast.success(
         "Profile saved",
         "Your developer profile has been updated.",
@@ -309,6 +315,7 @@ const ProfilePage = () => {
             skills: nextDraft.skills,
             goals: nextDraft.goals,
           });
+          await fetchMyGamificationSummary();
         }
       }
       toast.success("Avatar uploaded", "Profile avatar has been updated.");
@@ -847,6 +854,64 @@ const ProfilePage = () => {
                 </Space>
               </Card>
             </motion.div>
+            ) : null}
+
+            {!isCompanyTenant ? (
+              <motion.div
+                initial={false}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card
+                  title={(
+                    <Space>
+                      <Award size={16} /> Progress & Badges
+                    </Space>
+                  )}
+                  data-ai-section="gamification"
+                >
+                  <Space direction="vertical" size={12} className={styles.fullWidth}>
+                    {isGamificationPending ? (
+                      <div className={styles.learningPathLoading}>
+                        <Loader2 size={16} className={styles.spinIcon} />
+                        <Typography.Text type="secondary">
+                          Updating progression...
+                        </Typography.Text>
+                      </div>
+                    ) : null}
+
+                    <div className={styles.gamificationHeader}>
+                      <Typography.Text strong>
+                        Level {gamificationSummary?.level ?? 1}
+                      </Typography.Text>
+                      <Typography.Text>
+                        {gamificationSummary?.totalPoints ?? 0} pts
+                      </Typography.Text>
+                    </div>
+
+                    <Progress
+                      percent={Math.round(gamificationSummary?.progressPercent ?? 0)}
+                      showInfo={false}
+                    />
+                    <Typography.Text type="secondary">
+                      Next level at {gamificationSummary?.nextLevelPoints ?? 100} pts
+                    </Typography.Text>
+
+                    {gamificationSummary?.badges?.length ? (
+                      <div className={styles.badgeGrid}>
+                        {gamificationSummary.badges.slice(0, 6).map((badge) => (
+                          <Tag key={badge.code} color="gold">
+                            {badge.name}
+                          </Tag>
+                        ))}
+                      </div>
+                    ) : (
+                      <Typography.Text type="secondary">
+                        Complete reviews, projects, and simulations to unlock badges.
+                      </Typography.Text>
+                    )}
+                  </Space>
+                </Card>
+              </motion.div>
             ) : null}
 
             {!isCompanyTenant ? (

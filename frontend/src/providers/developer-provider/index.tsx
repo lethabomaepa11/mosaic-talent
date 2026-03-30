@@ -13,6 +13,9 @@ import {
   fetchUserError,
   fetchUserPending,
   fetchUserSuccess,
+  fetchGamificationError,
+  fetchGamificationPending,
+  fetchGamificationSuccess,
   fetchLearningPathError,
   fetchLearningPathPending,
   fetchLearningPathSuccess,
@@ -27,6 +30,7 @@ import {
   DeveloperActionContext,
   DeveloperStateContext,
   IDeveloperProfile,
+  IGamificationSummary,
   IGithubScanResult,
   ILearningPathResult,
   INITIAL_PROFILE,
@@ -63,6 +67,26 @@ const normalizeLearningPath = (input: Partial<ILearningPathResult>): ILearningPa
     gapSummary: item.gapSummary ?? "",
     recommendedSkills: item.recommendedSkills ?? [],
     suggestedActions: item.suggestedActions ?? [],
+  })),
+});
+
+const normalizeGamificationSummary = (
+  input: Partial<IGamificationSummary>,
+): IGamificationSummary => ({
+  totalPoints: Number(input.totalPoints ?? 0),
+  level: Number(input.level ?? 1),
+  nextLevelPoints: Number(input.nextLevelPoints ?? 100),
+  progressPercent: Number(input.progressPercent ?? 0),
+  badges: (input.badges ?? []).map((badge) => ({
+    code: badge.code ?? "",
+    name: badge.name ?? "",
+    description: badge.description ?? "",
+    earnedAt: badge.earnedAt ?? "",
+  })),
+  recentEvents: (input.recentEvents ?? []).map((item) => ({
+    eventType: item.eventType ?? "",
+    pointsAwarded: Number(item.pointsAwarded ?? 0),
+    occurredAt: item.occurredAt ?? "",
   })),
 });
 
@@ -189,6 +213,20 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const fetchMyGamificationSummary = async () => {
+    dispatch(fetchGamificationPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyGamificationSummary`);
+      const summary = normalizeGamificationSummary(res.data?.result ?? {});
+      dispatch(fetchGamificationSuccess(summary));
+      return summary;
+    } catch {
+      dispatch(fetchGamificationError());
+      return undefined;
+    }
+  };
+
   return (
     <DeveloperStateContext.Provider value={state}>
       <DeveloperActionContext.Provider
@@ -199,6 +237,7 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           upsertMyProfile,
           scanMyGithubProfile,
           fetchLearningPathRecommendations,
+          fetchMyGamificationSummary,
         }}
       >
         {children}

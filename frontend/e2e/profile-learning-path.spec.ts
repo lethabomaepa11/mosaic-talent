@@ -13,6 +13,7 @@ const jsonOk = (body: unknown) => ({
 const setupProfileRoutes = async (page: Page) => {
   let profileHits = 0;
   let learningPathHits = 0;
+  let gamificationHits = 0;
 
   await page.route("**/*", async (route) => {
     const url = route.request().url();
@@ -73,12 +74,47 @@ const setupProfileRoutes = async (page: Page) => {
       return;
     }
 
+    if (url.includes("/api/services/app/DeveloperOnboarding/GetMyGamificationSummary")) {
+      gamificationHits += 1;
+      await route.fulfill(
+        jsonOk({
+          totalPoints: 280,
+          level: 3,
+          nextLevelPoints: 300,
+          progressPercent: 80,
+          badges: [
+            {
+              code: "first_contribution",
+              name: "First Contribution",
+              description: "First points earned",
+              earnedAt: "2026-03-30T00:00:00.000Z",
+            },
+            {
+              code: "project_finisher",
+              name: "Project Finisher",
+              description: "Completed first project",
+              earnedAt: "2026-03-30T00:00:00.000Z",
+            },
+          ],
+          recentEvents: [
+            {
+              eventType: "peer_review_completed",
+              pointsAwarded: 30,
+              occurredAt: "2026-03-30T00:00:00.000Z",
+            },
+          ],
+        }),
+      );
+      return;
+    }
+
     await route.continue();
   });
 
   return {
     getProfileHits: () => profileHits,
     getLearningPathHits: () => learningPathHits,
+    getGamificationHits: () => gamificationHits,
   };
 };
 
@@ -96,6 +132,12 @@ test("renders AI learning path recommendations from profile data", async ({ page
 
   await expect.poll(() => apiHits.getProfileHits()).toBeGreaterThan(0);
   await expect.poll(() => apiHits.getLearningPathHits()).toBeGreaterThan(0);
+  await expect.poll(() => apiHits.getGamificationHits()).toBeGreaterThan(0);
+
+  await expect(page.locator("[data-ai-section='gamification']")).toBeVisible();
+  await expect(page.getByText("Level 3")).toBeVisible();
+  await expect(page.getByText("280 pts")).toBeVisible();
+  await expect(page.getByText("First Contribution")).toBeVisible();
 
   await expect(page.locator("[data-ai-section='learning-path']")).toBeVisible();
   await expect(page.getByText("Path built from your current profile and role targets.")).toBeVisible();

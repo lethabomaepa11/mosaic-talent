@@ -41,6 +41,28 @@ export interface ILearningPathResult {
   recommendations: ILearningPathRecommendation[];
 }
 
+export interface IGamificationBadge {
+  code: string;
+  name: string;
+  description: string;
+  earnedAt: string;
+}
+
+export interface IGamificationEvent {
+  eventType: string;
+  pointsAwarded: number;
+  occurredAt: string;
+}
+
+export interface IGamificationSummary {
+  totalPoints: number;
+  level: number;
+  nextLevelPoints: number;
+  progressPercent: number;
+  badges: IGamificationBadge[];
+  recentEvents: IGamificationEvent[];
+}
+
 export interface ICurrentUserSummary {
   id: number;
   userName: string;
@@ -58,6 +80,8 @@ export interface IDeveloperStateContext {
   scanResult?: IGithubScanResult;
   learningPath?: ILearningPathResult;
   isLearningPathPending: boolean;
+  gamificationSummary?: IGamificationSummary;
+  isGamificationPending: boolean;
   currentUser?: ICurrentUserSummary;
 }
 
@@ -68,6 +92,7 @@ export interface IDeveloperActionContext {
   upsertMyProfile: (input: IDeveloperProfile) => Promise<void>;
   scanMyGithubProfile: () => Promise<IGithubScanResult | undefined>;
   fetchLearningPathRecommendations: () => Promise<ILearningPathResult | undefined>;
+  fetchMyGamificationSummary: () => Promise<IGamificationSummary | undefined>;
 }
 
 export const INITIAL_PROFILE: IDeveloperProfile = {
@@ -92,6 +117,8 @@ export const INITIAL_STATE: IDeveloperStateContext = {
   scanResult: undefined,
   learningPath: undefined,
   isLearningPathPending: false,
+  gamificationSummary: undefined,
+  isGamificationPending: false,
   currentUser: undefined,
 };
 
@@ -105,4 +132,5 @@ export const DeveloperActionContext = createContext<IDeveloperActionContext>({
   upsertMyProfile: async () => undefined,
   scanMyGithubProfile: async () => undefined,
   fetchLearningPathRecommendations: async () => undefined,
+  fetchMyGamificationSummary: async () => undefined,
 });

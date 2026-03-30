@@ -156,4 +156,16 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginXS}px;
     flex-wrap: wrap;
   `,
+  gamificationHeader: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginXS}px;
+    flex-wrap: wrap;
+  `,
+  badgeGrid: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+  `,
 }));

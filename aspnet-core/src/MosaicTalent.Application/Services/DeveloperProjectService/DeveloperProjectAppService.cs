@@ -8,6 +8,7 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
+using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.PeerReviewService;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
 using MosaicTalent.Services.NotificationChannelService;
@@ -39,6 +40,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IPeerReviewGenerationService _peerReviewGenerationService;
     private readonly IProjectJoinNotificationDispatcher _projectJoinNotificationDispatcher;
     private readonly INotificationEventDispatcher _notificationEventDispatcher;
+    private readonly IDeveloperGamificationService _developerGamificationService;
     private readonly IHttpClientFactory _httpClientFactory;
 
     public DeveloperProjectAppService(
@@ -55,6 +57,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IPeerReviewGenerationService peerReviewGenerationService,
         IProjectJoinNotificationDispatcher projectJoinNotificationDispatcher,
         INotificationEventDispatcher notificationEventDispatcher,
+        IDeveloperGamificationService developerGamificationService,
         IHttpClientFactory httpClientFactory)
     {
         _developerRepository = developerRepository;
@@ -70,6 +73,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _peerReviewGenerationService = peerReviewGenerationService;
         _projectJoinNotificationDispatcher = projectJoinNotificationDispatcher;
         _notificationEventDispatcher = notificationEventDispatcher;
+        _developerGamificationService = developerGamificationService;
         _httpClientFactory = httpClientFactory;
     }
 
@@ -585,6 +589,36 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         await CurrentUnitOfWork.SaveChangesAsync();
         await _peerReviewGenerationService.EnsureGeneratedForProject(project.Id, project.TenantId);
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            var memberDeveloperIds = await _projectMemberRepository.GetAll()
+                .Where(x => x.ProjectId == project.Id)
+                .Select(x => x.DeveloperId)
+                .Distinct()
+                .ToListAsync();
+
+            await _developerGamificationService.AwardAsync(
+                project.TenantId,
+                developer.Id,
+                "project_completed_lead",
+                $"project-completed-lead:{project.Id}",
+                $"project:{project.Id}");
+
+            foreach (var memberDeveloperId in memberDeveloperIds.Where(x => x != developer.Id))
+            {
+                await _developerGamificationService.AwardAsync(
+                    project.TenantId,
+                    memberDeveloperId,
+                    "project_completed_member",
+                    $"project-completed-member:{project.Id}:{memberDeveloperId}",
+                    $"project:{project.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to award project completion gamification points.", ex);
+        }
 
         try
         {

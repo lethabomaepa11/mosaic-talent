@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MosaicTalent.Services.GamificationService.DTO;
 
 namespace MosaicTalent.Services.PeerReviewService.DTO;
 
@@ -24,5 +25,7 @@ public class PeerReviewDto
     public bool IsCompleted { get; set; }
 
     public List<PeerReviewQuestionDto> Questions { get; set; } = new List<PeerReviewQuestionDto>();
+
+    public GamificationRewardDto GamificationReward { get; set; }
 }
 

@@ -3,6 +3,7 @@ using MosaicTalent.Authorization.Roles;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
+using MosaicTalent.Domains.Gamification;
 using MosaicTalent.Domains.Notifications;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
@@ -42,6 +43,9 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<AssessorObservation> AssessorObservations { get; set; }
     public DbSet<AssessorDimensionScore> AssessorDimensionScores { get; set; }
     public DbSet<PushSubscription> PushSubscriptions { get; set; }
+    public DbSet<DeveloperEngagementProfile> DeveloperEngagementProfiles { get; set; }
+    public DbSet<DeveloperEngagementBadge> DeveloperEngagementBadges { get; set; }
+    public DbSet<DeveloperEngagementEvent> DeveloperEngagementEvents { get; set; }
 
     public MosaicTalentDbContext(DbContextOptions<MosaicTalentDbContext> options)
         : base(options)
@@ -217,6 +221,24 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         {
             builder.HasIndex(x => new { x.TenantId, x.UserId, x.Endpoint }).IsUnique();
             builder.HasIndex(x => new { x.TenantId, x.UserId, x.IsActive });
+        });
+
+        modelBuilder.Entity<DeveloperEngagementProfile>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.TotalPoints });
+        });
+
+        modelBuilder.Entity<DeveloperEngagementBadge>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.BadgeCode }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.EarnedAt });
+        });
+
+        modelBuilder.Entity<DeveloperEngagementEvent>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.EventKey }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.OccurredAt });
         });
     }
 }

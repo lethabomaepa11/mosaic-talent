@@ -90,6 +90,27 @@ export const DeveloperReducer = handleActions<
       ...state,
       ...payload,
     }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_PENDING]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_SUCCESS]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
+    [DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_ERROR]: (
+      state,
+      { payload },
+    ) => ({
+      ...state,
+      ...payload,
+    }),
   },
   INITIAL_STATE,
 );
