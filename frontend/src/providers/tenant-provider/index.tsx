@@ -38,22 +38,16 @@ const normalizeHost = (hostname: string) =>
   hostname.toLowerCase().split(":")[0];
 
 const parseVercelTenancy = (host: string) => {
-  if (!host.endsWith(".mosaic-talent.vercel.app")) {
+  if (!host.endsWith("-mosaic-talent.vercel.app")) {
     return "";
   }
 
-  const label = host.replace(".mosaic-talent.vercel.app", "");
-  if (!label) {
+  const label = host.slice(0, -"-mosaic-talent.vercel.app".length);
+  if (!label || label === host) {
     return "";
   }
 
-  const marker = "-mosaic-talent";
-  const markerIndex = label.indexOf(marker);
-  if (markerIndex <= 0) {
-    return "";
-  }
-
-  return label.slice(0, markerIndex);
+  return label;
 };
 
 const parseGenericSubdomainTenancy = (host: string) => {
@@ -82,6 +76,11 @@ const parseLocalhostTenancy = (host: string) => {
 
 const getTenancyCandidateFromHost = (host: string): ITenantCandidate | null => {
   if (!host || host === "localhost" || host === "127.0.0.1") {
+    return null;
+  }
+
+  // Root Vercel host must always resolve to the initial/default tenant (id: 1).
+  if (host === "mosaic-talent.vercel.app") {
     return null;
   }
 

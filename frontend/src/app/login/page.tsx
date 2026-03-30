@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
+import { useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { toast } from "@/components/providers";
 import { useStyles } from "./style";
@@ -20,6 +21,7 @@ const LoginPage = () => {
 
   const router = useRouter();
   const { styles } = useStyles();
+  const { mode } = useAppearanceState();
   const { login } = useAuthAction();
   const { isAuthenticated, isError, isPending } = useAuthState();
   const {
@@ -32,6 +34,8 @@ const LoginPage = () => {
     websiteUrl,
   } = useTenantResolutionState();
   const isCompanyTenant = Boolean(tenancyName);
+  const defaultLogoSrc =
+    mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
 
   const githubAuthUrl = process.env.NEXT_PUBLIC_API_BASE_URL
     ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/TokenAuth/GitHubAuth`
@@ -55,7 +59,7 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      router.push("/app/projects/open");
+      router.push("/app");
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +110,7 @@ const LoginPage = () => {
           ) : (
             <div className={styles.logoRow}>
               <Image
-                src="/text-logo.svg"
+                src={defaultLogoSrc}
                 alt="Mosaic Talent"
                 width={168}
                 height={32}

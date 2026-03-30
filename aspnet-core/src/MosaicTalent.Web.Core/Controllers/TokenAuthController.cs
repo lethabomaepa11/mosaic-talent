@@ -16,6 +16,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace MosaicTalent.Controllers
 {
@@ -30,6 +31,8 @@ namespace MosaicTalent.Controllers
         private readonly GitHubOAuthService _gitHubOAuthService;
 
         private const string GitHubStateCookieName = "mosaic-talent.github-oauth-state";
+        private const string GitHubModeCookieName = "mosaic-talent.github-oauth-mode";
+        private const string GitHubReturnPathCookieName = "mosaic-talent.github-oauth-return-path";
         private const string AccessTokenCookieName = "mosaic-talent.access-token";
         private const string TenantCookieName = "mosaic-talent.abp-tenant-id";
 
@@ -69,45 +72,68 @@ namespace MosaicTalent.Controllers
         }
 
         [HttpGet]
-        public IActionResult GitHubAuth()
+        public IActionResult GitHubAuth([FromQuery] string mode = "login", [FromQuery] string returnPath = "")
         {
             if (!_gitHubOAuthService.IsConfigured())
             {
                 return BadRequest("GitHub OAuth is not configured. Set GitHubOAuth:ClientId, GitHubOAuth:ClientSecret, and GitHubOAuth:RedirectUri.");
             }
 
+            var oauthMode = string.Equals(mode, "connect", StringComparison.OrdinalIgnoreCase)
+                ? "connect"
+                : "login";
+            var normalizedReturnPath = NormalizeReturnPath(returnPath);
+
             var state = Guid.NewGuid().ToString("N");
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                MaxAge = TimeSpan.FromMinutes(10)
+            };
+
             Response.Cookies.Append(
                 GitHubStateCookieName,
                 state,
-                new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = Request.IsHttps,
-                    SameSite = SameSiteMode.Lax,
-                    Path = "/",
-                    MaxAge = TimeSpan.FromMinutes(10)
-                });
+                cookieOptions);
+            Response.Cookies.Append(
+                GitHubModeCookieName,
+                oauthMode,
+                cookieOptions);
+            Response.Cookies.Append(
+                GitHubReturnPathCookieName,
+                normalizedReturnPath,
+                cookieOptions);
 
-            return Redirect(_gitHubOAuthService.BuildAuthorizationUrl(state));
+            return Redirect(_gitHubOAuthService.BuildAuthorizationUrl(
+                state,
+                includeRepositoryScope: oauthMode == "connect"));
         }
 
         [HttpGet]
         public async Task<IActionResult> GitHubCallback([FromQuery] string code, [FromQuery] string state, [FromQuery] string error)
         {
+            var oauthMode = GetCookieOrDefault(GitHubModeCookieName, "login");
+            var returnPath = NormalizeReturnPath(GetCookieOrDefault(GitHubReturnPathCookieName, string.Empty));
+
+            Response.Cookies.Delete(GitHubModeCookieName, new CookieOptions { Path = "/" });
+            Response.Cookies.Delete(GitHubReturnPathCookieName, new CookieOptions { Path = "/" });
+
             if (!string.IsNullOrWhiteSpace(error))
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_denied"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_denied"));
             }
 
             if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_invalid_callback"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_invalid_callback"));
             }
 
             if (!Request.Cookies.TryGetValue(GitHubStateCookieName, out var expectedState) || !string.Equals(expectedState, state, StringComparison.Ordinal))
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_invalid_state"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_invalid_state"));
             }
 
             Response.Cookies.Delete(GitHubStateCookieName, new CookieOptions { Path = "/" });
@@ -115,32 +141,32 @@ namespace MosaicTalent.Controllers
             var accessToken = await _gitHubOAuthService.ExchangeCodeForTokenAsync(code);
             if (string.IsNullOrWhiteSpace(accessToken))
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_token_exchange_failed"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_token_exchange_failed"));
             }
 
             var gitHubUser = await _gitHubOAuthService.GetUserAsync(accessToken);
             if (gitHubUser == null)
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_profile_failed"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_profile_failed"));
             }
 
             var emailAddress = await _gitHubOAuthService.ResolveEmailAsync(accessToken, gitHubUser);
             if (string.IsNullOrWhiteSpace(emailAddress))
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_email_required"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_email_required"));
             }
 
-            var user = await _gitHubOAuthService.FindOrCreateTenantUserAsync(gitHubUser, emailAddress);
+            var user = await _gitHubOAuthService.FindOrCreateTenantUserAsync(gitHubUser, emailAddress, accessToken);
             if (user == null)
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_user_failed"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_user_failed"));
             }
 
             var principal = await _userClaimsPrincipalFactory.CreateAsync(user);
             var identity = principal.Identity as ClaimsIdentity;
             if (identity == null)
             {
-                return Redirect(_gitHubOAuthService.BuildClientRedirect("login?oauthError=github_identity_failed"));
+                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_identity_failed"));
             }
 
             var appAccessToken = CreateAccessToken(CreateJwtClaims(identity));
@@ -168,7 +194,72 @@ namespace MosaicTalent.Controllers
                     Path = "/"
                 });
 
-            return Redirect(_gitHubOAuthService.BuildClientRedirect(string.Empty));
+            return Redirect(BuildOAuthRedirect(oauthMode, returnPath, null));
+        }
+
+        private string BuildOAuthRedirect(string mode, string returnPath, string errorCode)
+        {
+            if (!string.Equals(mode, "connect", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(errorCode))
+                {
+                    return _gitHubOAuthService.BuildClientRedirect($"login?oauthError={errorCode}");
+                }
+
+                return _gitHubOAuthService.BuildClientRedirect(string.Empty);
+            }
+
+            var normalizedPath = NormalizeReturnPath(returnPath);
+            var query = new Dictionary<string, string>
+            {
+                ["githubConnected"] = string.IsNullOrWhiteSpace(errorCode) ? "1" : "0",
+            };
+
+            if (!string.IsNullOrWhiteSpace(errorCode))
+            {
+                query["githubConnectError"] = errorCode;
+            }
+
+            var suffix = QueryHelpers.AddQueryString(normalizedPath, query);
+            suffix = suffix.TrimStart('/');
+            if (suffix.StartsWith("app/", StringComparison.OrdinalIgnoreCase))
+            {
+                suffix = suffix.Substring("app/".Length);
+            }
+
+            return _gitHubOAuthService.BuildClientRedirect(suffix);
+        }
+
+        private static string NormalizeReturnPath(string returnPath)
+        {
+            if (string.IsNullOrWhiteSpace(returnPath))
+            {
+                return "/projects/my?create=true";
+            }
+
+            if (Uri.TryCreate(returnPath, UriKind.Relative, out var _))
+            {
+                if (returnPath.StartsWith("//", StringComparison.Ordinal))
+                {
+                    return "/projects/my?create=true";
+                }
+
+                return returnPath.StartsWith("/")
+                    ? returnPath
+                    : "/" + returnPath;
+            }
+
+            return "/projects/my?create=true";
+        }
+
+        private string GetCookieOrDefault(string cookieName, string fallback)
+        {
+            if (!Request.Cookies.TryGetValue(cookieName, out var value))
+            {
+                return fallback;
+            }
+
+            return string.IsNullOrWhiteSpace(value) ? fallback : value;
         }
 
         private string GetTenancyNameOrNull()

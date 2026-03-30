@@ -3,7 +3,9 @@ import {
   ICurrentUserSummary,
   IDeveloperProfile,
   IDeveloperStateContext,
+  IGamificationSummary,
   IGithubScanResult,
+  ILearningPathResult,
   IStudyLevelOption,
 } from "./context";
 
@@ -25,6 +27,12 @@ export enum DeveloperStateEnums {
   DEVELOPER_SCAN_GITHUB_PENDING = "DEVELOPER_SCAN_GITHUB_PENDING",
   DEVELOPER_SCAN_GITHUB_SUCCESS = "DEVELOPER_SCAN_GITHUB_SUCCESS",
   DEVELOPER_SCAN_GITHUB_ERROR = "DEVELOPER_SCAN_GITHUB_ERROR",
+  DEVELOPER_FETCH_LEARNING_PATH_PENDING = "DEVELOPER_FETCH_LEARNING_PATH_PENDING",
+  DEVELOPER_FETCH_LEARNING_PATH_SUCCESS = "DEVELOPER_FETCH_LEARNING_PATH_SUCCESS",
+  DEVELOPER_FETCH_LEARNING_PATH_ERROR = "DEVELOPER_FETCH_LEARNING_PATH_ERROR",
+  DEVELOPER_FETCH_GAMIFICATION_PENDING = "DEVELOPER_FETCH_GAMIFICATION_PENDING",
+  DEVELOPER_FETCH_GAMIFICATION_SUCCESS = "DEVELOPER_FETCH_GAMIFICATION_SUCCESS",
+  DEVELOPER_FETCH_GAMIFICATION_ERROR = "DEVELOPER_FETCH_GAMIFICATION_ERROR",
 }
 
 export const fetchProfilePending = createAction<DeveloperStatePatch>(
@@ -125,4 +133,48 @@ export const scanGithubSuccess = createAction<
 export const scanGithubError = createAction<DeveloperStatePatch>(
   DeveloperStateEnums.DEVELOPER_SCAN_GITHUB_ERROR,
   () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const fetchLearningPathPending = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_PENDING,
+  () => ({
+    isLearningPathPending: true,
+  }),
+);
+
+export const fetchLearningPathSuccess = createAction<
+  DeveloperStatePatch,
+  ILearningPathResult
+>(DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_SUCCESS, (learningPath) => ({
+  isLearningPathPending: false,
+  learningPath,
+}));
+
+export const fetchLearningPathError = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_LEARNING_PATH_ERROR,
+  () => ({
+    isLearningPathPending: false,
+  }),
+);
+
+export const fetchGamificationPending = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_PENDING,
+  () => ({
+    isGamificationPending: true,
+  }),
+);
+
+export const fetchGamificationSuccess = createAction<
+  DeveloperStatePatch,
+  IGamificationSummary
+>(DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_SUCCESS, (gamificationSummary) => ({
+  isGamificationPending: false,
+  gamificationSummary,
+}));
+
+export const fetchGamificationError = createAction<DeveloperStatePatch>(
+  DeveloperStateEnums.DEVELOPER_FETCH_GAMIFICATION_ERROR,
+  () => ({
+    isGamificationPending: false,
+  }),
 );

@@ -8,13 +8,13 @@ import {
   LayoutDashboard,
   User,
   Briefcase,
-  Users,
   FileText,
   Settings,
   LogOut,
 } from "lucide-react";
 import { Button } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
+import { useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./sidebar.styles";
 
@@ -28,7 +28,6 @@ const navigation: INavItem[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/profile", label: "My Profile", icon: User },
   { href: "/app/jobs", label: "Job Postings", icon: Briefcase },
-  { href: "/app/candidates", label: "Candidates", icon: Users },
   { href: "/app/reports", label: "Reports", icon: FileText },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
@@ -52,8 +51,11 @@ export const CompanySidebar = () => {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { logout } = useAuthAction();
+  const { mode } = useAppearanceState();
   const { companyLogoUrl, companyName, tenancyName } = useTenantResolutionState();
   const { styles } = useStyles();
+  const defaultLogoSrc =
+    mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
 
   const handleLogout = async () => {
     await logout();
@@ -71,7 +73,7 @@ export const CompanySidebar = () => {
           />
         ) : (
           <Image
-            src="/text-logo.svg"
+            src={defaultLogoSrc}
             alt="Mosaic Talent"
             width={144}
             height={28}
@@ -86,7 +88,7 @@ export const CompanySidebar = () => {
           const active = isItemActive(pathname, item.href);
 
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} data-ai-route={item.href}>
               <Button
                 type="text"
                 className={cx(styles.navButton, active && styles.navButtonActive)}

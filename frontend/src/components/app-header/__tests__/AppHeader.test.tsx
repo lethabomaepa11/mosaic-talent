@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   useDeveloperState: vi.fn(),
   useCompanyProfileState: vi.fn(),
   useTenantResolutionState: vi.fn(),
+  useAppearanceState: vi.fn(),
+  useAppearanceAction: vi.fn(),
 }));
 
 vi.mock("@/providers/developer-provider", () => ({
@@ -21,6 +23,17 @@ vi.mock("@/providers/tenant-provider", () => ({
   useTenantResolutionState: mocks.useTenantResolutionState,
 }));
 
+vi.mock("@/providers/appearance-provider", () => ({
+  useAppearanceState: mocks.useAppearanceState,
+  useAppearanceAction: mocks.useAppearanceAction,
+}));
+
+vi.mock("@/components/notification-center", () => ({
+  NotificationCenter: ({ buttonAriaLabel }: { buttonAriaLabel: string }) => (
+    <button type="button">{buttonAriaLabel}</button>
+  ),
+}));
+
 describe("AppHeader", () => {
   beforeAll(() => {
     mocks.useDeveloperState.mockReturnValue({
@@ -32,6 +45,12 @@ describe("AppHeader", () => {
     });
     mocks.useTenantResolutionState.mockReturnValue({
       tenancyName: "",
+    });
+    mocks.useAppearanceState.mockReturnValue({
+      mode: "dark",
+    });
+    mocks.useAppearanceAction.mockReturnValue({
+      toggleMode: vi.fn(),
     });
   });
 
@@ -74,6 +93,7 @@ describe("AppHeader", () => {
       screen.getByPlaceholderText("Search projects, reviews, simulations..."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "User menu" })).toBeInTheDocument();
   });

@@ -257,6 +257,8 @@ cd aspnet-core
 dotnet ef migrations add Add{Entity} --project src/mosaic-talentApi.EntityFrameworkCore
 ```
 
+Important: In this repository workflow, the agent must never execute migration commands. The agent should only identify model changes and explicitly ask the user to run migrations manually.
+
 ---
 
 ## Guardrails

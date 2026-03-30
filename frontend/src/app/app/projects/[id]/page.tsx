@@ -287,7 +287,7 @@ const ProjectDetailPage = () => {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-ai-page="project-detail">
       <Link href="/app/projects" className={styles.backButton}>
         <Button icon={<ArrowLeft size={14} />}>Back to Projects</Button>
       </Link>
@@ -332,7 +332,7 @@ const ProjectDetailPage = () => {
             </div>
             {isMember ? (
               <div className={styles.skillEditRow}>
-                <Button size="small" onClick={handleOpenSkillsEditor}>
+                <Button size="small" onClick={handleOpenSkillsEditor} data-ai-action="open-project-skills-editor">
                   Update looking-for skills
                 </Button>
               </div>
@@ -367,7 +367,7 @@ const ProjectDetailPage = () => {
         {project.status !== "completed" ? (
           <div className={styles.actionRow}>
             {!isMember && project.status === "open" ? (
-              <Button type="primary" onClick={handleJoinProject}>
+              <Button type="primary" onClick={handleJoinProject} data-ai-action="join-project">
                 Join Project
               </Button>
             ) : null}
@@ -379,6 +379,7 @@ const ProjectDetailPage = () => {
                 icon={
                   isFillingTeam ? <Loader2 size={14} /> : <Sparkles size={14} />
                 }
+                data-ai-action="ai-fill-team"
               >
                 AI Fill Team
               </Button>
@@ -390,6 +391,7 @@ const ProjectDetailPage = () => {
                 onClick={handleCompleteProject}
                 loading={isCompleting}
                 icon={<CheckCircle size={14} />}
+                data-ai-action="complete-project"
               >
                 Complete Project
               </Button>
@@ -447,6 +449,7 @@ const ProjectDetailPage = () => {
                   type="primary"
                   icon={<Plus size={14} />}
                   onClick={() => setIsAddTaskOpen(true)}
+                  data-ai-action="open-add-project-task"
                 >
                   Add Task
                 </Button>
@@ -467,6 +470,7 @@ const ProjectDetailPage = () => {
                   <Button
                     onClick={() => setIsAddTaskOpen(true)}
                     icon={<Plus size={14} />}
+                    data-ai-action="open-add-project-task"
                   >
                     Add First Task
                   </Button>
@@ -590,6 +594,7 @@ const ProjectDetailPage = () => {
         onCancel={() => setIsAddTaskOpen(false)}
         onOk={handleAddTask}
         okText="Add Task"
+        okButtonProps={{ "data-ai-action": "submit-add-project-task" }}
       >
         <div className={styles.modalBody}>
           <Input
@@ -597,12 +602,14 @@ const ProjectDetailPage = () => {
             onChange={(event) => setNewTaskTitle(event.target.value)}
             placeholder="Task title"
             onPressEnter={handleAddTask}
+            data-ai-field="project-task-title"
           />
           <Input.TextArea
             rows={4}
             value={newTaskDescription}
             onChange={(event) => setNewTaskDescription(event.target.value)}
             placeholder="Optional task description"
+            data-ai-field="project-task-description"
           />
         </div>
       </Modal>
@@ -613,12 +620,14 @@ const ProjectDetailPage = () => {
         onCancel={() => setIsSkillsOpen(false)}
         onOk={handleUpdateSkills}
         okText="Save Skills"
+        okButtonProps={{ "data-ai-action": "submit-project-skills" }}
       >
         <Input.TextArea
           rows={4}
           value={skillsInput}
           onChange={(event) => setSkillsInput(event.target.value)}
           placeholder="React, TypeScript, PostgreSQL"
+          data-ai-field="project-skills-input"
         />
       </Modal>
     </div>

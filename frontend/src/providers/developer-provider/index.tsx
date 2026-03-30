@@ -13,6 +13,12 @@ import {
   fetchUserError,
   fetchUserPending,
   fetchUserSuccess,
+  fetchGamificationError,
+  fetchGamificationPending,
+  fetchGamificationSuccess,
+  fetchLearningPathError,
+  fetchLearningPathPending,
+  fetchLearningPathSuccess,
   saveProfileError,
   saveProfilePending,
   saveProfileSuccess,
@@ -24,7 +30,9 @@ import {
   DeveloperActionContext,
   DeveloperStateContext,
   IDeveloperProfile,
+  IGamificationSummary,
   IGithubScanResult,
+  ILearningPathResult,
   INITIAL_PROFILE,
   INITIAL_STATE,
 } from "./context";
@@ -43,6 +51,43 @@ const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile 
   teamworkRating: input.teamworkRating ?? 0,
   skills: input.skills ?? [],
   goals: input.goals ?? [],
+});
+
+const normalizeLearningPath = (input: Partial<ILearningPathResult>): ILearningPathResult => ({
+  source: input.source === "ai" ? "ai" : "fallback",
+  summary: input.summary ?? "",
+  marketSignals: input.marketSignals ?? [],
+  recommendations: (input.recommendations ?? []).map((item) => ({
+    goal: item.goal ?? "",
+    priority:
+      item.priority === "high" || item.priority === "low"
+        ? item.priority
+        : "medium",
+    estimatedWeeks: Number(item.estimatedWeeks ?? 6),
+    gapSummary: item.gapSummary ?? "",
+    recommendedSkills: item.recommendedSkills ?? [],
+    suggestedActions: item.suggestedActions ?? [],
+  })),
+});
+
+const normalizeGamificationSummary = (
+  input: Partial<IGamificationSummary>,
+): IGamificationSummary => ({
+  totalPoints: Number(input.totalPoints ?? 0),
+  level: Number(input.level ?? 1),
+  nextLevelPoints: Number(input.nextLevelPoints ?? 100),
+  progressPercent: Number(input.progressPercent ?? 0),
+  badges: (input.badges ?? []).map((badge) => ({
+    code: badge.code ?? "",
+    name: badge.name ?? "",
+    description: badge.description ?? "",
+    earnedAt: badge.earnedAt ?? "",
+  })),
+  recentEvents: (input.recentEvents ?? []).map((item) => ({
+    eventType: item.eventType ?? "",
+    pointsAwarded: Number(item.pointsAwarded ?? 0),
+    occurredAt: item.occurredAt ?? "",
+  })),
 });
 
 const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
@@ -154,6 +199,34 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const fetchLearningPathRecommendations = async () => {
+    dispatch(fetchLearningPathPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyLearningPathRecommendations`);
+      const learningPath = normalizeLearningPath(res.data?.result ?? {});
+      dispatch(fetchLearningPathSuccess(learningPath));
+      return learningPath;
+    } catch {
+      dispatch(fetchLearningPathError());
+      return undefined;
+    }
+  };
+
+  const fetchMyGamificationSummary = async () => {
+    dispatch(fetchGamificationPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyGamificationSummary`);
+      const summary = normalizeGamificationSummary(res.data?.result ?? {});
+      dispatch(fetchGamificationSuccess(summary));
+      return summary;
+    } catch {
+      dispatch(fetchGamificationError());
+      return undefined;
+    }
+  };
+
   return (
     <DeveloperStateContext.Provider value={state}>
       <DeveloperActionContext.Provider
@@ -163,6 +236,8 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           fetchCurrentUser,
           upsertMyProfile,
           scanMyGithubProfile,
+          fetchLearningPathRecommendations,
+          fetchMyGamificationSummary,
         }}
       >
         {children}

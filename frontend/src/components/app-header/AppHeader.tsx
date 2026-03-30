@@ -1,12 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Menu, Search, Settings } from "lucide-react";
+import { Avatar, Button, Dropdown, Input, MenuProps } from "antd";
+import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
+import {
+  useAppearanceAction,
+  useAppearanceState,
+} from "@/providers/appearance-provider";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
 import { useDeveloperState } from "@/providers/developer-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
@@ -21,6 +26,8 @@ export const AppHeader = ({
   const [searchValue, setSearchValue] = useState("");
 
   const { styles } = useStyles();
+  const { mode } = useAppearanceState();
+  const { toggleMode } = useAppearanceAction();
   const { user } = useAuthState();
   const { tenancyName } = useTenantResolutionState();
   const { currentUser, profile } = useDeveloperState();
@@ -131,15 +138,16 @@ export const AppHeader = ({
           aria-label="Open navigation menu"
           onClick={onMenuClick}
         />
-        <Badge dot color="gold">
-          <Button
-            type="text"
-            shape="circle"
-            icon={<Bell size={18} />}
-            className={styles.iconButton}
-            aria-label="Notifications"
-          />
-        </Badge>
+        <NotificationCenter buttonAriaLabel="Notifications" />
+
+        <Button
+          type="text"
+          shape="circle"
+          icon={mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          className={styles.iconButton}
+          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={toggleMode}
+        />
 
         <Button
           type="text"

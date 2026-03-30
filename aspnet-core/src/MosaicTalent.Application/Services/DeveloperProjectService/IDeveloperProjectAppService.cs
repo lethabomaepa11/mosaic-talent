@@ -10,6 +10,9 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<List<DeveloperProjectDto>> GetMyProjects();
     Task<List<DeveloperProjectDto>> GetOpenProjects();
     Task<DeveloperProjectDto> GetProject(GetDeveloperProjectInput input);
+    Task<GithubConnectionStatusDto> GetGithubConnectionStatus();
+    Task<List<GithubRepositoryDto>> GetMyGithubRepositories();
+    Task<GithubRepositoryDto> CreateGithubRepository(CreateGithubRepositoryInput input);
     Task<DeveloperProjectDto> CreateProject(CreateDeveloperProjectInput input);
     Task<DeveloperProjectDto> JoinProject(JoinDeveloperProjectInput input);
     Task<DeveloperProjectDto> AiMatchProject();

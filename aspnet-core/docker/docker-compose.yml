@@ -32,7 +32,6 @@ services:
       R2__SecretAccessKey: "${R2__SecretAccessKey}"
       R2__BucketName: "${R2__BucketName}"
       R2__PublicBaseUrl: "${R2__PublicBaseUrl}"
-      CodeGen__LocalCopyPath: "/app/LocalOutput"
       TZ: "${TZ:-America/Toronto}"
       PORT: "${PORT:-80}"
       Kestrel__Endpoints__Http__Url: "http://+:80"

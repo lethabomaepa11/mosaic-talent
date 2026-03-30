@@ -12,3 +12,4 @@ aspnet-core/docker/mvc/Mvc-Logs/
 
 .env
 appsettings.Development.json
+.dotnet-home

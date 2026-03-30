@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MosaicTalent.Services.GamificationService.DTO;
 
 namespace MosaicTalent.Services.SimulationScenarioService.DTO;
 
@@ -13,4 +14,5 @@ public class SimulationFeedbackDto
     public List<string> Improvements { get; set; } = new();
     public List<string> Tips { get; set; } = new();
     public bool GeneratedByAi { get; set; }
+    public GamificationRewardDto GamificationReward { get; set; }
 }

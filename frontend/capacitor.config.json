@@ -1,0 +1,9 @@
+{
+  "appId": "com.mosaictalent.app",
+  "appName": "Mosaic Talent",
+  "webDir": "out",
+  "server": {
+    "url": "https://mosaic-talent.vercel.app",
+    "cleartext": true
+  }
+}

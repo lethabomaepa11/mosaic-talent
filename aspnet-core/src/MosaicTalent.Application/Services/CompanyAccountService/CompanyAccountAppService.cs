@@ -3,6 +3,7 @@ using Abp.Domain.Repositories;
 using Abp.Extensions;
 using Abp.IdentityFramework;
 using Abp.MultiTenancy;
+using Abp.Notifications;
 using Abp.UI;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Editions;
 using MosaicTalent.Services.CompanyAccountService.DTO;
+using MosaicTalent.Services.NotificationChannelService;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +31,7 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
     private readonly UserManager _userManager;
     private readonly RoleManager _roleManager;
     private readonly IAbpZeroDbMigrator _abpZeroDbMigrator;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
 
     public CompanyAccountAppService(
         IRepository<Company, Guid> companyRepository,
@@ -36,7 +39,8 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         EditionManager editionManager,
         UserManager userManager,
         RoleManager roleManager,
-        IAbpZeroDbMigrator abpZeroDbMigrator)
+        IAbpZeroDbMigrator abpZeroDbMigrator,
+        INotificationEventDispatcher notificationEventDispatcher)
     {
         _companyRepository = companyRepository;
         _companyEmployeeRepository = companyEmployeeRepository;
@@ -44,6 +48,7 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         _userManager = userManager;
         _roleManager = roleManager;
         _abpZeroDbMigrator = abpZeroDbMigrator;
+        _notificationEventDispatcher = notificationEventDispatcher;
     }
 
     [AbpAllowAnonymous]
@@ -168,6 +173,23 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         return MapCompany(company);
     }
 
+    public async Task<CompanyDto> UpdateMyCompany(UpdateMyCompanyInput input)
+    {
+        var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var company = await GetCompanyEntity(tenantId);
+        await EnsureIsCompanyAdmin(company.Id, userId);
+
+        company.Name = input.Name?.Trim();
+        company.LogoStoredFileId = input.LogoStoredFileId?.Trim();
+        company.Website = input.Website?.Trim();
+        company.Email = input.Email?.Trim();
+
+        await _companyRepository.UpdateAsync(company);
+        await CurrentUnitOfWork.SaveChangesAsync();
+        return MapCompany(company);
+    }
+
     public async Task<List<CompanyEmployeeDto>> GetMyCompanyEmployees()
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
@@ -255,6 +277,43 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         await _companyEmployeeRepository.InsertAsync(employee);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        try
+        {
+            var roleLabel = input.Role == CompanyRole.Admin ? "Admin" : "HR";
+            var selfMessage = $"You were added to {company.Name} as {roleLabel}.";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                tenantId,
+                new[] { user.Id },
+                "MosaicTalent.CompanyEmployeeAdded",
+                selfMessage,
+                NotificationSeverity.Success,
+                "/app/settings",
+                "Workspace access granted",
+                selfMessage);
+
+            var adminUserIds = await GetCompanyAdminUserIds(company.Id);
+            var adminRecipients = adminUserIds
+                .Where(x => x != currentUserId && x != user.Id)
+                .ToList();
+            if (adminRecipients.Count > 0)
+            {
+                var adminMessage = $"{user.Name} {user.Surname} was added as {roleLabel}.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    tenantId,
+                    adminRecipients,
+                    "MosaicTalent.CompanyEmployeeAddedForAdmin",
+                    adminMessage,
+                    NotificationSeverity.Info,
+                    "/app/settings/employees",
+                    "Employee added",
+                    adminMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch company employee added notifications.", ex);
+        }
+
         return new CompanyEmployeeDto
         {
             Id = employee.Id,
@@ -302,6 +361,54 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
             {
                 CheckErrors(await _userManager.RemoveFromRoleAsync(user, StaticRoleNames.Tenants.Admin));
             }
+        }
+
+        try
+        {
+            var roleLabel = input.Role == CompanyRole.Admin ? "Admin" : "HR";
+            if (user != null)
+            {
+                var userMessage = $"Your company role was updated to {roleLabel}.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    tenantId,
+                    new[] { user.Id },
+                    "MosaicTalent.CompanyEmployeeRoleUpdated",
+                    userMessage,
+                    NotificationSeverity.Info,
+                    "/app/settings",
+                    "Role updated",
+                    userMessage);
+            }
+
+            var adminUserIds = await GetCompanyAdminUserIds(company.Id);
+            var adminRecipients = adminUserIds
+                .Where(x => x != currentUserId && (user == null || x != user.Id))
+                .ToList();
+            if (adminRecipients.Count > 0)
+            {
+                var displayName = user == null
+                    ? "An employee"
+                    : string.Join(" ", new[] { user.Name, user.Surname }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+                if (string.IsNullOrWhiteSpace(displayName))
+                {
+                    displayName = user?.UserName ?? "An employee";
+                }
+
+                var adminMessage = $"{displayName} role changed to {roleLabel}.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    tenantId,
+                    adminRecipients,
+                    "MosaicTalent.CompanyEmployeeRoleUpdatedForAdmin",
+                    adminMessage,
+                    NotificationSeverity.Info,
+                    "/app/settings/employees",
+                    "Employee role changed",
+                    adminMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch company employee role notifications.", ex);
         }
 
         return new CompanyEmployeeDto
@@ -467,6 +574,15 @@ public class CompanyAccountAppService : MosaicTalentAppServiceBase, ICompanyAcco
         {
             throw new AbpAuthorizationException("Only company admins can perform this action.");
         }
+    }
+
+    private async Task<List<long>> GetCompanyAdminUserIds(Guid companyId)
+    {
+        return await _companyEmployeeRepository.GetAll()
+            .Where(x => x.CompanyId == companyId && x.Role == CompanyRole.Admin)
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToListAsync();
     }
 
     private static CompanyDto MapCompany(Company company)

@@ -1,42 +1,62 @@
 :root {
-  --ink: #0a0b0f;
-  --paper: #f0ede6;
   --gold: #e8a623;
   --teal: #2abfaa;
+  --radius: 0.75rem;
+}
+
+html[data-theme="dark"] {
+  --ink: #0a0b0f;
+  --paper: #f0ede6;
   --gold-dim: rgba(232, 166, 35, 0.12);
   --gold-mid: rgba(232, 166, 35, 0.35);
   --muted: rgba(240, 237, 230, 0.45);
   --border: rgba(240, 237, 230, 0.1);
   --card-bg: rgba(240, 237, 230, 0.04);
+  --surface: #13141a;
+  --noise-opacity: 1;
+}
 
+html[data-theme="light"] {
+  --ink: #f6f2e9;
+  --paper: #1a1d24;
+  --gold-dim: rgba(232, 166, 35, 0.2);
+  --gold-mid: rgba(232, 166, 35, 0.36);
+  --muted: rgba(26, 29, 36, 0.45);
+  --border: rgba(26, 29, 36, 0.14);
+  --card-bg: #ffffff;
+  --surface: #ffffff;
+  --noise-opacity: 0.22;
+}
+
+html[data-theme="dark"],
+html[data-theme="light"] {
   --background: var(--ink);
   --foreground: var(--paper);
   --card: var(--card-bg);
   --card-foreground: var(--paper);
-  --popover: #13141a;
+  --popover: var(--surface);
   --popover-foreground: var(--paper);
   --primary: var(--gold);
   --primary-foreground: var(--ink);
   --secondary: var(--teal);
   --secondary-foreground: var(--ink);
-  --muted-bg: rgba(240, 237, 230, 0.08);
-  --muted-foreground: rgba(240, 237, 230, 0.6);
+  --muted-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --muted-foreground: color-mix(in srgb, var(--foreground) 60%, transparent);
   --accent: var(--gold-dim);
   --accent-foreground: var(--gold);
   --destructive: #ef4444;
   --destructive-foreground: #fef2f2;
   --border-color: var(--border);
-  --input: rgba(240, 237, 230, 0.08);
+  --input: color-mix(in srgb, var(--foreground) 8%, transparent);
   --ring: var(--gold);
-  --radius: 0.75rem;
 
   --chart-1: var(--gold);
   --chart-2: var(--teal);
-  --chart-3: rgba(240, 237, 230, 0.6);
+  --chart-3: color-mix(in srgb, var(--foreground) 60%, transparent);
   --chart-4: rgba(232, 166, 35, 0.6);
   --chart-5: rgba(42, 191, 170, 0.6);
 
-  --sidebar: rgba(10, 11, 15, 0.95);
+  --sidebar: color-mix(in srgb, var(--background) 92%, transparent);
   --sidebar-foreground: var(--paper);
   --sidebar-primary: var(--gold);
   --sidebar-primary-foreground: var(--ink);

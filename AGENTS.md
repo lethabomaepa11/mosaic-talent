@@ -28,4 +28,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Add feature documentation under `docs/feature/<filename>.md` (for example: `docs/feature/ai-matching.md`).
 - Always add or update links in the root `README.md` so new documentation is discoverable.
 - If multiple docs are added for one feature, keep them grouped under `docs/feature/`.
+
+# Planning Approval Rules
+
+- Before implementing any feature or fix, always present a concrete plan first.
+- After presenting the plan, wait for explicit user approval before making code changes.
+- If scope changes during implementation, pause and present an updated plan for approval.
+
+# Migration Rules
+
+- The agent must never run database migration commands (`dotnet ef migrations add`, `dotnet ef database update`, or equivalent).
+- The agent can create/update model/entity code only and must explicitly ask the user to run migrations manually.
 <!-- END:nextjs-agent-rules -->

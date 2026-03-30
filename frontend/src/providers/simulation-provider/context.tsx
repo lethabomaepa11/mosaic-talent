@@ -49,6 +49,28 @@ export interface ISimulationFeedback {
   generatedByAi: boolean;
 }
 
+export interface ISimulationVoiceTurnResult {
+  session: ISimulationSession;
+  replyText: string;
+  replyRole?: string;
+  replyMessageId?: string;
+  voiceModel?: string;
+  audioBase64?: string;
+  audioMimeType?: string;
+}
+
+export interface ISimulationRealtimeEvent {
+  type:
+    | "turn_started"
+    | "session_updated"
+    | "bot_text"
+    | "bot_audio"
+    | "turn_completed"
+    | "error"
+    | "interrupt_ack";
+  payload?: Record<string, unknown>;
+}
+
 export interface ISimulationSession {
   id: string;
   scenarioId: string;
@@ -81,6 +103,17 @@ export interface ISimulationActionContext {
   getSession: (sessionId: string) => Promise<ISimulationSession | undefined>;
   advanceSession: (sessionId: string) => Promise<ISimulationSession | undefined>;
   sendMessage: (sessionId: string, content: string) => Promise<ISimulationSession | undefined>;
+  sendVoiceTurn: (
+    sessionId: string,
+    content: string,
+  ) => Promise<ISimulationVoiceTurnResult | undefined>;
+  connectRealtime: (
+    sessionId: string,
+    onEvent: (event: ISimulationRealtimeEvent) => void,
+  ) => Promise<void>;
+  disconnectRealtime: () => Promise<void>;
+  sendRealtimeMessage: (sessionId: string, content: string) => Promise<void>;
+  interruptRealtime: () => Promise<void>;
   evaluateSession: (sessionId: string) => Promise<ISimulationFeedback | undefined>;
 }
 
@@ -101,5 +134,10 @@ export const SimulationActionContext = createContext<ISimulationActionContext>({
   getSession: async () => undefined,
   advanceSession: async () => undefined,
   sendMessage: async () => undefined,
+  sendVoiceTurn: async () => undefined,
+  connectRealtime: async () => undefined,
+  disconnectRealtime: async () => undefined,
+  sendRealtimeMessage: async () => undefined,
+  interruptRealtime: async () => undefined,
   evaluateSession: async () => undefined,
 });
