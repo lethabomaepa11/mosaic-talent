@@ -18,6 +18,7 @@ using System.Text;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -318,6 +319,46 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
 
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
+    }
+
+    public async Task<RepoSafetyScanResultDto> ScanRepoSafety(ScanRepoSafetyInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project is required.");
+        }
+
+        var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
+            ?? throw new UserFriendlyException("Project not found.");
+
+        var repoUrl = NormalizeGithubRepoUrl(project.GithubRepo);
+        if (string.IsNullOrWhiteSpace(repoUrl))
+        {
+            throw new UserFriendlyException("Project repository must be a GitHub URL.");
+        }
+
+        var payload = JsonSerializer.Serialize(new { url = repoUrl }, RepoSafetyJsonOptions());
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://www.scanrepo.dev/api/scan")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new UserFriendlyException("Repository scan failed. Try again later.");
+        }
+
+        var scanResult = ParseRepoSafetyResponse(body);
+        if (scanResult?.Result == null)
+        {
+            throw new UserFriendlyException("Scan service returned an invalid response.");
+        }
+
+        return scanResult;
     }
 
     public async Task<DeveloperProjectDto> AiMatchProject()
@@ -781,6 +822,139 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             : value;
 
         return normalized;
+    }
+
+    private static string NormalizeGithubRepoUrl(string raw)
+    {
+        var value = (raw ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absoluteUri))
+        {
+            if (!string.Equals(absoluteUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            var repoKey = NormalizeGithubRepoKey(value);
+            return string.IsNullOrWhiteSpace(repoKey) ? string.Empty : $"https://github.com/{repoKey}";
+        }
+
+        var normalized = NormalizeGithubRepoKey(value);
+        return string.IsNullOrWhiteSpace(normalized) ? string.Empty : $"https://github.com/{normalized}";
+    }
+
+    private static RepoSafetyScanResultDto ParseRepoSafetyResponse(string payload)
+    {
+        var scan = new RepoSafetyScanResultDto();
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return scan;
+        }
+
+        if (TryParseRepoSafetyDocument(payload, scan))
+        {
+            return scan;
+        }
+
+        using var reader = new StringReader(payload);
+        string line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                continue;
+            }
+
+            TryParseRepoSafetyDocument(trimmed, scan);
+        }
+
+        return scan;
+    }
+
+    private static bool TryParseRepoSafetyDocument(string json, RepoSafetyScanResultDto scan)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in root.EnumerateArray())
+                {
+                    AppendRepoSafetyItem(scan, item);
+                }
+
+                return true;
+            }
+
+            AppendRepoSafetyItem(scan, root);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static void AppendRepoSafetyItem(RepoSafetyScanResultDto scan, JsonElement element)
+    {
+        var options = RepoSafetyJsonOptions();
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (element.TryGetProperty("type", out var typeElement))
+        {
+            var type = typeElement.GetString();
+            if (string.Equals(type, "progress", StringComparison.OrdinalIgnoreCase))
+            {
+                var step = element.TryGetProperty("step", out var stepElement)
+                    ? stepElement.GetString()
+                    : string.Empty;
+                var progress = element.TryGetProperty("progress", out var progressElement)
+                    ? progressElement.GetDouble()
+                    : 0;
+
+                scan.Progress.Add(new RepoSafetyProgressDto
+                {
+                    Step = step ?? string.Empty,
+                    Progress = (int)Math.Round(progress, MidpointRounding.AwayFromZero),
+                });
+                return;
+            }
+
+            if (string.Equals(type, "result", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataElement = element.TryGetProperty("data", out var dataValue)
+                    ? dataValue
+                    : element;
+                scan.Result = JsonSerializer.Deserialize<RepoSafetyResultDto>(
+                    dataElement.GetRawText(),
+                    options);
+                return;
+            }
+        }
+
+        if (element.TryGetProperty("riskScore", out _))
+        {
+            scan.Result = JsonSerializer.Deserialize<RepoSafetyResultDto>(
+                element.GetRawText(),
+                options);
+        }
+    }
+
+    private static JsonSerializerOptions RepoSafetyJsonOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        };
     }
 
     private static GithubRepositoryDto MapGithubRepository(GithubApiRepository repository)

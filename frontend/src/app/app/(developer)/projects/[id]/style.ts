@@ -107,6 +107,50 @@ export const useStyles = createStyles(({ token, css }) => ({
   membersCard: css`
     height: fit-content;
   `,
+  repoSafetyCard: css`
+    height: fit-content;
+  `,
+  repoSafetyBody: css`
+    display: grid;
+    gap: ${token.marginSM}px;
+  `,
+  repoSafetyAlert: css`
+    margin-bottom: ${token.marginXS}px;
+  `,
+  repoSafetyProgress: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+  `,
+  repoSafetySummary: css`
+    display: grid;
+    gap: ${token.marginSM}px;
+  `,
+  repoSafetyHeader: css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: ${token.marginXS}px;
+  `,
+  repoSafetyMeta: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginSM}px;
+    color: ${token.colorTextSecondary};
+  `,
+  repoSafetyBadges: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+  `,
+  repoSafetyFindings: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+  `,
+  repoSafetyList: css`
+    margin: 0;
+    padding-left: ${token.paddingMD}px;
+    color: ${token.colorTextSecondary};
+  `,
   memberItem: css`
     display: flex;
     align-items: center;
@@ -137,6 +181,21 @@ export const useStyles = createStyles(({ token, css }) => ({
     flex-wrap: wrap;
     justify-content: space-between;
     gap: ${token.marginSM}px;
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+  `,
+  tasksCard: css`
+    :global(.ant-card-head) {
+      align-items: stretch;
+    }
+
+    :global(.ant-card-head-title) {
+      width: 100%;
+      flex: 1 1 100%;
+      min-width: 0;
+    }
   `,
   boardGrid: css`
     display: grid;
@@ -179,6 +238,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     padding: ${token.paddingSM}px;
     background: ${token.colorBgContainer};
     cursor: grab;
+
   `,
   taskDragging: css`
     opacity: 0.6;

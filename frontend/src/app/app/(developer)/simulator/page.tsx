@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -192,7 +192,7 @@ const isVisibleParticipantRole = (role: string) => {
   return normalizedRole !== "assessorbot" && normalizedRole !== "assessor";
 };
 
-export default function SimulatorPage() {
+const SimulatorPageContent = () => {
   const { styles } = useStyles();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<ISpeechRecognitionEventTarget | null>(null);
@@ -1203,5 +1203,18 @@ export default function SimulatorPage() {
         </Form>
       </Modal>
     </div>
+  );
+};
+
+const SimulatorPageFallback = () => {
+  const { styles } = useStyles();
+  return <div className={styles.loadingState}>Loading simulator...</div>;
+};
+
+export default function SimulatorPage() {
+  return (
+    <Suspense fallback={<SimulatorPageFallback />}>
+      <SimulatorPageContent />
+    </Suspense>
   );
 }
