@@ -3,6 +3,7 @@ using Abp.Domain.Repositories;
 using Abp.Domain.Uow;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
@@ -164,6 +165,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
     }
 
     [AbpAllowAnonymous]
+    [HttpGet]
     public async Task<List<DeveloperSearchResultDto>> SearchPublicDevelopers(
         GetPublicDeveloperSearchResultsInput input)
     {
