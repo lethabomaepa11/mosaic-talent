@@ -113,6 +113,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Public developer profiles:
   - anonymous `/developers/[username]` profile page with skills, current projects, and completed projects
   - project member names link to public profiles from project details
+- Global search in the header:
+  - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
+  - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
 
 ## Documentation
 
@@ -183,6 +186,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/SearchPublicDevelopers`
 - `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
 - `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`

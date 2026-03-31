@@ -30,6 +30,7 @@ import {
   DeveloperActionContext,
   DeveloperStateContext,
   IDeveloperProfile,
+  IDeveloperSearchResult,
   IGamificationSummary,
   IGithubScanResult,
   ILearningPathResult,
@@ -116,6 +117,27 @@ const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
     .map((item) => item.trim())
     .filter(Boolean),
 });
+
+const normalizeDeveloperSearchResult = (
+  input: Partial<IDeveloperSearchResult>,
+): IDeveloperSearchResult => ({
+  userName: input.userName ?? "",
+  displayName: input.displayName ?? "",
+  avatarUrl: input.avatarUrl ?? "",
+  githubUsername: input.githubUsername ?? "",
+  skillTags: input.skillTags ?? [],
+  yearsOfExperience: input.yearsOfExperience,
+});
+
+const normalizeDeveloperSearchResults = (input: unknown): IDeveloperSearchResult[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((item) =>
+    normalizeDeveloperSearchResult(item as Partial<IDeveloperSearchResult>),
+  );
+};
 
 const normalizePublicProject = (
   input: NonNullable<IPublicDeveloperProfile["currentProjects"]>[number],
@@ -220,6 +242,33 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const searchPublicDevelopers = async (query: string) => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    const params = {
+      query: normalizedQuery,
+      Query: normalizedQuery,
+      "input.query": normalizedQuery,
+    };
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/SearchPublicDevelopers`, {
+        params,
+      });
+
+      return normalizeDeveloperSearchResults(res.data?.result);
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.error?.message as string | undefined)
+          : undefined;
+      throw new Error(message || "Failed to search developers.");
+    }
+  };
+
   const scanMyGithubProfile = async () => {
     dispatch(scanGithubPending());
 
@@ -303,6 +352,7 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           fetchCurrentUser,
           upsertMyProfile,
           getPublicProfile,
+          searchPublicDevelopers,
           scanMyGithubProfile,
           fetchLearningPathRecommendations,
           fetchMyGamificationSummary,

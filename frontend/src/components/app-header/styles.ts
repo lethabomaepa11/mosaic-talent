@@ -84,4 +84,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     font-size: ${token.fontSizeSM}px;
     color: ${token.colorTextSecondary};
   `,
+  searchOption: css`
+    gap: ${token.marginSM}px;
+    width: 100%;
+  `,
 }));
