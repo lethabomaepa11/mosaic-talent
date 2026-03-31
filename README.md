@@ -130,6 +130,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
+- [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 
 ## Tenant Resolution Rules
@@ -140,9 +141,13 @@ Frontend resolves tenant before auth calls:
    - Host contains `mosaic-talent.vercel.app`
    - Reads prefix before `-mosaic-talent`
    - Example: `acme-mosaic-talent.vercel.app` -> `acme`
-2. Localhost pattern:
+2. Production domain pattern (`mosaictalent.co.za` by default):
+   - Host in format `<tenant>.mosaictalent.co.za`
+   - Extracts subdomain closest to root domain as tenant
+   - Example: `acme.mosaictalent.co.za` -> `acme`
+3. Localhost pattern:
    - `acme.localhost` -> `acme`
-3. Generic multi-subdomain pattern:
+4. Generic multi-subdomain pattern:
    - Uses the last subdomain before registrable domain
    - Example: `company.app.domain.com` -> `app`
 
