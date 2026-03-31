@@ -9,6 +9,14 @@ export interface IReviewQuestion {
   relatedGoal?: string;
   category?: string;
   answerText?: string;
+  gamificationReward?: IGamificationReward;
+}
+
+export interface IGamificationReward {
+  pointsAwarded: number;
+  totalPoints: number;
+  level: number;
+  badgesUnlocked: string[];
 }
 
 export interface IPeerReview {
@@ -22,6 +30,7 @@ export interface IPeerReview {
   rating: number;
   isCompleted: boolean;
   questions: IReviewQuestion[];
+  gamificationReward?: IGamificationReward;
 }
 
 export interface IAIReviewFeedback {

@@ -11,10 +11,10 @@ import {
 import {
   INITIAL_STATE,
   TenantResolutionActionContext,
-  TenantResolutionSource,
   TenantResolutionStateContext,
 } from "./context";
 import { TenantResolutionReducer } from "./reducer";
+import { getTenancyCandidateFromHost, normalizeHost } from "./hostTenancy";
 
 interface IIsTenantAvailableResult {
   state: number;
@@ -27,89 +27,7 @@ interface ICompanyBrandingResult {
   websiteUrl?: string;
 }
 
-interface ITenantCandidate {
-  tenancyName: string;
-  source: TenantResolutionSource;
-}
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
-const normalizeHost = (hostname: string) =>
-  hostname.toLowerCase().split(":")[0];
-
-const parseVercelTenancy = (host: string) => {
-  if (!host.endsWith("-mosaic-talent.vercel.app")) {
-    return "";
-  }
-
-  const label = host.slice(0, -"-mosaic-talent.vercel.app".length);
-  if (!label || label === host) {
-    return "";
-  }
-
-  return label;
-};
-
-const parseGenericSubdomainTenancy = (host: string) => {
-  const parts = host.split(".").filter(Boolean);
-
-  if (parts.length < 3) {
-    return "";
-  }
-
-  return parts[parts.length - 3] ?? "";
-};
-
-const parseLocalhostTenancy = (host: string) => {
-  if (!host.endsWith(".localhost")) {
-    return "";
-  }
-
-  const parts = host.split(".").filter(Boolean);
-  if (parts.length < 2) {
-    return "";
-  }
-
-  const candidate = parts[parts.length - 2];
-  return candidate === "localhost" ? "" : candidate;
-};
-
-const getTenancyCandidateFromHost = (host: string): ITenantCandidate | null => {
-  if (!host || host === "localhost" || host === "127.0.0.1") {
-    return null;
-  }
-
-  // Root Vercel host must always resolve to the initial/default tenant (id: 1).
-  if (host === "mosaic-talent.vercel.app") {
-    return null;
-  }
-
-  const vercelTenancy = parseVercelTenancy(host);
-  if (vercelTenancy) {
-    return {
-      tenancyName: vercelTenancy,
-      source: "vercel",
-    };
-  }
-
-  const localhostTenancy = parseLocalhostTenancy(host);
-  if (localhostTenancy) {
-    return {
-      tenancyName: localhostTenancy,
-      source: "subdomain",
-    };
-  }
-
-  const subdomainTenancy = parseGenericSubdomainTenancy(host);
-  if (subdomainTenancy) {
-    return {
-      tenancyName: subdomainTenancy,
-      source: "subdomain",
-    };
-  }
-
-  return null;
-};
 
 const resolveTenantWithApi = async (tenancyName: string) => {
   const rawClient = axios.create({

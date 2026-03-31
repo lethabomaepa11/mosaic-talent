@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Simulations;
 using MosaicTalent.Services.AiService;
+using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.SimulationScenarioService.DTO;
 using System;
 using System.Collections.Generic;
@@ -27,6 +28,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
     private readonly IRepository<AssessorObservation, Guid> _observationRepository;
     private readonly IRepository<AssessorDimensionScore, Guid> _dimensionScoreRepository;
     private readonly IGroqChatService _groqChatService;
+    private readonly IDeveloperGamificationService _developerGamificationService;
 
     public SimulationScenarioAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -38,7 +40,8 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         IRepository<OrchestratorLog, Guid> orchestratorLogRepository,
         IRepository<AssessorObservation, Guid> observationRepository,
         IRepository<AssessorDimensionScore, Guid> dimensionScoreRepository,
-        IGroqChatService groqChatService)
+        IGroqChatService groqChatService,
+        IDeveloperGamificationService developerGamificationService)
     {
         _developerRepository = developerRepository;
         _scenarioRepository = scenarioRepository;
@@ -50,6 +53,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         _observationRepository = observationRepository;
         _dimensionScoreRepository = dimensionScoreRepository;
         _groqChatService = groqChatService;
+        _developerGamificationService = developerGamificationService;
     }
 
     public async Task<List<SimulationScenarioDto>> GetScenarios()
@@ -272,7 +276,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
     public async Task<SimulationFeedbackDto> EvaluateSession(GetSimulationSessionInput input)
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
-        await EnsureCurrentDeveloper();
+        var developer = await EnsureCurrentDeveloper();
         if (!_groqChatService.IsConfigured())
         {
             throw new UserFriendlyException("AI evaluation is not configured. Please set Groq configuration.");
@@ -301,6 +305,20 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         var aiFeedback = await EvaluateWithGroq(scenario, messages, observations, scores);
         if (aiFeedback != null)
         {
+            try
+            {
+                aiFeedback.GamificationReward = await _developerGamificationService.AwardAsync(
+                    tenantId,
+                    developer.Id,
+                    "simulation_evaluated",
+                    $"simulation-evaluated:{session.Id}",
+                    $"scenario:{scenario.Id}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to award simulation evaluation gamification points.", ex);
+            }
+
             aiFeedback.GeneratedByAi = true;
             return aiFeedback;
         }

@@ -12,6 +12,11 @@ public class Developer : FullAuditedEntity<Guid>
     [MaxLength(64)]
     public string GithubUsername { get; set; }
 
+    [MaxLength(4096)]
+    public string GithubAccessTokenEncrypted { get; set; }
+
+    public DateTime? GithubAccessTokenUpdatedAt { get; set; }
+
     [Range(0, 80)]
     public int? YearsOfExperience { get; set; }
 

@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CompanyHeader, CompanySidebar } from "@/components/company";
 import { MobileDeveloperNav } from "@/components/mobile-developer-nav";
+import { AppOperatorPanel } from "@/components/app-operator";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileAction } from "@/providers/company-profile-provider";
 import { useDeveloperAction } from "@/providers/developer-provider";
@@ -67,6 +68,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
         <main className={styles.content}>{children}</main>
         {!isCompanyTenant ? <MobileDeveloperNav /> : null}
       </div>
+      <AppOperatorPanel />
       <Drawer
         open={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}

@@ -68,5 +68,16 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Unit tests
+        run: npm test
+
       - name: Build
         run: npm run build
+
+      - name: Install Playwright browser
+        if: github.event_name == 'push'
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        if: github.event_name == 'push'
+        run: npm run test:e2e

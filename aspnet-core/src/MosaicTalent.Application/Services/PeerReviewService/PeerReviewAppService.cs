@@ -1,11 +1,15 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Notifications;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
+using MosaicTalent.Services.GamificationService;
+using MosaicTalent.Services.GamificationService.DTO;
+using MosaicTalent.Services.NotificationChannelService;
 using MosaicTalent.Services.PeerReviewService.DTO;
 using System;
 using System.Collections.Generic;
@@ -27,6 +31,8 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
     private readonly IRepository<ReviewAnswer, Guid> _answerRepository;
     private readonly IRepository<AIReviewFeedback, Guid> _feedbackRepository;
     private readonly IPeerReviewGenerationService _generationService;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
+    private readonly IDeveloperGamificationService _developerGamificationService;
 
     public PeerReviewAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -37,7 +43,9 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         IRepository<AIReviewQuestion, Guid> questionRepository,
         IRepository<ReviewAnswer, Guid> answerRepository,
         IRepository<AIReviewFeedback, Guid> feedbackRepository,
-        IPeerReviewGenerationService generationService)
+        IPeerReviewGenerationService generationService,
+        INotificationEventDispatcher notificationEventDispatcher,
+        IDeveloperGamificationService developerGamificationService)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -48,6 +56,8 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         _answerRepository = answerRepository;
         _feedbackRepository = feedbackRepository;
         _generationService = generationService;
+        _notificationEventDispatcher = notificationEventDispatcher;
+        _developerGamificationService = developerGamificationService;
     }
 
     public async Task<List<ProjectPeerReviewsDto>> GetMyProjectPeerReviews()
@@ -99,6 +109,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
     public async Task<PeerReviewDto> SetPeerReviewRating(SetPeerReviewRatingInput input)
     {
         var developer = await GetCurrentDeveloper();
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
         var review = await _peerReviewRepository.FirstOrDefaultAsync(input.ReviewId)
             ?? throw new UserFriendlyException("Peer review not found.");
 
@@ -112,12 +123,20 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         await _peerReviewRepository.UpdateAsync(review);
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        return await BuildPeerReviewDto(review);
+        var dto = await BuildPeerReviewDto(review);
+        dto.GamificationReward = await _developerGamificationService.AwardAsync(
+            tenantId,
+            developer.Id,
+            "peer_review_rating",
+            $"peer-review-rating:{review.Id}",
+            $"project:{review.ProjectId}");
+        return dto;
     }
 
     public async Task<PeerReviewQuestionDto> SubmitReviewAnswer(SubmitReviewAnswerInput input)
     {
         var developer = await GetCurrentDeveloper();
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
         var question = await _questionRepository.FirstOrDefaultAsync(input.QuestionId)
             ?? throw new UserFriendlyException("Review question not found.");
         var review = await _peerReviewRepository.FirstOrDefaultAsync(question.PeerReviewId)
@@ -135,12 +154,24 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             throw new UserFriendlyException("Answer text is required.");
         }
 
+        var reviewQuestionIds = await _questionRepository.GetAll()
+            .Where(x => x.PeerReviewId == review.Id)
+            .Select(x => x.Id)
+            .ToListAsync();
+        var answeredBeforeIds = reviewQuestionIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await _answerRepository.GetAll()
+                .Where(x => reviewQuestionIds.Contains(x.AIReviewQuestionId) && !string.IsNullOrWhiteSpace(x.Text))
+                .Select(x => x.AIReviewQuestionId)
+                .ToListAsync()).ToHashSet();
+        var wasComplete = reviewQuestionIds.Count > 0 && reviewQuestionIds.All(answeredBeforeIds.Contains);
+
         var existingAnswer = await _answerRepository.GetAll()
             .FirstOrDefaultAsync(x => x.AIReviewQuestionId == question.Id);
+        var hadAnswerBefore = existingAnswer != null && !string.IsNullOrWhiteSpace(existingAnswer.Text);
 
         if (existingAnswer == null)
         {
-            var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
             await _answerRepository.InsertAsync(new ReviewAnswer
             {
                 TenantId = tenantId,
@@ -156,6 +187,55 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
 
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        var answeredAfterIds = new HashSet<Guid>(answeredBeforeIds);
+        if (!hadAnswerBefore)
+        {
+            answeredAfterIds.Add(question.Id);
+        }
+        var isComplete = reviewQuestionIds.Count > 0 && reviewQuestionIds.All(answeredAfterIds.Contains);
+        GamificationRewardDto reviewerReward = null;
+
+        if (!wasComplete && isComplete)
+        {
+            reviewerReward = await _developerGamificationService.AwardAsync(
+                tenantId,
+                developer.Id,
+                "peer_review_completed",
+                $"peer-review-completed:{review.Id}",
+                $"project:{review.ProjectId}");
+
+            try
+            {
+                var reviewee = await _developerRepository.FirstOrDefaultAsync(review.RevieweeDeveloperId);
+                if (reviewee != null && reviewee.UserId > 0)
+                {
+                    await _developerGamificationService.AwardAsync(
+                        tenantId,
+                        reviewee.Id,
+                        "peer_review_received",
+                        $"peer-review-received:{review.Id}",
+                        $"project:{review.ProjectId}");
+
+                    var project = await _projectRepository.FirstOrDefaultAsync(review.ProjectId);
+                    var title = project?.Title ?? "your project";
+                    var message = $"A teammate completed your peer review for \"{title}\".";
+                    await _notificationEventDispatcher.NotifyUsersAsync(
+                        review.TenantId,
+                        new[] { reviewee.UserId },
+                        "MosaicTalent.PeerReviewCompleted",
+                        message,
+                        NotificationSeverity.Info,
+                        "/app/reviews",
+                        "Peer review complete",
+                        message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to dispatch peer review completion notification.", ex);
+            }
+        }
+
         return new PeerReviewQuestionDto
         {
             Id = question.Id,
@@ -164,6 +244,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             RelatedGoal = question.RelatedGoal,
             Category = question.Category,
             AnswerText = normalized,
+            GamificationReward = reviewerReward,
         };
     }
 

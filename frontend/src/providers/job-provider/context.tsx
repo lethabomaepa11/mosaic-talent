@@ -21,6 +21,12 @@ export interface IJobApplication {
   aiVerdict?: string;
   aiExtractedSkills?: string[];
   aiGithubRepo?: string;
+  aiGithubUsername?: string;
+  aiGithubProfileSummary?: string;
+  aiGithubDocumentationScore?: number | null;
+  aiGithubDocumentationNotes?: string[];
+  aiGithubAnalysisConfidence?: string;
+  aiGithubAnalysisSourceStatus?: Record<string, string>;
   aiProjects?: Array<{
     name: string;
     description: string;

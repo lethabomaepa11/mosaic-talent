@@ -14,7 +14,7 @@ const CompanyDashboardPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/company/login");
+      router.replace("/company/signup");
       return;
     }
 

@@ -3,8 +3,13 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, Card, Input, Space, Spin, Tag, Typography } from "antd";
-import { Save, Send } from "lucide-react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import { ChevronLeft, ChevronRight, Save, Send } from "lucide-react";
+import {
+  Group,
+  Panel,
+  PanelImperativeHandle,
+  Separator,
+} from "react-resizable-panels";
 import { toast } from "@/components/providers";
 import {
   IJobAssessment,
@@ -23,6 +28,10 @@ import {
 } from "./mockEngine";
 import { EMPTY_DRAFT, SubmissionDraft, TaskWorkspace } from "./types";
 import {
+  buildAssessmentSubmissionText,
+  hasAnyWorkspaceCode,
+} from "./submission";
+import {
   createEmptyWorkspace,
   ensureWorkspaceMap,
   upsertFileContent,
@@ -38,13 +47,26 @@ type AppliedHistory = {
   existedBefore: boolean;
 };
 
-const joinWorkspaceFiles = (workspace: TaskWorkspace): string => {
-  const files = Object.entries(workspace.files ?? {}).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
-  return files
-    .map(([path, content]) => `// FILE: ${path}\n${content ?? ""}`)
-    .join("\n\n");
+const DEFAULT_HTML_SCAFFOLD = `<html>
+<head>
+  <style>
+    *{
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Hello</h1>
+</body>
+</html>`;
+
+const getDefaultFileContent = (path: string): string => {
+  const normalized = (path ?? "").toLowerCase();
+  if (normalized.endsWith(".html") || normalized.endsWith(".htm")) {
+    return DEFAULT_HTML_SCAFFOLD;
+  }
+  return "";
 };
 
 const AssessmentPage = () => {
@@ -68,8 +90,10 @@ const AssessmentPage = () => {
   const [githubRepoUrl, setGithubRepoUrl] = useState("");
   const [draft, setDraft] = useState<SubmissionDraft>({ ...EMPTY_DRAFT });
   const [isLargeDevice, setIsLargeDevice] = useState(true);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(true);
   const [accessBlockedMessage, setAccessBlockedMessage] = useState("");
   const appliedProposalHistoryRef = useRef<AppliedHistory[]>([]);
+  const copilotPanelRef = useRef<PanelImperativeHandle | null>(null);
 
   const selectedProblemId =
     draft.selectedProblemId || assessment?.problems?.[0]?.id || "";
@@ -419,24 +443,12 @@ const AssessmentPage = () => {
 
   const submitFinal = async () => {
     if (!assessment) return;
-    const hasAnyCode = Object.values(draft.workspaceByProblem).some(
-      (workspace) =>
-        Object.values(workspace.files ?? {}).some(
-          (content) => (content ?? "").trim().length >= 20,
-        ),
-    );
+    const hasAnyCode = hasAnyWorkspaceCode(draft.workspaceByProblem);
 
     if (!hasAnyCode && githubRepoUrl.trim().length < 10) {
       toast.error(
         "Submission incomplete",
         "Provide implementation code/pseudocode or repository URL.",
-      );
-      return;
-    }
-    if (draft.collaborationResponse.trim().length < 10) {
-      toast.error(
-        "Submission incomplete",
-        "Respond to the collaboration scenario.",
       );
       return;
     }
@@ -448,28 +460,11 @@ const AssessmentPage = () => {
       return;
     }
 
-    const problemsPayload = (assessment.problems ?? []).map((problem) => {
-      const workspace =
-        draft.workspaceByProblem[problem.id] ?? createEmptyWorkspace();
-      return {
-        problemId: problem.id,
-        code: joinWorkspaceFiles(workspace),
-        files: workspace.files,
-        passedPublic: 0,
-        totalPublic: 0,
-        promptAttempts: workspace.promptAttempts,
-      };
-    });
-
-    const submissionText = JSON.stringify({
-      mode: draft.mode,
+    const submissionText = buildAssessmentSubmissionText({
+      problems: assessment.problems ?? [],
+      draft,
       selectedProblemId,
-      workspaceByProblem: draft.workspaceByProblem,
-      collaborationResponse: draft.collaborationResponse,
-      problems: problemsPayload,
-      questionnaireAnswers: draft.questionnaireAnswers,
       telemetry,
-      submittedAt: new Date().toISOString(),
     });
 
     setSubmitting(true);
@@ -500,6 +495,15 @@ const AssessmentPage = () => {
         assessment?.problems ?? [],
       ),
     }));
+  };
+
+  const toggleCopilotPanel = () => {
+    if (!copilotPanelRef.current) return;
+    if (isCopilotOpen) {
+      copilotPanelRef.current.collapse();
+      return;
+    }
+    copilotPanelRef.current.expand();
   };
 
   if (loading)
@@ -640,6 +644,17 @@ const AssessmentPage = () => {
         </Space>
       </Card>
 
+      <div className={styles.workspaceToolbar}>
+        <Typography.Text strong>Connected Workspace</Typography.Text>
+        <Button
+          size="small"
+          type="text"
+          icon={isCopilotOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          onClick={toggleCopilotPanel}
+        >
+          {isCopilotOpen ? "Hide Copilot" : "Show Copilot"}
+        </Button>
+      </div>
       <Group orientation="horizontal" className={styles.workbenchWithCopilot}>
         <Panel defaultSize={68} minSize={45}>
           <WorkbenchPanel
@@ -673,7 +688,7 @@ const AssessmentPage = () => {
             }
             onCreateFile={(path) =>
               updateActiveWorkspace((workspace) => ({
-                ...upsertFileContent(workspace, path, ""),
+                ...upsertFileContent(workspace, path, getDefaultFileContent(path)),
                 activeFilePath: path,
               }))
             }
@@ -744,8 +759,15 @@ const AssessmentPage = () => {
             modeLocked
           />
         </Panel>
-        <Separator className={styles.resizeHandle} />
-        <Panel defaultSize={32} minSize={22}>
+        {isCopilotOpen ? <Separator className={styles.resizeHandle} /> : null}
+        <Panel
+          panelRef={copilotPanelRef}
+          defaultSize={32}
+          minSize={22}
+          collapsible
+          collapsedSize={0}
+          onResize={(size) => setIsCopilotOpen(size.asPercentage > 0)}
+        >
           <div className={styles.copilotRail}>
             <AiPanel
               promptInput={promptInput}
@@ -772,6 +794,7 @@ const AssessmentPage = () => {
               }
               onProposalDecision={handleProposalDecision}
               onReviseProposal={reviseProposal}
+              styles={styles}
             />
           </div>
         </Panel>

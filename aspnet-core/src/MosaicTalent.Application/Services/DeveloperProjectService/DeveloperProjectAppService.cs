@@ -1,17 +1,25 @@
 using Abp.Authorization;
 using Abp.Domain.Repositories;
+using Abp.Notifications;
+using Abp.Runtime.Security;
 using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Projects;
+using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.PeerReviewService;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
+using MosaicTalent.Services.NotificationChannelService;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace MosaicTalent.Services.DeveloperProjectService;
@@ -30,6 +38,10 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
     private readonly IGroqChatService _groqChatService;
     private readonly IPeerReviewGenerationService _peerReviewGenerationService;
+    private readonly IProjectJoinNotificationDispatcher _projectJoinNotificationDispatcher;
+    private readonly INotificationEventDispatcher _notificationEventDispatcher;
+    private readonly IDeveloperGamificationService _developerGamificationService;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public DeveloperProjectAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -42,7 +54,11 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
         IGroqChatService groqChatService,
-        IPeerReviewGenerationService peerReviewGenerationService)
+        IPeerReviewGenerationService peerReviewGenerationService,
+        IProjectJoinNotificationDispatcher projectJoinNotificationDispatcher,
+        INotificationEventDispatcher notificationEventDispatcher,
+        IDeveloperGamificationService developerGamificationService,
+        IHttpClientFactory httpClientFactory)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -55,6 +71,10 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _developerProfileGoalRepository = developerProfileGoalRepository;
         _groqChatService = groqChatService;
         _peerReviewGenerationService = peerReviewGenerationService;
+        _projectJoinNotificationDispatcher = projectJoinNotificationDispatcher;
+        _notificationEventDispatcher = notificationEventDispatcher;
+        _developerGamificationService = developerGamificationService;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<List<DeveloperProjectDto>> GetMyProjects()
@@ -108,10 +128,97 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         return mapped.First();
     }
 
+    public async Task<GithubConnectionStatusDto> GetGithubConnectionStatus()
+    {
+        var developer = await GetCurrentDeveloper();
+
+        return new GithubConnectionStatusDto
+        {
+            IsConnected = !string.IsNullOrWhiteSpace(developer.GithubAccessTokenEncrypted),
+            GithubUsername = developer.GithubUsername ?? string.Empty,
+        };
+    }
+
+    public async Task<List<GithubRepositoryDto>> GetMyGithubRepositories()
+    {
+        var developer = await GetCurrentDeveloper();
+        var repositories = await FetchGithubRepositories(developer);
+        return repositories
+            .OrderBy(repo => repo.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(MapGithubRepository)
+            .ToList();
+    }
+
+    public async Task<GithubRepositoryDto> CreateGithubRepository(CreateGithubRepositoryInput input)
+    {
+        var developer = await GetCurrentDeveloper();
+        var token = ResolveGithubAccessToken(developer);
+        var repositoryName = (input.Name ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(repositoryName))
+        {
+            throw new UserFriendlyException("Repository name is required.");
+        }
+
+        if (repositoryName.Any(char.IsWhiteSpace))
+        {
+            throw new UserFriendlyException("Repository name cannot contain spaces.");
+        }
+
+        var payload = new
+        {
+            name = repositoryName,
+            description = input.Description?.Trim() ?? string.Empty,
+            @private = input.IsPrivate,
+            auto_init = true,
+        };
+
+        var request = BuildGithubRequest(HttpMethod.Post, "https://api.github.com/user/repos", token);
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+
+        var client = _httpClientFactory.CreateClient();
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new UserFriendlyException(
+                ExtractGithubError(body)
+                ?? "Failed to create GitHub repository. Verify GitHub connection permissions and try again.");
+        }
+
+        try
+        {
+            var created = JsonSerializer.Deserialize<GithubApiRepository>(body, GithubJsonOptions());
+            if (created == null || string.IsNullOrWhiteSpace(created.FullName))
+            {
+                throw new UserFriendlyException("GitHub returned an invalid repository response.");
+            }
+
+            return MapGithubRepository(created);
+        }
+        catch (JsonException)
+        {
+            throw new UserFriendlyException("GitHub returned an unexpected repository response.");
+        }
+    }
+
     public async Task<DeveloperProjectDto> CreateProject(CreateDeveloperProjectInput input)
     {
         var developer = await GetCurrentDeveloper();
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var selectedRepo = (input.GithubRepo ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(selectedRepo))
+        {
+            throw new UserFriendlyException("Select a GitHub repository before creating a project.");
+        }
+
+        var availableRepos = await FetchGithubRepositories(developer);
+        var selectedRepoEntry = ResolveSelectedRepository(availableRepos, selectedRepo)
+            ?? throw new UserFriendlyException("Selected GitHub repository was not found in your connected account.");
 
         var normalizedSkills = (input.Skills ?? new List<string>())
             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -126,7 +233,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Title = input.Title.Trim(),
             Description = input.Description.Trim(),
             MaxMembers = input.MaxMembers ?? 4,
-            GithubRepo = input.GithubRepo?.Trim(),
+            GithubRepo = selectedRepoEntry.HtmlUrl?.Trim() ?? $"https://github.com/{selectedRepoEntry.FullName}",
             Type = input.Type,
             Status = input.Status,
         };
@@ -199,6 +306,15 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Role = MemberRole.Member,
         });
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            await _projectJoinNotificationDispatcher.NotifyOwnerAboutJoinAsync(project, developer, tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Project join notifications failed.", ex);
+        }
 
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
@@ -303,6 +419,27 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             }
 
             await CurrentUnitOfWork.SaveChangesAsync();
+
+            if (selectedCandidates.Count > 0)
+            {
+                try
+                {
+                    var message = $"You were added to \"{project.Title}\".";
+                    await _notificationEventDispatcher.NotifyUsersAsync(
+                        tenantId,
+                        selectedCandidates.Select(x => x.UserId),
+                        "MosaicTalent.ProjectMemberAdded",
+                        message,
+                        NotificationSeverity.Info,
+                        $"/app/projects/{project.Id}",
+                        "Added to project",
+                        message);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn("Failed to dispatch project member added notifications.", ex);
+                }
+            }
         }
 
         var mapped = await MapProjects(new List<Project> { project });
@@ -453,6 +590,61 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         await _peerReviewGenerationService.EnsureGeneratedForProject(project.Id, project.TenantId);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        try
+        {
+            var memberDeveloperIds = await _projectMemberRepository.GetAll()
+                .Where(x => x.ProjectId == project.Id)
+                .Select(x => x.DeveloperId)
+                .Distinct()
+                .ToListAsync();
+
+            await _developerGamificationService.AwardAsync(
+                project.TenantId,
+                developer.Id,
+                "project_completed_lead",
+                $"project-completed-lead:{project.Id}",
+                $"project:{project.Id}");
+
+            foreach (var memberDeveloperId in memberDeveloperIds.Where(x => x != developer.Id))
+            {
+                await _developerGamificationService.AwardAsync(
+                    project.TenantId,
+                    memberDeveloperId,
+                    "project_completed_member",
+                    $"project-completed-member:{project.Id}:{memberDeveloperId}",
+                    $"project:{project.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to award project completion gamification points.", ex);
+        }
+
+        try
+        {
+            var memberUserIds = await ResolveProjectMemberUserIds(project.Id);
+            var recipients = memberUserIds
+                .Where(userId => userId != developer.UserId)
+                .ToList();
+            if (recipients.Count > 0)
+            {
+                var message = $"\"{project.Title}\" was marked complete. Peer review is now available.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    recipients,
+                    "MosaicTalent.ProjectCompleted",
+                    message,
+                    NotificationSeverity.Success,
+                    "/app/reviews",
+                    "Project completed",
+                    message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch project completion notifications.", ex);
+        }
+
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
     }
@@ -485,6 +677,150 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         }
 
         return project;
+    }
+
+    private async Task<List<GithubApiRepository>> FetchGithubRepositories(Developer developer)
+    {
+        var token = ResolveGithubAccessToken(developer);
+        var request = BuildGithubRequest(
+            HttpMethod.Get,
+            "https://api.github.com/user/repos?per_page=100&sort=updated&type=owner",
+            token);
+
+        var client = _httpClientFactory.CreateClient();
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new UserFriendlyException(
+                ExtractGithubError(body)
+                ?? "Failed to fetch GitHub repositories. Reconnect GitHub and try again.");
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<GithubApiRepository>>(body, GithubJsonOptions())
+                   ?? new List<GithubApiRepository>();
+        }
+        catch (JsonException)
+        {
+            throw new UserFriendlyException("GitHub returned an unexpected repositories response.");
+        }
+    }
+
+    private static HttpRequestMessage BuildGithubRequest(HttpMethod method, string url, string token)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.UserAgent.ParseAdd("MosaicTalent");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        return request;
+    }
+
+    private string ResolveGithubAccessToken(Developer developer)
+    {
+        if (string.IsNullOrWhiteSpace(developer.GithubAccessTokenEncrypted))
+        {
+            throw new UserFriendlyException("Connect your GitHub account before creating a project.");
+        }
+
+        try
+        {
+            var token = SimpleStringCipher.Instance.Decrypt(developer.GithubAccessTokenEncrypted);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new UserFriendlyException("GitHub connection token is empty. Reconnect GitHub.");
+            }
+
+            return token;
+        }
+        catch (Exception)
+        {
+            throw new UserFriendlyException("GitHub connection is invalid. Reconnect GitHub and try again.");
+        }
+    }
+
+    private static GithubApiRepository ResolveSelectedRepository(
+        IReadOnlyCollection<GithubApiRepository> repositories,
+        string selectedRepo)
+    {
+        var selectedKey = NormalizeGithubRepoKey(selectedRepo);
+        return repositories.FirstOrDefault(repo =>
+            string.Equals(repo.FullName, selectedKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeGithubRepoKey(string raw)
+    {
+        var value = (raw ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absoluteUri))
+        {
+            if (!string.Equals(absoluteUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+
+            var segments = absoluteUri.AbsolutePath
+                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2)
+            {
+                var repoName = segments[1].EndsWith(".git", StringComparison.OrdinalIgnoreCase)
+                    ? segments[1].Substring(0, segments[1].Length - 4)
+                    : segments[1];
+                return $"{segments[0]}/{repoName}";
+            }
+        }
+
+        var normalized = value.EndsWith(".git", StringComparison.OrdinalIgnoreCase)
+            ? value.Substring(0, value.Length - 4)
+            : value;
+
+        return normalized;
+    }
+
+    private static GithubRepositoryDto MapGithubRepository(GithubApiRepository repository)
+    {
+        return new GithubRepositoryDto
+        {
+            Name = repository.Name ?? string.Empty,
+            FullName = repository.FullName ?? string.Empty,
+            HtmlUrl = repository.HtmlUrl ?? string.Empty,
+            IsPrivate = repository.Private,
+            DefaultBranch = repository.DefaultBranch ?? string.Empty,
+        };
+    }
+
+    private static string ExtractGithubError(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            var error = JsonSerializer.Deserialize<GithubApiError>(payload, GithubJsonOptions());
+            return string.IsNullOrWhiteSpace(error?.Message)
+                ? null
+                : error.Message;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static JsonSerializerOptions GithubJsonOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        };
     }
 
     private async Task<List<DeveloperProjectDto>> MapProjects(List<Project> projects)
@@ -533,6 +869,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 {
                     Id = member.DeveloperId,
                     Name = string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Developer" : fullName,
+                    UserName = user?.UserName ?? string.Empty,
                     Avatar = user?.AvatarUrl ?? string.Empty,
                     Role = member.Role == MemberRole.Lead ? "lead" : "member",
                 };
@@ -568,6 +905,25 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 Tasks = taskDtos,
             };
         }).ToList();
+    }
+
+    private async Task<List<long>> ResolveProjectMemberUserIds(Guid projectId)
+    {
+        var memberDeveloperIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.DeveloperId)
+            .Distinct()
+            .ToListAsync();
+        if (memberDeveloperIds.Count == 0)
+        {
+            return new List<long>();
+        }
+
+        return await _developerRepository.GetAll()
+            .Where(x => memberDeveloperIds.Contains(x.Id))
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToListAsync();
     }
 
     private async Task<ProjectMatchSelection> SelectProjectWithGroq(
@@ -934,6 +1290,29 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             .Where(x => x.ProfileId == profile.Id)
             .Select(x => x.Goal)
             .ToListAsync();
+    }
+
+    private class GithubApiRepository
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("full_name")]
+        public string FullName { get; set; }
+
+        [JsonPropertyName("html_url")]
+        public string HtmlUrl { get; set; }
+
+        [JsonPropertyName("private")]
+        public bool Private { get; set; }
+
+        [JsonPropertyName("default_branch")]
+        public string DefaultBranch { get; set; }
+    }
+
+    private class GithubApiError
+    {
+        public string Message { get; set; }
     }
 
     private class DeveloperCandidateProfile

@@ -2,13 +2,19 @@
 
 import { PropsWithChildren, useEffect } from "react";
 import { AuthProvider } from "@/providers/auth-provider";
+import {
+  AppearanceProvider,
+  useAppearanceAction,
+} from "@/providers/appearance-provider";
 import { CompanyAccountProvider } from "@/providers/company-account-provider";
 import { CompanyProfileProvider } from "@/providers/company-profile-provider";
 import { DeveloperProvider } from "@/providers/developer-provider";
 import { ProjectProvider } from "@/providers/project-provider";
 import { JobProvider } from "@/providers/job-provider";
+import { NotificationProvider } from "@/providers/notification-provider";
 import { ReviewProvider } from "@/providers/review-provider";
 import { SimulationProvider } from "@/providers/simulation-provider";
+import { AppOperatorProvider } from "@/providers/app-operator-provider";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -29,11 +35,22 @@ const TenantBootstrap = ({ children }: PropsWithChildren) => {
   return <>{children}</>;
 };
 
+const AppearanceBootstrap = ({ children }: PropsWithChildren) => {
+  const { hydrateMode } = useAppearanceAction();
+
+  useEffect(() => {
+    hydrateMode();
+  }, []);
+
+  return <>{children}</>;
+};
+
 const FaviconSync = () => {
   const { tenancyName, companyLogoUrl } = useTenantResolutionState();
 
   useEffect(() => {
-    const baseHref = tenancyName && companyLogoUrl ? companyLogoUrl : "/logo.svg";
+    const baseHref =
+      tenancyName && companyLogoUrl ? companyLogoUrl : "/logo.svg";
     const href = `${baseHref}${baseHref.includes("?") ? "&" : "?"}v=${Date.now()}`;
     const rels = ["icon", "shortcut icon", "apple-touch-icon"];
 
@@ -56,26 +73,34 @@ export function AppProviders({ children }: PropsWithChildren) {
     <TenantResolutionProvider>
       <TenantBootstrap>
         <FaviconSync />
-        <CompanyAccountProvider>
-          <AuthProvider>
-            <CompanyProfileProvider>
-              <DeveloperProvider>
-                <ProjectProvider>
-                  <JobProvider>
-                    <ReviewProvider>
-                      <SimulationProvider>
-                        <AntdProvider>
-                          <AntdToastViewport />
-                          {children}
-                        </AntdProvider>
-                      </SimulationProvider>
-                    </ReviewProvider>
-                  </JobProvider>
-                </ProjectProvider>
-              </DeveloperProvider>
-            </CompanyProfileProvider>
-          </AuthProvider>
-        </CompanyAccountProvider>
+        <AppearanceProvider>
+          <AppearanceBootstrap>
+            <CompanyAccountProvider>
+              <AuthProvider>
+                <CompanyProfileProvider>
+                  <DeveloperProvider>
+                    <ProjectProvider>
+                      <JobProvider>
+                        <ReviewProvider>
+                          <NotificationProvider>
+                            <SimulationProvider>
+                              <AppOperatorProvider>
+                                <AntdProvider>
+                                  <AntdToastViewport />
+                                  {children}
+                                </AntdProvider>
+                              </AppOperatorProvider>
+                            </SimulationProvider>
+                          </NotificationProvider>
+                        </ReviewProvider>
+                      </JobProvider>
+                    </ProjectProvider>
+                  </DeveloperProvider>
+                </CompanyProfileProvider>
+              </AuthProvider>
+            </CompanyAccountProvider>
+          </AppearanceBootstrap>
+        </AppearanceProvider>
       </TenantBootstrap>
     </TenantResolutionProvider>
   );

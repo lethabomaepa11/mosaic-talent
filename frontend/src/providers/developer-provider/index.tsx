@@ -13,6 +13,12 @@ import {
   fetchUserError,
   fetchUserPending,
   fetchUserSuccess,
+  fetchGamificationError,
+  fetchGamificationPending,
+  fetchGamificationSuccess,
+  fetchLearningPathError,
+  fetchLearningPathPending,
+  fetchLearningPathSuccess,
   saveProfileError,
   saveProfilePending,
   saveProfileSuccess,
@@ -24,13 +30,26 @@ import {
   DeveloperActionContext,
   DeveloperStateContext,
   IDeveloperProfile,
+  IDeveloperSearchResult,
+  IGamificationSummary,
   IGithubScanResult,
+  ILearningPathResult,
+  IPublicDeveloperProfile,
   INITIAL_PROFILE,
   INITIAL_STATE,
 } from "./context";
 import { DeveloperReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/DeveloperOnboarding";
+
+const readApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof AxiosError) {
+    const message = error.response?.data?.error?.message as string | undefined;
+    return message || fallback;
+  }
+
+  return fallback;
+};
 
 const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile => ({
   githubUsername: input.githubUsername ?? "",
@@ -43,6 +62,43 @@ const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile 
   teamworkRating: input.teamworkRating ?? 0,
   skills: input.skills ?? [],
   goals: input.goals ?? [],
+});
+
+const normalizeLearningPath = (input: Partial<ILearningPathResult>): ILearningPathResult => ({
+  source: input.source === "ai" ? "ai" : "fallback",
+  summary: input.summary ?? "",
+  marketSignals: input.marketSignals ?? [],
+  recommendations: (input.recommendations ?? []).map((item) => ({
+    goal: item.goal ?? "",
+    priority:
+      item.priority === "high" || item.priority === "low"
+        ? item.priority
+        : "medium",
+    estimatedWeeks: Number(item.estimatedWeeks ?? 6),
+    gapSummary: item.gapSummary ?? "",
+    recommendedSkills: item.recommendedSkills ?? [],
+    suggestedActions: item.suggestedActions ?? [],
+  })),
+});
+
+const normalizeGamificationSummary = (
+  input: Partial<IGamificationSummary>,
+): IGamificationSummary => ({
+  totalPoints: Number(input.totalPoints ?? 0),
+  level: Number(input.level ?? 1),
+  nextLevelPoints: Number(input.nextLevelPoints ?? 100),
+  progressPercent: Number(input.progressPercent ?? 0),
+  badges: (input.badges ?? []).map((badge) => ({
+    code: badge.code ?? "",
+    name: badge.name ?? "",
+    description: badge.description ?? "",
+    earnedAt: badge.earnedAt ?? "",
+  })),
+  recentEvents: (input.recentEvents ?? []).map((item) => ({
+    eventType: item.eventType ?? "",
+    pointsAwarded: Number(item.pointsAwarded ?? 0),
+    occurredAt: item.occurredAt ?? "",
+  })),
 });
 
 const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
@@ -60,6 +116,57 @@ const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
   goals: (input.goals ?? [])
     .map((item) => item.trim())
     .filter(Boolean),
+});
+
+const normalizeDeveloperSearchResult = (
+  input: Partial<IDeveloperSearchResult>,
+): IDeveloperSearchResult => ({
+  userName: input.userName ?? "",
+  displayName: input.displayName ?? "",
+  avatarUrl: input.avatarUrl ?? "",
+  githubUsername: input.githubUsername ?? "",
+  skillTags: input.skillTags ?? [],
+  yearsOfExperience: input.yearsOfExperience,
+});
+
+const normalizeDeveloperSearchResults = (input: unknown): IDeveloperSearchResult[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((item) =>
+    normalizeDeveloperSearchResult(item as Partial<IDeveloperSearchResult>),
+  );
+};
+
+const normalizePublicProject = (
+  input: NonNullable<IPublicDeveloperProfile["currentProjects"]>[number],
+) => ({
+  id: String(input.id ?? ""),
+  title: input.title ?? "",
+  description: input.description ?? "",
+  status: input.status ?? "open",
+  githubRepo: input.githubRepo ?? "",
+  createdAt: input.createdAt ?? new Date().toISOString(),
+  skills: input.skills ?? [],
+});
+
+const normalizePublicProfile = (
+  input: Partial<IPublicDeveloperProfile>,
+): IPublicDeveloperProfile => ({
+  userName: input.userName ?? "",
+  displayName: input.displayName ?? "",
+  avatarUrl: input.avatarUrl ?? "",
+  githubUsername: input.githubUsername ?? "",
+  yearsOfExperience: input.yearsOfExperience,
+  yearOfStudy: input.yearOfStudy,
+  studyLevel: Number(input.studyLevel ?? 0),
+  bio: input.bio ?? "",
+  location: input.location ?? "",
+  teamworkRating: Number(input.teamworkRating ?? 0),
+  skills: input.skills ?? [],
+  currentProjects: (input.currentProjects ?? []).map(normalizePublicProject),
+  completedProjects: (input.completedProjects ?? []).map(normalizePublicProject),
 });
 
 export const DeveloperProvider = ({ children }: PropsWithChildren) => {
@@ -135,6 +242,33 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const searchPublicDevelopers = async (query: string) => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    const params = {
+      query: normalizedQuery,
+      Query: normalizedQuery,
+      "input.query": normalizedQuery,
+    };
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/SearchPublicDevelopers`, {
+        params,
+      });
+
+      return normalizeDeveloperSearchResults(res.data?.result);
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.error?.message as string | undefined)
+          : undefined;
+      throw new Error(message || "Failed to search developers.");
+    }
+  };
+
   const scanMyGithubProfile = async () => {
     dispatch(scanGithubPending());
 
@@ -154,6 +288,61 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const fetchLearningPathRecommendations = async () => {
+    dispatch(fetchLearningPathPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyLearningPathRecommendations`);
+      const learningPath = normalizeLearningPath(res.data?.result ?? {});
+      dispatch(fetchLearningPathSuccess(learningPath));
+      return learningPath;
+    } catch {
+      dispatch(fetchLearningPathError());
+      return undefined;
+    }
+  };
+
+  const getPublicProfile = async (userName: string) => {
+    const normalizedUserName = userName.trim();
+    if (!normalizedUserName) {
+      throw new Error("Username is required.");
+    }
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetPublicProfile`, {
+        params: {
+          userName: normalizedUserName,
+          UserName: normalizedUserName,
+          "input.userName": normalizedUserName,
+        },
+      });
+
+      if (!res.data?.result) {
+        return undefined;
+      }
+
+      return normalizePublicProfile(
+        res.data.result as Partial<IPublicDeveloperProfile>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load public profile."));
+    }
+  };
+
+  const fetchMyGamificationSummary = async () => {
+    dispatch(fetchGamificationPending());
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyGamificationSummary`);
+      const summary = normalizeGamificationSummary(res.data?.result ?? {});
+      dispatch(fetchGamificationSuccess(summary));
+      return summary;
+    } catch {
+      dispatch(fetchGamificationError());
+      return undefined;
+    }
+  };
+
   return (
     <DeveloperStateContext.Provider value={state}>
       <DeveloperActionContext.Provider
@@ -162,7 +351,11 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           fetchStudyLevels,
           fetchCurrentUser,
           upsertMyProfile,
+          getPublicProfile,
+          searchPublicDevelopers,
           scanMyGithubProfile,
+          fetchLearningPathRecommendations,
+          fetchMyGamificationSummary,
         }}
       >
         {children}
@@ -178,3 +371,9 @@ export const useDeveloperState = () => {
 export const useDeveloperAction = () => {
   return useContext(DeveloperActionContext);
 };
+
+export type {
+  IDeveloperProfile,
+  IDeveloperSearchResult,
+  IPublicDeveloperProfile,
+} from "./context";

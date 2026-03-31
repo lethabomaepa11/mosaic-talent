@@ -61,10 +61,23 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - open projects sorted by match score
   - AI Match redirect to best-fit project
   - match insight + likely learning outcomes on project details
+- AI learning path recommendations:
+  - profile-based skill-gap analysis against market role tracks
+  - personalized next-step actions for career progression goals
+  - resilient fallback recommendations when AI response is unavailable
+- Gamification layer:
+  - developer points and levels for collaboration/growth actions
+  - badge unlocks for review participation, project completion, and simulation consistency
+  - profile progression card and reward feedback within review workflows
 - Teamwork simulator:
   - scenario-based sessions with role bots
   - turn-based conversation with assessor feedback
   - communication dimension scoring per turn
+- Ask Moahi (AI assistant/operator):
+  - full-page command execution across routes/forms/workflows
+  - Groq-backed intent planning with deterministic local fallback
+  - chatbot + guided step-by-step mode for "how-to" questions
+  - manual voice mode (defaults off) with visual execution feedback
 - AI peer reviews:
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
@@ -84,17 +97,48 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
     - LeetPrompt-style coding experience with 2+ runnable problems and public test execution
     - per-problem AI prompt assistant with token tracking and accepted-prompt selection
     - final score blends public test pass-rate + prompt quality + token efficiency + code quality
+- Notification channels + PWA:
+  - in-app notification feed with unread counters and mark-as-read actions
+  - web push subscription management backed by VAPID
+  - installable PWA manifest + service worker for push click routing
+  - mobile wrapper scaffold (Capacitor) and desktop wrapper scaffold (Electron)
+- GitHub project repo picker:
+  - project creation requires connected GitHub account
+  - repositories are fetched from GitHub and selected from dropdown
+  - inline repository creation when no suitable repo exists
+- Workspace route guards with route groups:
+  - `(company)` and `(developer)` app route partitions
+  - layout-level access enforcement so developers cannot access company segments and vice versa
+  - shared routes (for example `/app/profile`) remain outside restricted groups
+- Public developer profiles:
+  - anonymous `/developers/[username]` profile page with skills, current projects, and completed projects
+  - project member names link to public profiles from project details
+- Global search in the header:
+  - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
+  - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
 
 ## Documentation
 
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
+- [Ask Moahi](docs/feature/ai-app-operator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
+- [Assessment Connected Workspace UI](docs/feature/assessment-connected-workspace-ui.md)
 - [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
 - [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
 - [Company Analytics Dashboard](docs/feature/company-analytics.md)
+- [Notifications, PWA, Mobile, and Desktop](docs/feature/notifications-pwa-mobile-desktop.md)
+- [GitHub Repo Picker for Project Creation](docs/feature/github-repo-picker-project-create.md)
+- [Dark Mode Logo Asset Switching](docs/feature/darkmode-logo-asset-switching.md)
+- [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
+- [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
+- [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
+- [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
+- [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
+- [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
+- [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
 
 ## Tenant Resolution Rules
 
@@ -104,9 +148,13 @@ Frontend resolves tenant before auth calls:
    - Host contains `mosaic-talent.vercel.app`
    - Reads prefix before `-mosaic-talent`
    - Example: `acme-mosaic-talent.vercel.app` -> `acme`
-2. Localhost pattern:
+2. Production domain pattern (`mosaictalent.co.za` by default):
+   - Host in format `<tenant>.mosaictalent.co.za`
+   - Extracts subdomain closest to root domain as tenant
+   - Example: `acme.mosaictalent.co.za` -> `acme`
+3. Localhost pattern:
    - `acme.localhost` -> `acme`
-3. Generic multi-subdomain pattern:
+4. Generic multi-subdomain pattern:
    - Uses the last subdomain before registrable domain
    - Example: `company.app.domain.com` -> `app`
 
@@ -138,7 +186,11 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/SearchPublicDevelopers`
+- `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
+- `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`
+- `GET /api/services/app/DeveloperOnboarding/GetMyGamificationSummary`
 - `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
 
 ### Developer projects
@@ -146,6 +198,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/DeveloperProject/GetMyProjects`
 - `GET /api/services/app/DeveloperProject/GetOpenProjects`
 - `GET /api/services/app/DeveloperProject/GetProject`
+- `GET /api/services/app/DeveloperProject/GetGithubConnectionStatus`
+- `GET /api/services/app/DeveloperProject/GetMyGithubRepositories`
+- `POST /api/services/app/DeveloperProject/CreateGithubRepository`
 - `POST /api/services/app/DeveloperProject/CreateProject`
 - `POST /api/services/app/DeveloperProject/JoinProject`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
@@ -173,6 +228,19 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/SimulationVoice/Turn`
 - `GET /api/services/app/SimulationVoice/GetVoiceModels`
 - `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
+
+### Ask Moahi
+
+- `POST /api/services/app/AppOperator/Plan`
+
+### Notifications
+
+- `GET /api/services/app/NotificationChannel/GetMyNotifications`
+- `POST /api/services/app/NotificationChannel/MarkNotificationAsRead`
+- `POST /api/services/app/NotificationChannel/MarkAllNotificationsAsRead`
+- `GET /api/services/app/NotificationChannel/GetPushPreferences`
+- `POST /api/services/app/NotificationChannel/UpsertPushSubscription`
+- `POST /api/services/app/NotificationChannel/RemovePushSubscription`
 
 ### Company account
 
@@ -245,6 +313,9 @@ Also supported:
 - `Brevo__ApiKey`
 - `Brevo__SenderEmail` (required for outbound emails)
 - `Brevo__SenderName` (optional)
+- `WebPush__PublicKey`
+- `WebPush__PrivateKey`
+- `WebPush__Subject`
 
 See example file:
 
@@ -286,7 +357,7 @@ npm run dev
 
 Defaults:
 
-- Frontend: `http://localhost:3000`
+- Frontend: `http://localhost:300X` (can be 3000, 3001, ... 300X)
 - Backend: `http://localhost:44311` (or profile-specific)
 - Swagger: `http://localhost:44311/swagger`
 
@@ -294,7 +365,7 @@ Defaults:
 
 Add hosts entries as needed and test, for example:
 
-- `acme.localhost:3000`
+- `acme.localhost:300X`
 
 Tenant branding should appear on `/login` if tenancy is resolvable and company branding exists.
 
@@ -304,6 +375,9 @@ Tenant branding should appear on `/login` if tenancy is resolvable and company b
 # frontend tests
 cd frontend
 npm test
+
+# frontend e2e tests
+npm run test:e2e
 
 # frontend build
 npm run build

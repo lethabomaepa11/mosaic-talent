@@ -1,12 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Avatar, Badge, Button, Dropdown, Input, MenuProps } from "antd";
-import { Bell, Menu, Search, Settings } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AutoComplete,
+  Avatar,
+  Button,
+  Dropdown,
+  Input,
+  MenuProps,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+} from "antd";
+import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  useAppearanceAction,
+  useAppearanceState,
+} from "@/providers/appearance-provider";
 import { useAuthState } from "@/providers/auth-provider";
 import { useCompanyProfileState } from "@/providers/company-profile-provider";
-import { useDeveloperState } from "@/providers/developer-provider";
+import {
+  useDeveloperAction,
+  useDeveloperState,
+  type IDeveloperSearchResult,
+} from "@/providers/developer-provider";
+import { useProjectState } from "@/providers/project-provider";
+import { useSimulationState } from "@/providers/simulation-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
@@ -14,17 +37,25 @@ interface IAppHeaderProps {
   onMenuClick?: () => void;
 }
 
-export const AppHeader = ({
-  onSearchChange,
-  onMenuClick,
-}: IAppHeaderProps) => {
+export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
   const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const [developerResults, setDeveloperResults] = useState<IDeveloperSearchResult[]>(
+    [],
+  );
+  const [isDeveloperSearchPending, setIsDeveloperSearchPending] = useState(false);
 
   const { styles } = useStyles();
+  const { mode } = useAppearanceState();
+  const { toggleMode } = useAppearanceAction();
   const { user } = useAuthState();
   const { tenancyName } = useTenantResolutionState();
   const { currentUser, profile } = useDeveloperState();
   const { profile: companyProfile } = useCompanyProfileState();
+  const { searchPublicDevelopers } = useDeveloperAction();
+  const { myProjects, openProjects } = useProjectState();
+  const { scenarios } = useSimulationState();
+  const router = useRouter();
   const isCompanyTenant = Boolean(tenancyName);
 
   const selectedName = isCompanyTenant
@@ -41,18 +72,9 @@ export const AppHeader = ({
     : profile.avatarUrl;
 
   const displayName = useMemo(() => {
-    if (selectedName) {
-      return selectedName;
-    }
-
-    if (selectedUserName) {
-      return selectedUserName;
-    }
-
-    if (!user?.userId) {
-      return "User";
-    }
-
+    if (selectedName) return selectedName;
+    if (selectedUserName) return selectedUserName;
+    if (!user?.userId) return "User";
     return `User ${user.userId}`;
   }, [selectedName, selectedUserName, user?.userId]);
 
@@ -67,6 +89,192 @@ export const AppHeader = ({
         .toUpperCase(),
     [displayName],
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+
+  useEffect(() => {
+    if (!debouncedSearchValue.trim()) {
+      return;
+    }
+
+    let isActive = true;
+    const pendingTimer = setTimeout(() => {
+      if (isActive) {
+        setIsDeveloperSearchPending(true);
+      }
+    }, 0);
+
+    void searchPublicDevelopers(debouncedSearchValue)
+      .then((results) => {
+        if (isActive) {
+          setDeveloperResults(results);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setDeveloperResults([]);
+        }
+      })
+      .finally(() => {
+        clearTimeout(pendingTimer);
+        if (isActive) {
+          setIsDeveloperSearchPending(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [debouncedSearchValue, searchPublicDevelopers]);
+
+  const normalizedSearch = searchValue.trim().toLowerCase();
+
+  const combinedProjects = useMemo(() => {
+    const map = new Map<string, typeof myProjects[number]>();
+    myProjects.forEach((project) => map.set(project.id, project));
+    openProjects.forEach((project) => map.set(project.id, project));
+    return Array.from(map.values());
+  }, [myProjects, openProjects]);
+
+  const projectMatches = useMemo(() => {
+    if (!normalizedSearch) {
+      return [];
+    }
+    return combinedProjects
+      .filter((project) => {
+        const title = project.title.toLowerCase();
+        const description = project.description.toLowerCase();
+        return (
+          title.includes(normalizedSearch) || description.includes(normalizedSearch)
+        );
+      })
+      .slice(0, 6);
+  }, [combinedProjects, normalizedSearch]);
+
+  const scenarioMatches = useMemo(() => {
+    if (!normalizedSearch) {
+      return [];
+    }
+    return scenarios
+      .filter((scenario) => scenario.title.toLowerCase().includes(normalizedSearch))
+      .slice(0, 6);
+  }, [scenarios, normalizedSearch]);
+
+  const hasAnyResults =
+    developerResults.length > 0 || projectMatches.length > 0 || scenarioMatches.length > 0;
+
+  const autocompleteOptions = useMemo(() => {
+    const groups = [];
+
+    if (developerResults.length > 0) {
+      groups.push({
+        label: "Developers",
+        options: developerResults.map((result) => ({
+          value: `developer:${result.userName}`,
+          label: (
+            <Space align="center" className={styles.searchOption}>
+              <Avatar size={28} src={result.avatarUrl || undefined}>
+                {result.displayName?.slice(0, 2).toUpperCase() || result.userName.slice(0, 2).toUpperCase()}
+              </Avatar>
+              <div>
+                <Typography.Text strong>
+                  {result.displayName || result.userName}
+                </Typography.Text>
+                <Typography.Text type="secondary">
+                  @{result.userName}
+                  {result.skillTags.length > 0 ? ` · ${result.skillTags.join(", ")}` : ""}
+                </Typography.Text>
+              </div>
+            </Space>
+          ),
+        })),
+      });
+    }
+
+    if (projectMatches.length > 0) {
+      groups.push({
+        label: "Projects",
+        options: projectMatches.map((project) => ({
+          value: `project:${project.id}`,
+          label: (
+            <Space align="center" className={styles.searchOption}>
+              <div>
+                <Typography.Text strong>{project.title}</Typography.Text>
+                <div>
+                  <Tag color="blue">{project.status}</Tag>
+                  <Typography.Text type="secondary">
+                    {project.skills.slice(0, 3).join(", ") || "No skills listed"}
+                  </Typography.Text>
+                </div>
+              </div>
+            </Space>
+          ),
+        })),
+      });
+    }
+
+    if (scenarioMatches.length > 0) {
+      groups.push({
+        label: "Simulations",
+        options: scenarioMatches.map((scenario) => ({
+          value: `scenario:${scenario.id}`,
+          label: (
+            <Space align="center" className={styles.searchOption}>
+              <div>
+                <Typography.Text strong>{scenario.title}</Typography.Text>
+                <Typography.Text type="secondary">
+                  {scenario.botCount} bots · {scenario.requiredRoles.join(", ")}
+                </Typography.Text>
+              </div>
+            </Space>
+          ),
+        })),
+      });
+    }
+
+    return groups;
+  }, [
+    developerResults,
+    projectMatches,
+    scenarioMatches,
+    styles.searchOption,
+  ]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    onSearchChange?.(value);
+    if (!value.trim()) {
+      setDeveloperResults([]);
+      setIsDeveloperSearchPending(false);
+    }
+  };
+
+  const handleSelect = (value: string) => {
+    if (!value) {
+      return;
+    }
+
+    const [type, id] = value.split(":", 2);
+    if (!id) {
+      return;
+    }
+
+    if (type === "developer") {
+      router.push(`/developers/${encodeURIComponent(id)}`);
+    } else if (type === "project") {
+      router.push(`/app/projects/${id}`);
+    } else if (type === "scenario") {
+      router.push(`/app/simulator?scenarioId=${id}`);
+    }
+
+    setSearchValue("");
+  };
 
   const menuItems = useMemo<MenuProps["items"]>(
     () => [
@@ -109,17 +317,28 @@ export const AppHeader = ({
   return (
     <header className={styles.header}>
       <div className={styles.searchWrap}>
-        <Input
+        <AutoComplete
           allowClear
           value={searchValue}
-          onChange={(event) => {
-            setSearchValue(event.target.value);
-            onSearchChange?.(event.target.value);
-          }}
-          prefix={<Search size={16} />}
-          placeholder="Search projects, reviews, simulations..."
-          className={styles.searchInput}
-        />
+          options={autocompleteOptions}
+          onSelect={handleSelect}
+          onSearch={handleSearchChange}
+          dropdownMatchSelectWidth={320}
+          notFoundContent={
+            normalizedSearch && !isDeveloperSearchPending && !hasAnyResults ? (
+              <Space direction="vertical" align="center" style={{ padding: 16 }}>
+                <Typography.Text type="secondary">No matches found</Typography.Text>
+              </Space>
+            ) : null
+          }
+        >
+          <Input
+            prefix={<Search size={16} />}
+            placeholder="Search projects, reviews, simulations..."
+            className={styles.searchInput}
+            suffix={isDeveloperSearchPending ? <Spin size="small" /> : undefined}
+          />
+        </AutoComplete>
       </div>
 
       <div className={styles.actions}>
@@ -131,15 +350,18 @@ export const AppHeader = ({
           aria-label="Open navigation menu"
           onClick={onMenuClick}
         />
-        <Badge dot color="gold">
-          <Button
-            type="text"
-            shape="circle"
-            icon={<Bell size={18} />}
-            className={styles.iconButton}
-            aria-label="Notifications"
-          />
-        </Badge>
+        <NotificationCenter buttonAriaLabel="Notifications" />
+
+        <Button
+          type="text"
+          shape="circle"
+          icon={mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          className={styles.iconButton}
+          aria-label={
+            mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+          }
+          onClick={toggleMode}
+        />
 
         <Button
           type="text"
@@ -155,7 +377,11 @@ export const AppHeader = ({
           placement="bottomRight"
           classNames={{ root: styles.dropdown }}
         >
-          <Button type="text" className={styles.avatarButton} aria-label="User menu">
+          <Button
+            type="text"
+            className={styles.avatarButton}
+            aria-label="User menu"
+          >
             <Avatar size={30} src={selectedAvatarUrl || undefined} className={styles.avatar}>
               {initials}
             </Avatar>

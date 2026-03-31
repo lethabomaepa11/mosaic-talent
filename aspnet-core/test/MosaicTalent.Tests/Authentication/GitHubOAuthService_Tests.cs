@@ -33,7 +33,7 @@ public class GitHubOAuthService_Tests : MosaicTalentTestBase
             await WithUnitOfWorkAsync(async () =>
             {
                 var service = Resolve<GitHubOAuthService>();
-                result = await service.FindOrCreateTenantUserAsync(gitHubUser, email);
+                result = await service.FindOrCreateTenantUserAsync(gitHubUser, email, null);
             });
         }
 

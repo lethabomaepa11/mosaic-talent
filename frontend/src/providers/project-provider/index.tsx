@@ -39,7 +39,10 @@ import {
   updateSkillsSuccess,
 } from "./actions";
 import {
+  ICreateGithubRepositoryInput,
   ICreateProjectInput,
+  IGithubConnectionStatus,
+  IGithubRepository,
   IProject,
   IProjectTask,
   INITIAL_STATE,
@@ -83,6 +86,7 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
   members: (input.members ?? []).map((member) => ({
     id: String(member.id ?? ""),
     name: member.name ?? "Developer",
+    userName: member.userName ?? "",
     avatar: member.avatar ?? "",
     role: member.role ?? "member",
   })),
@@ -95,6 +99,31 @@ const normalizeProjectList = (input: unknown): IProject[] => {
   }
 
   return input.map((project) => normalizeProject(project as Partial<IProject>));
+};
+
+const normalizeGithubConnectionStatus = (
+  input: Partial<IGithubConnectionStatus>,
+): IGithubConnectionStatus => ({
+  isConnected: Boolean(input.isConnected),
+  githubUsername: input.githubUsername ?? "",
+});
+
+const normalizeGithubRepository = (
+  input: Partial<IGithubRepository>,
+): IGithubRepository => ({
+  name: input.name ?? "",
+  fullName: input.fullName ?? "",
+  htmlUrl: input.htmlUrl ?? "",
+  isPrivate: Boolean(input.isPrivate),
+  defaultBranch: input.defaultBranch ?? "",
+});
+
+const normalizeGithubRepositoryList = (input: unknown): IGithubRepository[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((repo) => normalizeGithubRepository(repo as Partial<IGithubRepository>));
 };
 
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
@@ -142,6 +171,43 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     } catch (error) {
       dispatch(fetchProjectError());
       throw new Error(readApiErrorMessage(error, "Failed to load project."));
+    }
+  };
+
+  const getGithubConnectionStatus = async () => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetGithubConnectionStatus`);
+      return normalizeGithubConnectionStatus(
+        (res.data?.result ?? {}) as Partial<IGithubConnectionStatus>,
+      );
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "Failed to load GitHub connection status."),
+      );
+    }
+  };
+
+  const getMyGithubRepositories = async () => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetMyGithubRepositories`);
+      return normalizeGithubRepositoryList(res.data?.result);
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "Failed to load GitHub repositories."),
+      );
+    }
+  };
+
+  const createGithubRepository = async (input: ICreateGithubRepositoryInput) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/CreateGithubRepository`, input);
+      return normalizeGithubRepository(
+        (res.data?.result ?? {}) as Partial<IGithubRepository>,
+      );
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "Failed to create GitHub repository."),
+      );
     }
   };
 
@@ -295,6 +361,9 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           fetchMyProjects,
           fetchOpenProjects,
           fetchProjectById,
+          getGithubConnectionStatus,
+          getMyGithubRepositories,
+          createGithubRepository,
           createProject,
           joinProject,
           aiMatchProject,
