@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   useRouter: vi.fn(),
   useTenantResolutionState: vi.fn(),
+  useTenantResolutionAction: vi.fn(),
+  resolveTenant: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -14,13 +16,18 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/providers/tenant-provider", () => ({
   useTenantResolutionState: mocks.useTenantResolutionState,
+  useTenantResolutionAction: mocks.useTenantResolutionAction,
 }));
 
 describe("WorkspaceRouteGuard", () => {
   beforeEach(() => {
     mocks.replace.mockReset();
+    mocks.resolveTenant.mockReset();
     mocks.useRouter.mockReturnValue({
       replace: mocks.replace,
+    });
+    mocks.useTenantResolutionAction.mockReturnValue({
+      resolveTenant: mocks.resolveTenant,
     });
   });
 
@@ -28,6 +35,7 @@ describe("WorkspaceRouteGuard", () => {
     mocks.useTenantResolutionState.mockReturnValue({
       tenancyName: "acme",
       isResolved: true,
+      isPending: false,
     });
 
     render(
@@ -44,6 +52,7 @@ describe("WorkspaceRouteGuard", () => {
     mocks.useTenantResolutionState.mockReturnValue({
       tenancyName: "",
       isResolved: true,
+      isPending: false,
     });
 
     render(
@@ -61,6 +70,7 @@ describe("WorkspaceRouteGuard", () => {
     mocks.useTenantResolutionState.mockReturnValue({
       tenancyName: "",
       isResolved: true,
+      isPending: false,
     });
 
     render(
@@ -77,6 +87,7 @@ describe("WorkspaceRouteGuard", () => {
     mocks.useTenantResolutionState.mockReturnValue({
       tenancyName: "acme",
       isResolved: true,
+      isPending: false,
     });
 
     render(

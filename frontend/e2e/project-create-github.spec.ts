@@ -47,11 +47,43 @@ const setupCoreRoutes = async (page: Page) => {
   });
 };
 
+const waitForWorkspaceReady = async (page: Page) => {
+  const guard = page.locator("[data-ai-guard-loading='developer']");
+  if (await guard.count()) {
+    await guard.waitFor({ state: "detached" });
+  }
+  await page.waitForSelector("[data-ai-page='projects-my']", { state: "attached" });
+};
+
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    document.cookie = "mosaic-talent.access-token=e2e-token; path=/; SameSite=Lax";
-    document.cookie = "mosaic-talent.abp-tenant-id=1; path=/; SameSite=Lax";
+  page.on("pageerror", (error) => {
+    console.error("pageerror", error);
   });
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      console.error("console", message.text());
+    }
+  });
+  await page.addInitScript(() => {
+    document.cookie = "mosaic-talent.e2e=1; path=/";
+  });
+  await page.context().addCookies([
+    {
+      name: "mosaic-talent.access-token",
+      value: "e2e-token",
+      url: "http://127.0.0.1:3000",
+    },
+    {
+      name: "mosaic-talent.abp-tenant-id",
+      value: "1",
+      url: "http://127.0.0.1:3000",
+    },
+    {
+      name: "mosaic-talent.e2e",
+      value: "1",
+      url: "http://127.0.0.1:3000",
+    },
+  ]);
   await setupCoreRoutes(page);
 });
 
@@ -69,6 +101,9 @@ test("shows GitHub connect gate before project creation when not connected", asy
   );
 
   await page.goto("/app/projects/my?create=true");
+
+  await waitForWorkspaceReady(page);
+  await page.getByRole("button", { name: "New Project" }).click();
 
   await expect(page.getByText("Connect GitHub to create a project.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Create Project" })).toBeDisabled();
@@ -134,6 +169,9 @@ test("creates project using selected GitHub repository", async ({ page }) => {
   });
 
   await page.goto("/app/projects/my?create=true");
+
+  await waitForWorkspaceReady(page);
+  await page.getByRole("button", { name: "New Project" }).click();
 
   await page.getByLabel("Project Title").fill("Alpha Delivery");
   await page.getByLabel("Description").fill("Project created from test");
@@ -217,6 +255,9 @@ test("creates a new GitHub repository and auto-selects it for project creation",
   });
 
   await page.goto("/app/projects/my?create=true");
+
+  await waitForWorkspaceReady(page);
+  await page.getByRole("button", { name: "New Project" }).click();
 
   await page.getByRole("button", { name: "Create Repository" }).click();
   await page.getByLabel("Repository Name").fill("new-repo");

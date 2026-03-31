@@ -21,6 +21,7 @@ const Consumer = () => {
     getGithubConnectionStatus,
     getMyGithubRepositories,
     createGithubRepository,
+    scanRepoSafety,
   } = useProjectAction();
 
   return (
@@ -56,6 +57,15 @@ const Consumer = () => {
       >
         Create Repository
       </button>
+      <button
+        onClick={async () => {
+          const result = await scanRepoSafety("project-1");
+          window.__TEST_SCAN__ = result;
+        }}
+        type="button"
+      >
+        Scan Repo
+      </button>
     </div>
   );
 };
@@ -65,6 +75,7 @@ declare global {
     __TEST_CONNECTION__?: unknown;
     __TEST_REPOS__?: unknown;
     __TEST_CREATED_REPO__?: unknown;
+    __TEST_SCAN__?: unknown;
   }
 }
 
@@ -76,6 +87,7 @@ describe("ProjectProvider GitHub integration", () => {
     window.__TEST_CONNECTION__ = undefined;
     window.__TEST_REPOS__ = undefined;
     window.__TEST_CREATED_REPO__ = undefined;
+    window.__TEST_SCAN__ = undefined;
   });
 
   afterEach(() => {
@@ -186,6 +198,65 @@ describe("ProjectProvider GitHub integration", () => {
         description: "desc",
         isPrivate: false,
         name: "new-repo",
+      },
+    );
+  });
+
+  it("scans repo safety for a project", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          progress: [
+            { step: "Checking cache...", progress: 5 },
+            { step: "Done!", progress: 100 },
+          ],
+          result: {
+            repoUrl: "https://github.com/octocat/alpha",
+            riskScore: 12,
+            riskLevel: "low",
+            categories: [],
+            findings: [],
+            badges: [],
+          },
+        },
+      },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan Repo" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_SCAN__).toEqual({
+        progress: [
+          { step: "Checking cache...", progress: 5 },
+          { step: "Done!", progress: 100 },
+        ],
+        result: {
+          repoUrl: "https://github.com/octocat/alpha",
+          riskScore: 12,
+          riskLevel: "low",
+          categories: [],
+          findings: [],
+          badges: [],
+          scannedAt: "",
+          commitSha: "",
+          filesScanned: undefined,
+          totalRepoFiles: undefined,
+          cached: undefined,
+          meta: undefined,
+        },
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/ScanRepoSafety",
+      {
+        projectId: "project-1",
       },
     );
   });

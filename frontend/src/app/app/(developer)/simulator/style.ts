@@ -322,4 +322,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: grid;
     gap: ${token.marginSM}px;
   `,
+  loadingState: css`
+    min-height: 40vh;
+    display: grid;
+    place-items: center;
+    color: ${token.colorTextSecondary};
+  `,
 }));

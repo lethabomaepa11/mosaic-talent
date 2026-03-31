@@ -45,6 +45,13 @@ import {
   IGithubRepository,
   IProject,
   IProjectTask,
+  IRepoSafetyBadge,
+  IRepoSafetyCategory,
+  IRepoSafetyFinding,
+  IRepoSafetyMeta,
+  IRepoSafetyProgress,
+  IRepoSafetyResult,
+  IRepoSafetyScan,
   INITIAL_STATE,
   ProjectActionContext,
   ProjectStateContext,
@@ -125,6 +132,91 @@ const normalizeGithubRepositoryList = (input: unknown): IGithubRepository[] => {
 
   return input.map((repo) => normalizeGithubRepository(repo as Partial<IGithubRepository>));
 };
+
+const normalizeRepoSafetyProgress = (
+  input: Partial<IRepoSafetyProgress>,
+): IRepoSafetyProgress => ({
+  step: input.step ?? "",
+  progress: Number(input.progress ?? 0),
+});
+
+const normalizeRepoSafetyFinding = (
+  input: Partial<IRepoSafetyFinding>,
+): IRepoSafetyFinding => ({
+  ruleId: input.ruleId ?? "",
+  category: input.category ?? "",
+  severity: input.severity ?? "",
+  title: input.title ?? "",
+  description: input.description ?? "",
+  filePath: input.filePath ?? "",
+  points: input.points,
+});
+
+const normalizeRepoSafetyCategory = (
+  input: Partial<IRepoSafetyCategory>,
+): IRepoSafetyCategory => ({
+  id: input.id ?? "",
+  name: input.name ?? "",
+  icon: input.icon ?? "",
+  score: input.score,
+  maxScore: input.maxScore,
+  findings: (input.findings ?? []).map((finding) =>
+    normalizeRepoSafetyFinding(finding),
+  ),
+});
+
+const normalizeRepoSafetyBadge = (
+  input: Partial<IRepoSafetyBadge>,
+): IRepoSafetyBadge => ({
+  type: input.type ?? "",
+  label: input.label ?? "",
+  description: input.description ?? "",
+});
+
+const normalizeRepoSafetyMeta = (
+  input: Partial<IRepoSafetyMeta>,
+): IRepoSafetyMeta => ({
+  owner: input.owner ?? "",
+  repo: input.repo ?? "",
+  description: input.description ?? "",
+  stars: input.stars,
+  forks: input.forks,
+  createdAt: input.createdAt ?? "",
+  pushedAt: input.pushedAt ?? "",
+  defaultBranch: input.defaultBranch ?? "",
+  language: input.language ?? "",
+  topics: input.topics ?? [],
+  openIssues: input.openIssues,
+  size: input.size,
+});
+
+const normalizeRepoSafetyResult = (
+  input: Partial<IRepoSafetyResult>,
+): IRepoSafetyResult => ({
+  repoUrl: input.repoUrl ?? "",
+  meta: input.meta ? normalizeRepoSafetyMeta(input.meta) : undefined,
+  riskScore: Number(input.riskScore ?? 0),
+  riskLevel: input.riskLevel ?? "",
+  categories: (input.categories ?? []).map((category) =>
+    normalizeRepoSafetyCategory(category),
+  ),
+  findings: (input.findings ?? []).map((finding) =>
+    normalizeRepoSafetyFinding(finding),
+  ),
+  badges: (input.badges ?? []).map((badge) => normalizeRepoSafetyBadge(badge)),
+  scannedAt: input.scannedAt ?? "",
+  commitSha: input.commitSha ?? "",
+  filesScanned: input.filesScanned,
+  totalRepoFiles: input.totalRepoFiles,
+  cached: input.cached,
+});
+
+const normalizeRepoSafetyScan = (input: Partial<IRepoSafetyScan>): IRepoSafetyScan => ({
+  progress: (input.progress ?? []).map((step) =>
+    normalizeRepoSafetyProgress(step),
+  ),
+  result: input.result ? normalizeRepoSafetyResult(input.result) : undefined,
+});
 
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
   const instance = getAxiosInstance();
@@ -335,6 +427,17 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const scanRepoSafety = async (projectId: string) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/ScanRepoSafety`, { projectId });
+      return normalizeRepoSafetyScan(
+        (res.data?.result ?? {}) as Partial<IRepoSafetyScan>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Repo safety scan failed."));
+    }
+  };
+
   const updateProjectSkills = async (projectId: string, skills: string[]) => {
     dispatch(updateSkillsPending());
 
@@ -372,6 +475,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           updateProjectTaskStatus,
           updateProjectSkills,
           completeProject,
+          scanRepoSafety,
         }}
       >
         {children}

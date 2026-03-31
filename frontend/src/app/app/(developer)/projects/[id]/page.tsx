@@ -17,12 +17,14 @@ import {
 } from "lucide-react";
 import {
   Avatar,
+  Alert,
   Badge,
   Button,
   Card,
   Dropdown,
   Input,
   Modal,
+  Progress,
   Space,
   Spin,
   Tag,
@@ -37,7 +39,10 @@ import {
   useProjectAction,
   useProjectState,
 } from "@/providers/project-provider";
-import { IProjectTask } from "@/providers/project-provider/context";
+import {
+  IProjectTask,
+  IRepoSafetyScan,
+} from "@/providers/project-provider/context";
 import { useStyles } from "./style";
 import { GithubOutlined } from "@ant-design/icons";
 
@@ -77,6 +82,11 @@ const ProjectDetailPage = () => {
   const [activeColumn, setActiveColumn] = useState<
     "todo" | "in-progress" | "done" | null
   >(null);
+  const [repoSafetyScan, setRepoSafetyScan] = useState<IRepoSafetyScan | undefined>(
+    undefined,
+  );
+  const [repoSafetyPending, setRepoSafetyPending] = useState(false);
+  const [repoSafetyError, setRepoSafetyError] = useState<string | null>(null);
 
   const { styles } = useStyles();
   const { currentUser, isPending } = useDeveloperState();
@@ -91,6 +101,7 @@ const ProjectDetailPage = () => {
     updateProjectTaskStatus,
     updateProjectSkills,
     completeProject,
+    scanRepoSafety,
   } = useProjectAction();
 
   useEffect(() => {
@@ -98,6 +109,8 @@ const ProjectDetailPage = () => {
     fetchCurrentUser();
     void fetchMyProjects();
     void fetchProjectById(projectId);
+    setRepoSafetyScan(undefined);
+    setRepoSafetyError(null);
   }, [projectId]);
 
   const isMember = useMemo(() => {
@@ -119,6 +132,27 @@ const ProjectDetailPage = () => {
       lastMatch?.projectId === projectId
     );
   }, [searchParams, lastMatch, projectId]);
+
+  const repoSafetyResult = repoSafetyScan?.result;
+  const lastRepoSafetyStep =
+    repoSafetyScan?.progress && repoSafetyScan.progress.length > 0
+      ? repoSafetyScan.progress[repoSafetyScan.progress.length - 1]
+      : undefined;
+  const riskLevel = repoSafetyResult?.riskLevel?.toLowerCase() ?? "";
+  const riskColor =
+    riskLevel === "low"
+      ? "green"
+      : riskLevel === "medium"
+        ? "gold"
+        : riskLevel === "high"
+          ? "red"
+          : "default";
+  const riskLabel = riskLevel
+    ? riskLevel === "low"
+      ? "Safe"
+      : `Risk: ${riskLevel}`
+    : "Unknown";
+  const riskScore = repoSafetyResult?.riskScore ?? 0;
 
   const handleFillTeam = async () => {
     if (!projectId) return;
@@ -264,6 +298,23 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to update skills.";
       toast.error("Update failed", message);
+    }
+  };
+
+  const handleScanRepoSafety = async () => {
+    if (!projectId) return;
+    setRepoSafetyPending(true);
+    setRepoSafetyError(null);
+
+    try {
+      const result = await scanRepoSafety(projectId);
+      setRepoSafetyScan(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to scan repository.";
+      setRepoSafetyError(message);
+    } finally {
+      setRepoSafetyPending(false);
     }
   };
 
@@ -451,6 +502,124 @@ const ProjectDetailPage = () => {
 
         <Card
           title={
+            <Space>
+              <CheckCircle size={16} />
+              Repo Safety
+            </Space>
+          }
+          className={styles.repoSafetyCard}
+          extra={
+            project.githubRepo ? (
+              <Button
+                onClick={handleScanRepoSafety}
+                loading={repoSafetyPending}
+                data-ai-action="scan-repo-safety"
+              >
+                {repoSafetyResult ? "Rescan Repo" : "Scan Repo"}
+              </Button>
+            ) : null
+          }
+        >
+          {!project.githubRepo ? (
+            <Typography.Text type="secondary">
+              No GitHub repository linked to this project.
+            </Typography.Text>
+          ) : (
+            <div className={styles.repoSafetyBody}>
+              {repoSafetyError ? (
+                <Alert
+                  type="error"
+                  message={repoSafetyError}
+                  showIcon
+                  className={styles.repoSafetyAlert}
+                />
+              ) : null}
+
+              {repoSafetyPending ? (
+                <div className={styles.repoSafetyProgress}>
+                  <Space size={8} align="center">
+                    <Spin size="small" />
+                    <Typography.Text type="secondary">
+                      {lastRepoSafetyStep?.step ?? "Scanning repository..."}
+                    </Typography.Text>
+                  </Space>
+                  <Progress
+                    percent={lastRepoSafetyStep?.progress ?? 0}
+                    size="small"
+                  />
+                </div>
+              ) : null}
+
+              {repoSafetyResult ? (
+                <div className={styles.repoSafetySummary}>
+                  <div className={styles.repoSafetyHeader}>
+                    <Tag color={riskColor}>{riskLabel}</Tag>
+                    <Typography.Text type="secondary">
+                      Risk score: {riskScore}
+                    </Typography.Text>
+                    {repoSafetyResult.cached ? (
+                      <Tag color="default">Cached</Tag>
+                    ) : null}
+                  </div>
+
+                  {repoSafetyResult.meta ? (
+                    <div className={styles.repoSafetyMeta}>
+                      <Typography.Text>
+                        {repoSafetyResult.meta.language || "Unknown language"}
+                      </Typography.Text>
+                      <Typography.Text type="secondary">
+                        Stars: {repoSafetyResult.meta.stars ?? 0}
+                      </Typography.Text>
+                      <Typography.Text type="secondary">
+                        Forks: {repoSafetyResult.meta.forks ?? 0}
+                      </Typography.Text>
+                    </div>
+                  ) : null}
+
+                  {repoSafetyResult.badges.length > 0 ? (
+                    <div className={styles.repoSafetyBadges}>
+                      {repoSafetyResult.badges.map((badge, index) => (
+                        <Tag
+                          key={`${badge.label}-${badge.type}-${index}`}
+                          color={badge.type === "warning" ? "gold" : "blue"}
+                        >
+                          {badge.label}
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {repoSafetyResult.findings.length > 0 ? (
+                    <div className={styles.repoSafetyFindings}>
+                      <Typography.Text strong>Findings</Typography.Text>
+                      <ul className={styles.repoSafetyList}>
+                        {repoSafetyResult.findings.slice(0, 3).map((finding, index) => (
+                          <li key={`${finding.ruleId}-${finding.filePath}-${index}`}>
+                            <Typography.Text>
+                              {finding.title}
+                              {finding.filePath ? ` (${finding.filePath})` : ""}
+                            </Typography.Text>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <Typography.Text type="secondary">
+                      No high-risk findings detected.
+                    </Typography.Text>
+                  )}
+                </div>
+              ) : (
+                <Typography.Text type="secondary">
+                  Run a scan to view safety signals for this repository.
+                </Typography.Text>
+              )}
+            </div>
+          )}
+        </Card>
+
+        <Card
+          title={
             <div className={styles.taskHeader}>
               <Typography.Text strong>Tasks</Typography.Text>
               {isMember && project.status !== "completed" ? (
@@ -470,6 +639,7 @@ const ProjectDetailPage = () => {
               ) : null}
             </div>
           }
+          className={styles.tasksCard}
         >
           {project.tasks.length === 0 ? (
             <div className={styles.notFound}>

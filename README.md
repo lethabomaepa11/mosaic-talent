@@ -106,6 +106,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project creation requires connected GitHub account
   - repositories are fetched from GitHub and selected from dropdown
   - inline repository creation when no suitable repo exists
+- Repo safety scan:
+  - on-demand repository safety scan via `scanrepo.dev`
+  - Safe/Risk tag shown on project cards and project detail
 - Workspace route guards with route groups:
   - `(company)` and `(developer)` app route partitions
   - layout-level access enforcement so developers cannot access company segments and vice versa
@@ -134,11 +137,13 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Dark Mode Logo Asset Switching](docs/feature/darkmode-logo-asset-switching.md)
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
+- [Repo Safety Scan](docs/feature/repo-safety-scan.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
+- [Tasks Header Full-Width](docs/feature/tasks-header-full-width.md)
 
 ## Tenant Resolution Rules
 
@@ -209,6 +214,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
+- `POST /api/services/app/DeveloperProject/ScanRepoSafety`
 
 ### AI peer reviews
 
