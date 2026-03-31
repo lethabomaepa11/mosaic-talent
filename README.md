@@ -106,6 +106,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project creation requires connected GitHub account
   - repositories are fetched from GitHub and selected from dropdown
   - inline repository creation when no suitable repo exists
+- Workspace route guards with route groups:
+  - `(company)` and `(developer)` app route partitions
+  - layout-level access enforcement so developers cannot access company segments and vice versa
+  - shared routes (for example `/app/profile`) remain outside restricted groups
 
 ## Documentation
 
@@ -126,6 +130,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
+- [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 
 ## Tenant Resolution Rules
 
