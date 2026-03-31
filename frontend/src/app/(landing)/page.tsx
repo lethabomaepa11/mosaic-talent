@@ -200,6 +200,11 @@ const LandingPage = () => {
                   See How It Works
                 </Button>
               </Link>
+              <a href="/mosaictalent.apk" download>
+                <Button size="large" variant="outlined">
+                  Download Mobile App
+                </Button>
+              </a>
             </motion.div>
 
             <motion.div variants={fadeInUp} className={styles.heroChecks}>

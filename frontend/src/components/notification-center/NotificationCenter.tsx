@@ -392,6 +392,14 @@ export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps
             >
               Install app
             </Button>
+            <Button
+              icon={<Download size={14} />}
+              onClick={() => {
+                window.open("/mosaictalent.apk", "_blank");
+              }}
+            >
+              Install mobile app
+            </Button>
           </div>
 
           {!canInstall && !isStandalone && isIos ? (
