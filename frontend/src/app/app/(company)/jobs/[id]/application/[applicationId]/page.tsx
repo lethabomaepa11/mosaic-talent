@@ -40,15 +40,6 @@ import {
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
 
-const statusLabelToValue: Record<string, number> = {
-  applied: 0,
-  shortlisted: 1,
-  interview: 2,
-  rejected: 3,
-  approved: 4,
-  assessment: 5,
-};
-
 const parseResponseJson = (json?: string) => {
   if (!json) return {} as Record<string, string>;
   try {

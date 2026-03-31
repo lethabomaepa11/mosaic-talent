@@ -9,9 +9,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Staging"
       ConnectionStrings__Default: "${ConnectionStrings__Default}"
-      App__ServerRootAddress: "http://localhost:44311/"
-      App__ClientRootAddress: "http://localhost:3000/"
-      App__CorsOrigins: "http://localhost:3000"
+      App__ServerRootAddress: "${App__ServerRootAddress:-http://localhost:44311/}"
+      App__ClientRootAddress: "${App__ClientRootAddress:-http://localhost:3000/}"
+      App__CorsOrigins: "${App__CorsOrigins:-http://localhost:3000}"
       Authentication__JwtBearer__SecurityKey: "${Authentication__JwtBearer__SecurityKey}"
       GitHubApp__PrivateKeyPem: "${GitHubApp__PrivateKeyPem}"
       GitHubApp__WebhookSecret: "${GitHubApp__WebhookSecret}"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Button, Card, Empty, Input, Space, Spin, Typography, Upload } from "antd";
 import { Plus } from "lucide-react";
 import { toast } from "@/components/providers";
@@ -175,7 +176,7 @@ const CompanyDetailsPage = () => {
                 </Button>
               </Upload>
               {draft.logoStoredFileId ? (
-                <img src={draft.logoStoredFileId} alt="Company logo" className={styles.logoPreview} />
+                <Image src={draft.logoStoredFileId} alt="Company logo" className={styles.logoPreview} width={80} height={80} />
               ) : null}
             </div>
           </div>

@@ -446,7 +446,7 @@ const scanRepoSafety = async (projectId: string) => {
 
   const scanRepoGuardian = async (githubUrl: string) => {
     try {
-      const res = await axios.post(`https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan`, {
+      const res = await axios.post(REPO_GUARDIAN_ENDPOINT, {
         githubUrl,
       });
       return normalizeRepoGuardianScan(
