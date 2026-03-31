@@ -224,6 +224,13 @@ const normalizeRepoGuardianScan = (input: Partial<IRepoGuardianScan>): IRepoGuar
   result: input.result,
 });
 
+const normalizeRepoGuardianScanResponse = (input: unknown): IRepoGuardianScan => {
+  const data = input as { result?: Partial<IRepoGuardianScan> };
+  return {
+    result: data.result?.result,
+  };
+};
+
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
   const instance = getAxiosInstance();
   const [state, dispatch] = useReducer(ProjectReducer, INITIAL_STATE);
@@ -449,9 +456,7 @@ const scanRepoSafety = async (projectId: string) => {
       const res = await axios.post(REPO_GUARDIAN_ENDPOINT, {
         githubUrl,
       });
-      return normalizeRepoGuardianScan(
-        (res.data?.result ?? {}) as Partial<IRepoGuardianScan>,
-      );
+      return normalizeRepoGuardianScanResponse(res.data);
     } catch (error) {
       throw new Error(readApiErrorMessage(error, "Repo guardian scan failed."));
     }
