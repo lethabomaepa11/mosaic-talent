@@ -8,6 +8,7 @@ namespace MosaicTalent.Services.DeveloperOnboardingService;
 
 public interface IDeveloperOnboardingAppService : IApplicationService
 {
+    Task<DeveloperPublicProfileDto> GetPublicProfile(GetPublicDeveloperProfileInput input);
     Task<DeveloperOnboardingDto> GetMyProfile();
     Task<DeveloperOnboardingDto> UpsertMyProfile(UpsertDeveloperOnboardingInput input);
     Task<List<StudyLevelOptionDto>> GetStudyLevels();

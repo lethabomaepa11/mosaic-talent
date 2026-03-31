@@ -20,6 +20,32 @@ export interface IDeveloperProfile {
   goals: string[];
 }
 
+export interface IPublicDeveloperProject {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  githubRepo?: string;
+  createdAt: string;
+  skills: string[];
+}
+
+export interface IPublicDeveloperProfile {
+  userName: string;
+  displayName: string;
+  avatarUrl?: string;
+  githubUsername?: string;
+  yearsOfExperience?: number;
+  yearOfStudy?: number;
+  studyLevel: number;
+  bio?: string;
+  location?: string;
+  teamworkRating: number;
+  skills: string[];
+  currentProjects: IPublicDeveloperProject[];
+  completedProjects: IPublicDeveloperProject[];
+}
+
 export interface IGithubScanResult {
   score: number;
   insights: string[];
@@ -90,6 +116,7 @@ export interface IDeveloperActionContext {
   fetchStudyLevels: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
   upsertMyProfile: (input: IDeveloperProfile) => Promise<void>;
+  getPublicProfile: (userName: string) => Promise<IPublicDeveloperProfile | undefined>;
   scanMyGithubProfile: () => Promise<IGithubScanResult | undefined>;
   fetchLearningPathRecommendations: () => Promise<ILearningPathResult | undefined>;
   fetchMyGamificationSummary: () => Promise<IGamificationSummary | undefined>;
@@ -130,6 +157,7 @@ export const DeveloperActionContext = createContext<IDeveloperActionContext>({
   fetchStudyLevels: async () => undefined,
   fetchCurrentUser: async () => undefined,
   upsertMyProfile: async () => undefined,
+  getPublicProfile: async () => undefined,
   scanMyGithubProfile: async () => undefined,
   fetchLearningPathRecommendations: async () => undefined,
   fetchMyGamificationSummary: async () => undefined,

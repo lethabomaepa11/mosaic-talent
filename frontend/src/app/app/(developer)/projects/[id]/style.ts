@@ -119,6 +119,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     min-width: 0;
     flex: 1;
   `,
+  memberLink: css`
+    display: inline-flex;
+    max-width: 100%;
+    color: ${token.colorPrimary};
+  `,
   openSpots: css`
     border: 1px dashed ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusLG}px;

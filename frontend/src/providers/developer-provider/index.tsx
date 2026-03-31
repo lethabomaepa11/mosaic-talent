@@ -33,12 +33,22 @@ import {
   IGamificationSummary,
   IGithubScanResult,
   ILearningPathResult,
+  IPublicDeveloperProfile,
   INITIAL_PROFILE,
   INITIAL_STATE,
 } from "./context";
 import { DeveloperReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/DeveloperOnboarding";
+
+const readApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof AxiosError) {
+    const message = error.response?.data?.error?.message as string | undefined;
+    return message || fallback;
+  }
+
+  return fallback;
+};
 
 const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile => ({
   githubUsername: input.githubUsername ?? "",
@@ -105,6 +115,36 @@ const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
   goals: (input.goals ?? [])
     .map((item) => item.trim())
     .filter(Boolean),
+});
+
+const normalizePublicProject = (
+  input: NonNullable<IPublicDeveloperProfile["currentProjects"]>[number],
+) => ({
+  id: String(input.id ?? ""),
+  title: input.title ?? "",
+  description: input.description ?? "",
+  status: input.status ?? "open",
+  githubRepo: input.githubRepo ?? "",
+  createdAt: input.createdAt ?? new Date().toISOString(),
+  skills: input.skills ?? [],
+});
+
+const normalizePublicProfile = (
+  input: Partial<IPublicDeveloperProfile>,
+): IPublicDeveloperProfile => ({
+  userName: input.userName ?? "",
+  displayName: input.displayName ?? "",
+  avatarUrl: input.avatarUrl ?? "",
+  githubUsername: input.githubUsername ?? "",
+  yearsOfExperience: input.yearsOfExperience,
+  yearOfStudy: input.yearOfStudy,
+  studyLevel: Number(input.studyLevel ?? 0),
+  bio: input.bio ?? "",
+  location: input.location ?? "",
+  teamworkRating: Number(input.teamworkRating ?? 0),
+  skills: input.skills ?? [],
+  currentProjects: (input.currentProjects ?? []).map(normalizePublicProject),
+  completedProjects: (input.completedProjects ?? []).map(normalizePublicProject),
 });
 
 export const DeveloperProvider = ({ children }: PropsWithChildren) => {
@@ -213,6 +253,33 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const getPublicProfile = async (userName: string) => {
+    const normalizedUserName = userName.trim();
+    if (!normalizedUserName) {
+      throw new Error("Username is required.");
+    }
+
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetPublicProfile`, {
+        params: {
+          userName: normalizedUserName,
+          UserName: normalizedUserName,
+          "input.userName": normalizedUserName,
+        },
+      });
+
+      if (!res.data?.result) {
+        return undefined;
+      }
+
+      return normalizePublicProfile(
+        res.data.result as Partial<IPublicDeveloperProfile>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load public profile."));
+    }
+  };
+
   const fetchMyGamificationSummary = async () => {
     dispatch(fetchGamificationPending());
 
@@ -235,6 +302,7 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           fetchStudyLevels,
           fetchCurrentUser,
           upsertMyProfile,
+          getPublicProfile,
           scanMyGithubProfile,
           fetchLearningPathRecommendations,
           fetchMyGamificationSummary,
@@ -253,3 +321,5 @@ export const useDeveloperState = () => {
 export const useDeveloperAction = () => {
   return useContext(DeveloperActionContext);
 };
+
+export type { IPublicDeveloperProfile } from "./context";

@@ -110,6 +110,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - `(company)` and `(developer)` app route partitions
   - layout-level access enforcement so developers cannot access company segments and vice versa
   - shared routes (for example `/app/profile`) remain outside restricted groups
+- Public developer profiles:
+  - anonymous `/developers/[username]` profile page with skills, current projects, and completed projects
+  - project member names link to public profiles from project details
 
 ## Documentation
 
@@ -132,6 +135,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
+- [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
 
 ## Tenant Resolution Rules
 
@@ -179,6 +183,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
 - `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`
 - `GET /api/services/app/DeveloperOnboarding/GetMyGamificationSummary`

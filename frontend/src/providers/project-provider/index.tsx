@@ -86,6 +86,7 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
   members: (input.members ?? []).map((member) => ({
     id: String(member.id ?? ""),
     name: member.name ?? "Developer",
+    userName: member.userName ?? "",
     avatar: member.avatar ?? "",
     role: member.role ?? "member",
   })),

@@ -5,6 +5,7 @@ using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
+using MosaicTalent.Domains.Projects;
 using MosaicTalent.Services.AiService;
 using MosaicTalent.Services.DeveloperOnboardingService.DTO;
 using MosaicTalent.Services.GamificationService;
@@ -24,6 +25,9 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
     private readonly IRepository<DeveloperProfileSkill, Guid> _profileSkillRepository;
     private readonly IRepository<DeveloperProfileGoal, Guid> _profileGoalRepository;
     private readonly IRepository<User, long> _userRepository;
+    private readonly IRepository<Project, Guid> _projectRepository;
+    private readonly IRepository<ProjectMember, Guid> _projectMemberRepository;
+    private readonly IRepository<ProjectSkill, Guid> _projectSkillRepository;
     private readonly IGroqChatService _groqChatService;
     private readonly IDeveloperGamificationService _developerGamificationService;
 
@@ -33,6 +37,9 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         IRepository<DeveloperProfileSkill, Guid> profileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> profileGoalRepository,
         IRepository<User, long> userRepository,
+        IRepository<Project, Guid> projectRepository,
+        IRepository<ProjectMember, Guid> projectMemberRepository,
+        IRepository<ProjectSkill, Guid> projectSkillRepository,
         IGroqChatService groqChatService,
         IDeveloperGamificationService developerGamificationService)
     {
@@ -41,8 +48,119 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         _profileSkillRepository = profileSkillRepository;
         _profileGoalRepository = profileGoalRepository;
         _userRepository = userRepository;
+        _projectRepository = projectRepository;
+        _projectMemberRepository = projectMemberRepository;
+        _projectSkillRepository = projectSkillRepository;
         _groqChatService = groqChatService;
         _developerGamificationService = developerGamificationService;
+    }
+
+    [AbpAllowAnonymous]
+    public async Task<DeveloperPublicProfileDto> GetPublicProfile(GetPublicDeveloperProfileInput input)
+    {
+        var requestedUserName = (input?.UserName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(requestedUserName))
+        {
+            throw new UserFriendlyException("Username is required.");
+        }
+
+        var normalizedUserName = requestedUserName.ToLowerInvariant();
+        var user = await _userRepository.GetAll()
+            .FirstOrDefaultAsync(x => (x.UserName ?? string.Empty).ToLower() == normalizedUserName);
+
+        Developer developer = null;
+        if (user != null)
+        {
+            developer = await _developerRepository.GetAll()
+                .FirstOrDefaultAsync(x => x.UserId == user.Id);
+        }
+
+        if (developer == null)
+        {
+            developer = await _developerRepository.GetAll()
+                .FirstOrDefaultAsync(x => (x.GithubUsername ?? string.Empty).ToLower() == normalizedUserName);
+
+            if (developer != null)
+            {
+                user = await _userRepository.FirstOrDefaultAsync(developer.UserId);
+            }
+        }
+
+        if (developer == null || user == null)
+        {
+            return null;
+        }
+
+        var profile = await _profileRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.DeveloperId == developer.Id);
+
+        var skills = profile == null
+            ? new List<string>()
+            : await _profileSkillRepository.GetAll()
+                .Where(x => x.ProfileId == profile.Id)
+                .Select(x => x.Name)
+                .ToListAsync();
+
+        var memberProjectIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.DeveloperId == developer.Id)
+            .Select(x => x.ProjectId)
+            .Distinct()
+            .ToListAsync();
+
+        var projects = memberProjectIds.Count == 0
+            ? new List<Project>()
+            : await _projectRepository.GetAll()
+                .Where(x => memberProjectIds.Contains(x.Id))
+                .OrderByDescending(x => x.CreationTime)
+                .ToListAsync();
+
+        var projectIds = projects.Select(x => x.Id).ToList();
+        var projectSkills = projectIds.Count == 0
+            ? new List<ProjectSkill>()
+            : await _projectSkillRepository.GetAll()
+                .Where(x => projectIds.Contains(x.ProjectId))
+                .ToListAsync();
+
+        var mappedProjects = projects
+            .Select(project => new DeveloperPublicProjectDto
+            {
+                Id = project.Id,
+                Title = project.Title,
+                Description = project.Description,
+                Status = ToPublicProjectStatus(project.Status),
+                GithubRepo = project.GithubRepo,
+                CreatedAt = project.CreationTime,
+                Skills = projectSkills
+                    .Where(x => x.ProjectId == project.Id)
+                    .Select(x => x.Name)
+                    .ToList(),
+            })
+            .ToList();
+
+        var displayName = string.Join(" ", new[] { user.Name, user.Surname }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+        return new DeveloperPublicProfileDto
+        {
+            UserName = user.UserName ?? developer.GithubUsername ?? string.Empty,
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? user.UserName : displayName,
+            AvatarUrl = string.IsNullOrWhiteSpace(user.AvatarUrl) && !string.IsNullOrWhiteSpace(developer.GithubUsername)
+                ? $"https://github.com/{developer.GithubUsername}.png"
+                : user.AvatarUrl,
+            GithubUsername = developer.GithubUsername,
+            YearsOfExperience = developer.YearsOfExperience,
+            YearOfStudy = developer.YearOfStudy,
+            StudyLevel = developer.StudyLevel,
+            Bio = profile?.Bio,
+            Location = profile?.Location,
+            TeamworkRating = profile?.TeamworkRating ?? 0,
+            Skills = skills,
+            CurrentProjects = mappedProjects
+                .Where(x => !string.Equals(x.Status, "completed", StringComparison.OrdinalIgnoreCase))
+                .ToList(),
+            CompletedProjects = mappedProjects
+                .Where(x => string.Equals(x.Status, "completed", StringComparison.OrdinalIgnoreCase))
+                .ToList(),
+        };
     }
 
     public async Task<DeveloperOnboardingDto> GetMyProfile()
@@ -270,5 +388,16 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         await CurrentUnitOfWork.SaveChangesAsync();
 
         return await GetMyProfile();
+    }
+
+    private static string ToPublicProjectStatus(ProjectStatus status)
+    {
+        return status switch
+        {
+            ProjectStatus.Draft => "draft",
+            ProjectStatus.InProgress => "in-progress",
+            ProjectStatus.Complete => "completed",
+            _ => "open",
+        };
     }
 }

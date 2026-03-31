@@ -419,7 +419,16 @@ const ProjectDetailPage = () => {
                     {member.name.slice(0, 1).toUpperCase()}
                   </Avatar>
                   <div className={styles.memberMeta}>
-                    <Typography.Text ellipsis>{member.name}</Typography.Text>
+                    {member.userName ? (
+                      <Link
+                        href={`/developers/${encodeURIComponent(member.userName)}`}
+                        className={styles.memberLink}
+                      >
+                        <Typography.Text ellipsis>{member.name}</Typography.Text>
+                      </Link>
+                    ) : (
+                      <Typography.Text ellipsis>{member.name}</Typography.Text>
+                    )}
                     <Typography.Text
                       type="secondary"
                       style={{ display: "block" }}
