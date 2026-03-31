@@ -5,6 +5,7 @@ import { createContext } from "react";
 export interface IProjectMember {
   id: string;
   name: string;
+  userName?: string;
   avatar: string;
   role: string;
 }

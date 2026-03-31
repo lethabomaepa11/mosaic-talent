@@ -869,6 +869,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 {
                     Id = member.DeveloperId,
                     Name = string.IsNullOrWhiteSpace(fullName) ? user?.UserName ?? "Developer" : fullName,
+                    UserName = user?.UserName ?? string.Empty,
                     Avatar = user?.AvatarUrl ?? string.Empty,
                     Role = member.Role == MemberRole.Lead ? "lead" : "member",
                 };

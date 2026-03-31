@@ -33,6 +33,7 @@ import {
   Typography,
 } from "antd";
 import { toast } from "@/components/providers";
+import { useSearchParams } from "next/navigation";
 import {
   useSimulationAction,
   useSimulationState,
@@ -232,6 +233,7 @@ export default function SimulatorPage() {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isAiTurnActive, setIsAiTurnActive] = useState(false);
 
+  const searchParams = useSearchParams();
   const { scenarios, activeSession } = useSimulationState();
   const { currentUser } = useDeveloperState();
   const {
@@ -254,6 +256,13 @@ export default function SimulatorPage() {
     void fetchCurrentUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const scenarioIdFromQuery = searchParams.get("scenarioId");
+    if (scenarioIdFromQuery) {
+      setSelectedScenarioId(scenarioIdFromQuery);
+    }
+  }, [searchParams]);
 
   const currentSession =
     activeSession?.id === activeSessionId ? activeSession : null;

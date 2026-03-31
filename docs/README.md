@@ -15,3 +15,5 @@ Project documentation index.
 - [GitHub Candidate Background Analysis](feature/github-candidate-background-analysis.md)
 - [AI Learning Path Recommendations](feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](feature/gamification-badges-points-levels.md)
+- [Global Search](feature/global-search.md)
+- [Public Developer Profiles and Project Visibility](feature/public-profiles-project-visibility.md)

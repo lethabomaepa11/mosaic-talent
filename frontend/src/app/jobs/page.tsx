@@ -8,6 +8,7 @@ import { CompanyPublicHeader, JobsPageFooter } from "@/components/public-jobs";
 import { useJobAction, useJobState } from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
+import { useRouter } from "next/navigation";
 
 interface IBuilderBlock {
   id?: string;
@@ -21,15 +22,20 @@ const JobsPage = () => {
   const { jobs, isPending, publicJobsPage } = useJobState();
   const { fetchOpenJobs, fetchPublicJobsPage } = useJobAction();
   const [isPageLoading, setIsPageLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     Promise.allSettled([fetchOpenJobs(), fetchPublicJobsPage()]).finally(() => {
       setIsPageLoading(false);
+      if (!tenancyName) {
+        const domain = window.location.hostname;
+        router.replace(domain.substring(0, domain.indexOf(".")) + "/login");
+      }
     });
   }, []);
 
   const companyLabel = useMemo(() => {
-    return tenancyName ? `${tenancyName} workspace` : "developer workspace";
+    return tenancyName;
   }, [tenancyName]);
 
   const layoutComponents = useMemo(() => {

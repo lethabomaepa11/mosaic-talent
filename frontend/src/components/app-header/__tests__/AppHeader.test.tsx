@@ -3,16 +3,27 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { AuthStateContext, INITIAL_STATE } from "@/providers/auth-provider/context";
 import { AppHeader } from "@/components/app-header";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => ({
+    get: () => null,
+  }),
+}));
+
 const mocks = vi.hoisted(() => ({
   useDeveloperState: vi.fn(),
+  useDeveloperAction: vi.fn(),
   useCompanyProfileState: vi.fn(),
   useTenantResolutionState: vi.fn(),
   useAppearanceState: vi.fn(),
   useAppearanceAction: vi.fn(),
+  useProjectState: vi.fn(),
+  useSimulationState: vi.fn(),
 }));
 
 vi.mock("@/providers/developer-provider", () => ({
   useDeveloperState: mocks.useDeveloperState,
+  useDeveloperAction: mocks.useDeveloperAction,
 }));
 
 vi.mock("@/providers/company-profile-provider", () => ({
@@ -28,6 +39,14 @@ vi.mock("@/providers/appearance-provider", () => ({
   useAppearanceAction: mocks.useAppearanceAction,
 }));
 
+vi.mock("@/providers/project-provider", () => ({
+  useProjectState: mocks.useProjectState,
+}));
+
+vi.mock("@/providers/simulation-provider", () => ({
+  useSimulationState: mocks.useSimulationState,
+}));
+
 vi.mock("@/components/notification-center", () => ({
   NotificationCenter: ({ buttonAriaLabel }: { buttonAriaLabel: string }) => (
     <button type="button">{buttonAriaLabel}</button>
@@ -40,6 +59,9 @@ describe("AppHeader", () => {
       currentUser: undefined,
       profile: { avatarUrl: "" },
     });
+    mocks.useDeveloperAction.mockReturnValue({
+      searchPublicDevelopers: vi.fn().mockResolvedValue([]),
+    });
     mocks.useCompanyProfileState.mockReturnValue({
       profile: undefined,
     });
@@ -51,6 +73,22 @@ describe("AppHeader", () => {
     });
     mocks.useAppearanceAction.mockReturnValue({
       toggleMode: vi.fn(),
+    });
+    mocks.useProjectState.mockReturnValue({
+      myProjects: [],
+      openProjects: [],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      selectedProject: undefined,
+      lastMatch: undefined,
+    });
+    mocks.useSimulationState.mockReturnValue({
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      scenarios: [],
+      activeSession: undefined,
     });
   });
 
