@@ -120,6 +120,43 @@ export interface IRepoSafetyScan {
   result?: IRepoSafetyResult;
 }
 
+export interface IRepoGuardianCategoryScore {
+  category: string;
+  score: number;
+}
+
+export interface IRepoGuardianRuleResult {
+  ruleId: string;
+  ruleName: string;
+  category: string;
+  passed: boolean;
+  details: string;
+}
+
+export interface IRepoGuardianRecommendation {
+  ruleResultId: string;
+  ruleId: string;
+  issueDescription: string;
+  explanation: string;
+  suggestedFix: string;
+}
+
+export interface IRepoGuardianScanResult {
+  scanRunId: string;
+  status: string;
+  overallScore: number;
+  triggeredAt: string;
+  completedAt: string;
+  errorMessage: string | null;
+  categoryScores: IRepoGuardianCategoryScore[];
+  ruleResults: IRepoGuardianRuleResult[];
+  recommendations: IRepoGuardianRecommendation[];
+}
+
+export interface IRepoGuardianScan {
+  result?: IRepoGuardianScanResult;
+}
+
 export interface ICreateGithubRepositoryInput {
   name: string;
   description?: string;
@@ -174,6 +211,7 @@ export interface IProjectActionContext {
   ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
   scanRepoSafety: (projectId: string) => Promise<IRepoSafetyScan | undefined>;
+  scanRepoGuardian: (githubUrl: string) => Promise<IRepoGuardianScan | undefined>;
 }
 
 export const INITIAL_STATE: IProjectStateContext = {
@@ -208,4 +246,5 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
   scanRepoSafety: async () => undefined,
+  scanRepoGuardian: async () => undefined,
 });

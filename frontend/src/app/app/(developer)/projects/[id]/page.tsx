@@ -42,6 +42,7 @@ import {
 import {
   IProjectTask,
   IRepoSafetyScan,
+  IRepoGuardianScan,
 } from "@/providers/project-provider/context";
 import { useStyles } from "./style";
 import { GithubOutlined } from "@ant-design/icons";
@@ -87,6 +88,11 @@ const ProjectDetailPage = () => {
   );
   const [repoSafetyPending, setRepoSafetyPending] = useState(false);
   const [repoSafetyError, setRepoSafetyError] = useState<string | null>(null);
+  const [repoGuardianScan, setRepoGuardianScan] = useState<IRepoGuardianScan | undefined>(
+    undefined,
+  );
+  const [repoGuardianPending, setRepoGuardianPending] = useState(false);
+  const [repoGuardianError, setRepoGuardianError] = useState<string | null>(null);
 
   const { styles } = useStyles();
   const { currentUser, isPending } = useDeveloperState();
@@ -102,6 +108,7 @@ const ProjectDetailPage = () => {
     updateProjectSkills,
     completeProject,
     scanRepoSafety,
+    scanRepoGuardian,
   } = useProjectAction();
 
   useEffect(() => {
@@ -111,7 +118,32 @@ const ProjectDetailPage = () => {
     void fetchProjectById(projectId);
     setRepoSafetyScan(undefined);
     setRepoSafetyError(null);
+    setRepoGuardianScan(undefined);
+    setRepoGuardianError(null);
   }, [projectId]);
+
+  useEffect(() => {
+    if (!project?.githubRepo) return;
+    const githubUrl = project.githubRepo;
+    if (!githubUrl.includes("github.com")) return;
+
+    setRepoGuardianPending(true);
+    setRepoGuardianScan(undefined);
+    setRepoGuardianError(null);
+
+    scanRepoGuardian(githubUrl)
+      .then((result) => {
+        setRepoGuardianScan(result);
+      })
+      .catch((error) => {
+        setRepoGuardianError(
+          error instanceof Error ? error.message : "Failed to scan repository",
+        );
+      })
+      .finally(() => {
+        setRepoGuardianPending(false);
+      });
+  }, [project?.githubRepo]);
 
   const isMember = useMemo(() => {
     return myProjects.some((item) => item.id === projectId);
@@ -612,6 +644,107 @@ const ProjectDetailPage = () => {
               ) : (
                 <Typography.Text type="secondary">
                   Run a scan to view safety signals for this repository.
+                </Typography.Text>
+              )}
+            </div>
+          )}
+        </Card>
+
+        <Card
+          title={
+            <Space>
+              <CheckCircle size={16} />
+              Repository Analysis
+            </Space>
+          }
+          className={styles.repoSafetyCard}
+        >
+          {!project.githubRepo ? (
+            <Typography.Text type="secondary">
+              No GitHub repository linked to this project.
+            </Typography.Text>
+          ) : (
+            <div className={styles.repoSafetyBody}>
+              {repoGuardianError ? (
+                <Alert
+                  type="error"
+                  message={repoGuardianError}
+                  showIcon
+                  className={styles.repoSafetyAlert}
+                />
+              ) : null}
+
+              {repoGuardianPending ? (
+                <div className={styles.repoSafetyProgress}>
+                  <Space size={8} align="center">
+                    <Spin size="small" />
+                    <Typography.Text type="secondary">
+                      Scanning repository...
+                    </Typography.Text>
+                  </Space>
+                </div>
+              ) : null}
+
+              {repoGuardianScan?.result ? (
+                <div className={styles.repoSafetySummary}>
+                  <div className={styles.repoSafetyHeader}>
+                    <Tag color={repoGuardianScan.result.overallScore >= 70 ? "green" : repoGuardianScan.result.overallScore >= 40 ? "gold" : "red"}>
+                      Score: {repoGuardianScan.result.overallScore}
+                    </Tag>
+                    <Typography.Text type="secondary">
+                      Status: {repoGuardianScan.result.status}
+                    </Typography.Text>
+                  </div>
+
+                  {repoGuardianScan.result.categoryScores.length > 0 ? (
+                    <div className={styles.repoSafetyMeta}>
+                      {repoGuardianScan.result.categoryScores.map((cat, index) => (
+                        <Tag key={`cat-${index}`} color={cat.score >= 70 ? "green" : cat.score >= 40 ? "gold" : "red"}>
+                          {cat.category}: {cat.score}
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {repoGuardianScan.result.ruleResults.length > 0 ? (
+                    <div className={styles.repoSafetyFindings}>
+                      <Typography.Text strong>Rule Results</Typography.Text>
+                      <ul className={styles.repoSafetyList}>
+                        {repoGuardianScan.result.ruleResults.slice(0, 5).map((rule, index) => (
+                          <li key={`${rule.ruleId}-${index}`}>
+                            <Typography.Text>
+                              {rule.passed ? "✓" : "✗"} {rule.ruleName} ({rule.category})
+                            </Typography.Text>
+                            <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                              {rule.details}
+                            </Typography.Text>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {repoGuardianScan.result.recommendations.length > 0 ? (
+                    <div className={styles.repoSafetyFindings}>
+                      <Typography.Text strong>Recommendations</Typography.Text>
+                      <ul className={styles.repoSafetyList}>
+                        {repoGuardianScan.result.recommendations.map((rec, index) => (
+                          <li key={`rec-${index}`}>
+                            <Typography.Text>
+                              {rec.issueDescription}
+                            </Typography.Text>
+                            <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                              {rec.suggestedFix}
+                            </Typography.Text>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <Typography.Text type="secondary">
+                  Scanning repository for analysis...
                 </Typography.Text>
               )}
             </div>

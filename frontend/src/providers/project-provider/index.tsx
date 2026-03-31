@@ -52,6 +52,7 @@ import {
   IRepoSafetyProgress,
   IRepoSafetyResult,
   IRepoSafetyScan,
+  IRepoGuardianScan,
   INITIAL_STATE,
   ProjectActionContext,
   ProjectStateContext,
@@ -59,6 +60,7 @@ import {
 import { ProjectReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/DeveloperProject";
+const REPO_GUARDIAN_ENDPOINT = "/api/services/app/RepoGuardian";
 
 const readApiErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof AxiosError) {
@@ -216,6 +218,10 @@ const normalizeRepoSafetyScan = (input: Partial<IRepoSafetyScan>): IRepoSafetySc
     normalizeRepoSafetyProgress(step),
   ),
   result: input.result ? normalizeRepoSafetyResult(input.result) : undefined,
+});
+
+const normalizeRepoGuardianScan = (input: Partial<IRepoGuardianScan>): IRepoGuardianScan => ({
+  result: input.result,
 });
 
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
@@ -427,7 +433,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
-  const scanRepoSafety = async (projectId: string) => {
+const scanRepoSafety = async (projectId: string) => {
     try {
       const res = await instance.post(`${ENDPOINT}/ScanRepoSafety`, { projectId });
       return normalizeRepoSafetyScan(
@@ -435,6 +441,19 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
       );
     } catch (error) {
       throw new Error(readApiErrorMessage(error, "Repo safety scan failed."));
+    }
+  };
+
+  const scanRepoGuardian = async (githubUrl: string) => {
+    try {
+      const res = await instance.post(`${REPO_GUARDIAN_ENDPOINT}/QuickScan`, {
+        githubUrl,
+      });
+      return normalizeRepoGuardianScan(
+        (res.data?.result ?? {}) as Partial<IRepoGuardianScan>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Repo guardian scan failed."));
     }
   };
 
@@ -459,7 +478,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
 
   return (
     <ProjectStateContext.Provider value={state}>
-      <ProjectActionContext.Provider
+<ProjectActionContext.Provider
         value={{
           fetchMyProjects,
           fetchOpenProjects,
@@ -476,6 +495,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           updateProjectSkills,
           completeProject,
           scanRepoSafety,
+          scanRepoGuardian,
         }}
       >
         {children}
