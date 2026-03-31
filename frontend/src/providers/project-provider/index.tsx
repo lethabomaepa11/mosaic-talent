@@ -1,7 +1,7 @@
 "use client";
 
 import { PropsWithChildren, useContext, useReducer } from "react";
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import {
   addTaskError,
@@ -60,7 +60,7 @@ import {
 import { ProjectReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/DeveloperProject";
-const REPO_GUARDIAN_ENDPOINT = "/api/services/app/RepoGuardian";
+const REPO_GUARDIAN_ENDPOINT = "https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan";
 
 const readApiErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof AxiosError) {
@@ -446,7 +446,7 @@ const scanRepoSafety = async (projectId: string) => {
 
   const scanRepoGuardian = async (githubUrl: string) => {
     try {
-      const res = await instance.post(`${REPO_GUARDIAN_ENDPOINT}/QuickScan`, {
+      const res = await axios.post(`https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan`, {
         githubUrl,
       });
       return normalizeRepoGuardianScan(
