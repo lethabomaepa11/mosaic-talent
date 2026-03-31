@@ -372,4 +372,8 @@ export const useDeveloperAction = () => {
   return useContext(DeveloperActionContext);
 };
 
-export type { IPublicDeveloperProfile } from "./context";
+export type {
+  IDeveloperProfile,
+  IDeveloperSearchResult,
+  IPublicDeveloperProfile,
+} from "./context";
