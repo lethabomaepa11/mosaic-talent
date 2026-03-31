@@ -9,15 +9,21 @@ import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
+import { IRepoSafetyScan } from "@/providers/project-provider/context";
 import { useStyles } from "./style";
 
 const OpenProjectsPage = () => {
   const [swipeIndex, setSwipeIndex] = useState(0);
+  const [repoSafetyByProject, setRepoSafetyByProject] = useState<
+    Record<string, IRepoSafetyScan | undefined>
+  >({});
+  const [repoSafetyPending, setRepoSafetyPending] = useState<Record<string, boolean>>({});
+  const [repoSafetyError, setRepoSafetyError] = useState<Record<string, string>>({});
   const { styles } = useStyles();
 
   const { fetchCurrentUser } = useDeveloperAction();
   const { openProjects } = useProjectState();
-  const { fetchOpenProjects, joinProject } = useProjectAction();
+  const { fetchOpenProjects, joinProject, scanRepoSafety } = useProjectAction();
 
   useEffect(() => {
     fetchCurrentUser();
@@ -47,6 +53,22 @@ const OpenProjectsPage = () => {
 
   const handleSwipeSkip = () => {
     setSwipeIndex((prev) => prev + 1);
+  };
+
+  const handleScanRepoSafety = async (projectId: string) => {
+    setRepoSafetyPending((prev) => ({ ...prev, [projectId]: true }));
+    setRepoSafetyError((prev) => ({ ...prev, [projectId]: "" }));
+
+    try {
+      const result = await scanRepoSafety(projectId);
+      setRepoSafetyByProject((prev) => ({ ...prev, [projectId]: result }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to scan repository.";
+      setRepoSafetyError((prev) => ({ ...prev, [projectId]: message }));
+    } finally {
+      setRepoSafetyPending((prev) => ({ ...prev, [projectId]: false }));
+    }
   };
 
   return (
@@ -110,7 +132,15 @@ const OpenProjectsPage = () => {
                           }
                         }}
                       >
-                        <ProjectCard project={project} onJoin={() => void handleSwipeJoin(project.id)} />
+                        <ProjectCard
+                          project={project}
+                          onJoin={() => void handleSwipeJoin(project.id)}
+                          repoSafety={repoSafetyByProject[project.id]?.result}
+                          repoSafetyProgress={repoSafetyByProject[project.id]?.progress}
+                          isRepoSafetyPending={repoSafetyPending[project.id]}
+                          repoSafetyError={repoSafetyError[project.id]}
+                          onScanRepo={() => void handleScanRepoSafety(project.id)}
+                        />
                       </motion.div>
                     );
                   })}

@@ -35,7 +35,8 @@ const settingsOptions = [
   {
     key: "email-templates",
     title: "Manage Email Templates",
-    description: "Configure applicant emails and choose manual or AI generation.",
+    description:
+      "Configure applicant emails and choose manual or AI generation.",
     href: "/app/settings/email-templates",
     icon: Mail,
     adminOnly: false,
@@ -52,7 +53,9 @@ const SettingsPage = () => {
   );
 
   if (!tenancyName) {
-    return <Empty description="Settings options are available in company workspaces." />;
+    return (
+      <Empty description="Settings options are available in company workspaces." />
+    );
   }
 
   return (
@@ -65,18 +68,15 @@ const SettingsPage = () => {
           Choose what you want to configure.
         </Typography.Paragraph>
       </div>
-      {!isAdmin ? (
-        <Alert
-          type="info"
-          showIcon
-          message="Admin-only sections are hidden for your role. Email templates remain available."
-        />
-      ) : null}
 
       <Row gutter={[16, 16]}>
         {visibleOptions.map((option) => (
           <Col xs={24} md={12} xl={8} key={option.key}>
-            <Link href={option.href} className={styles.cardLink} data-ai-route={option.href}>
+            <Link
+              href={option.href}
+              className={styles.cardLink}
+              data-ai-route={option.href}
+            >
               <Card className={styles.optionCard}>
                 <div className={styles.optionHeader}>
                   <option.icon size={20} />

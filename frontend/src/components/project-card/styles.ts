@@ -34,6 +34,25 @@ export const useStyles = createStyles(({ token, css }) => ({
     font-size: ${token.fontSizeSM}px;
     word-break: break-all;
   `,
+  repoSafetyRow: css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: ${token.marginXS}px;
+    margin: 0 0 ${token.marginSM}px;
+  `,
+  repoSafetyProgress: css`
+    display: inline-flex;
+    align-items: center;
+    gap: ${token.marginXXS}px;
+  `,
+  repoSafetyStep: css`
+    font-size: ${token.fontSizeSM}px;
+  `,
+  repoSafetyError: css`
+    color: ${token.colorError};
+    font-size: ${token.fontSizeSM}px;
+  `,
   matchLine: css`
     margin: 0 0 ${token.marginSM}px;
     color: ${token.colorTextSecondary};

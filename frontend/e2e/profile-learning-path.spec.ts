@@ -119,16 +119,42 @@ const setupProfileRoutes = async (page: Page) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    document.cookie = "mosaic-talent.access-token=e2e-token; path=/; SameSite=Lax";
-    document.cookie = "mosaic-talent.abp-tenant-id=1; path=/; SameSite=Lax";
+  page.on("pageerror", (error) => {
+    console.error("pageerror", error);
   });
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      console.error("console", message.text());
+    }
+  });
+  await page.addInitScript(() => {
+    document.cookie = "mosaic-talent.e2e=1; path=/";
+  });
+  await page.context().addCookies([
+    {
+      name: "mosaic-talent.access-token",
+      value: "e2e-token",
+      url: "http://127.0.0.1:3000",
+    },
+    {
+      name: "mosaic-talent.abp-tenant-id",
+      value: "1",
+      url: "http://127.0.0.1:3000",
+    },
+    {
+      name: "mosaic-talent.e2e",
+      value: "1",
+      url: "http://127.0.0.1:3000",
+    },
+  ]);
 });
 
 test("renders AI learning path recommendations from profile data", async ({ page }) => {
   const apiHits = await setupProfileRoutes(page);
 
   await page.goto("/app/profile");
+
+  await page.waitForSelector("[data-ai-page='profile']", { state: "attached" });
 
   await expect.poll(() => apiHits.getProfileHits()).toBeGreaterThan(0);
   await expect.poll(() => apiHits.getLearningPathHits()).toBeGreaterThan(0);

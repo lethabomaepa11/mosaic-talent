@@ -8,11 +8,16 @@ import {
   Card,
   Progress,
   Space,
+  Spin,
   Tag,
   Typography,
 } from "antd";
 import { ChevronRight, Clock } from "lucide-react";
-import { IProject } from "@/providers/project-provider/context";
+import {
+  IProject,
+  IRepoSafetyProgress,
+  IRepoSafetyResult,
+} from "@/providers/project-provider/context";
 import { useStyles } from "./styles";
 import { GithubFilled } from "@ant-design/icons";
 
@@ -20,6 +25,11 @@ interface IProjectCardProps {
   project: IProject;
   isMember?: boolean;
   onJoin?: () => void;
+  repoSafety?: IRepoSafetyResult;
+  repoSafetyProgress?: IRepoSafetyProgress[];
+  isRepoSafetyPending?: boolean;
+  repoSafetyError?: string;
+  onScanRepo?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -33,6 +43,11 @@ export const ProjectCard = ({
   project,
   isMember,
   onJoin,
+  repoSafety,
+  repoSafetyProgress,
+  isRepoSafetyPending,
+  repoSafetyError,
+  onScanRepo,
 }: IProjectCardProps) => {
   const { styles } = useStyles();
   const tasksDone = project.tasks.filter(
@@ -42,6 +57,14 @@ export const ProjectCard = ({
   const progress =
     totalTasks > 0 ? Math.round((tasksDone / totalTasks) * 100) : 0;
   const membersShown = project.members.slice(0, 4);
+  const lastRepoProgress =
+    repoSafetyProgress && repoSafetyProgress.length > 0
+      ? repoSafetyProgress[repoSafetyProgress.length - 1]
+      : undefined;
+  const riskLevel = repoSafety?.riskLevel?.toLowerCase() ?? "";
+  const riskColor =
+    riskLevel === "low" ? "green" : riskLevel === "medium" ? "gold" : riskLevel === "high" ? "red" : "default";
+  const riskLabel = riskLevel ? (riskLevel === "low" ? "Safe" : `Risk: ${riskLevel}`) : "";
 
   return (
     <Card className={styles.card}>
@@ -75,6 +98,29 @@ export const ProjectCard = ({
           text={project.status}
         />
       </div>
+
+      {project.githubRepo ? (
+        <div className={styles.repoSafetyRow}>
+          {repoSafety ? <Tag color={riskColor}>{riskLabel}</Tag> : null}
+          {repoSafetyError ? (
+            <Typography.Text className={styles.repoSafetyError}>
+              {repoSafetyError}
+            </Typography.Text>
+          ) : null}
+          {isRepoSafetyPending ? (
+            <Space size={6} className={styles.repoSafetyProgress}>
+              <Spin size="small" />
+              <Typography.Text type="secondary" className={styles.repoSafetyStep}>
+                {lastRepoProgress?.step ?? "Scanning repository..."}
+              </Typography.Text>
+            </Space>
+          ) : !repoSafety ? (
+            <Button size="small" onClick={onScanRepo} data-ai-action="scan-repo-safety">
+              Check Repo Safety
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className={styles.teamRow}>
         <div className={styles.memberRow}>

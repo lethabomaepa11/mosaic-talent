@@ -55,6 +55,108 @@ export interface IGithubRepository {
   defaultBranch: string;
 }
 
+export interface IRepoSafetyProgress {
+  step: string;
+  progress: number;
+}
+
+export interface IRepoSafetyFinding {
+  ruleId: string;
+  category: string;
+  severity: string;
+  title: string;
+  description?: string;
+  filePath?: string;
+  points?: number;
+}
+
+export interface IRepoSafetyCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  score?: number;
+  maxScore?: number;
+  findings: IRepoSafetyFinding[];
+}
+
+export interface IRepoSafetyBadge {
+  type: string;
+  label: string;
+  description?: string;
+}
+
+export interface IRepoSafetyMeta {
+  owner?: string;
+  repo?: string;
+  description?: string;
+  stars?: number;
+  forks?: number;
+  createdAt?: string;
+  pushedAt?: string;
+  defaultBranch?: string;
+  language?: string;
+  topics: string[];
+  openIssues?: number;
+  size?: number;
+}
+
+export interface IRepoSafetyResult {
+  repoUrl: string;
+  meta?: IRepoSafetyMeta;
+  riskScore: number;
+  riskLevel: string;
+  categories: IRepoSafetyCategory[];
+  findings: IRepoSafetyFinding[];
+  badges: IRepoSafetyBadge[];
+  scannedAt?: string;
+  commitSha?: string;
+  filesScanned?: number;
+  totalRepoFiles?: number;
+  cached?: boolean;
+}
+
+export interface IRepoSafetyScan {
+  progress: IRepoSafetyProgress[];
+  result?: IRepoSafetyResult;
+}
+
+export interface IRepoGuardianCategoryScore {
+  category: string;
+  score: number;
+}
+
+export interface IRepoGuardianRuleResult {
+  ruleId: string;
+  ruleName: string;
+  category: string;
+  passed: boolean;
+  details: string;
+}
+
+export interface IRepoGuardianRecommendation {
+  ruleResultId: string;
+  ruleId: string;
+  issueDescription: string;
+  explanation: string;
+  suggestedFix: string;
+}
+
+export interface IRepoGuardianScanResult {
+  scanRunId: string;
+  status: string;
+  overallScore: number;
+  triggeredAt: string;
+  completedAt: string;
+  errorMessage: string | null;
+  categoryScores: IRepoGuardianCategoryScore[];
+  ruleResults: IRepoGuardianRuleResult[];
+  recommendations: IRepoGuardianRecommendation[];
+}
+
+export interface IRepoGuardianScan {
+  result?: IRepoGuardianScanResult;
+}
+
 export interface ICreateGithubRepositoryInput {
   name: string;
   description?: string;
@@ -108,6 +210,8 @@ export interface IProjectActionContext {
     skills: string[],
   ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
+  scanRepoSafety: (projectId: string) => Promise<IRepoSafetyScan | undefined>;
+  scanRepoGuardian: (githubUrl: string) => Promise<IRepoGuardianScan | undefined>;
 }
 
 export const INITIAL_STATE: IProjectStateContext = {
@@ -141,4 +245,6 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   updateProjectTaskStatus: async () => undefined,
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
+  scanRepoSafety: async () => undefined,
+  scanRepoGuardian: async () => undefined,
 });
