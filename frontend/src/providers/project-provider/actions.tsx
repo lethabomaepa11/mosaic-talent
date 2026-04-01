@@ -19,6 +19,12 @@ export enum ProjectStateEnums {
   PROJECT_JOIN_PENDING = "PROJECT_JOIN_PENDING",
   PROJECT_JOIN_SUCCESS = "PROJECT_JOIN_SUCCESS",
   PROJECT_JOIN_ERROR = "PROJECT_JOIN_ERROR",
+  PROJECT_LEAVE_PENDING = "PROJECT_LEAVE_PENDING",
+  PROJECT_LEAVE_SUCCESS = "PROJECT_LEAVE_SUCCESS",
+  PROJECT_LEAVE_ERROR = "PROJECT_LEAVE_ERROR",
+  PROJECT_ASSIGN_ROLE_PENDING = "PROJECT_ASSIGN_ROLE_PENDING",
+  PROJECT_ASSIGN_ROLE_SUCCESS = "PROJECT_ASSIGN_ROLE_SUCCESS",
+  PROJECT_ASSIGN_ROLE_ERROR = "PROJECT_ASSIGN_ROLE_ERROR",
   PROJECT_MATCH_PENDING = "PROJECT_MATCH_PENDING",
   PROJECT_MATCH_SUCCESS = "PROJECT_MATCH_SUCCESS",
   PROJECT_MATCH_ERROR = "PROJECT_MATCH_ERROR",
@@ -126,6 +132,36 @@ export const joinProjectSuccess = createAction<ProjectStatePatch>(
 
 export const joinProjectError = createAction<ProjectStatePatch>(
   ProjectStateEnums.PROJECT_JOIN_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const leaveProjectPending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_LEAVE_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const leaveProjectSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_LEAVE_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const leaveProjectError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_LEAVE_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const assignRolePending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_ASSIGN_ROLE_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const assignRoleSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_ASSIGN_ROLE_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const assignRoleError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_ASSIGN_ROLE_ERROR,
   () => ({ isPending: false, isSuccess: false, isError: true }),
 );
 

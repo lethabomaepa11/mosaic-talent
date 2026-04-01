@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fetchMyProjectsSuccess,
   fetchOpenProjectsSuccess,
+  leaveProjectPending,
   ProjectStateEnums,
 } from "../actions";
 
@@ -35,6 +36,13 @@ describe("project actions", () => {
       type: ProjectStateEnums.PROJECT_FETCH_OPEN_SUCCESS,
       payload: {
         openProjects: projects,
+      },
+    });
+
+    expect(leaveProjectPending()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_LEAVE_PENDING,
+      payload: {
+        isPending: true,
       },
     });
   });
