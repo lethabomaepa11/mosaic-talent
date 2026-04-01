@@ -220,6 +220,19 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         var availableRepos = await FetchGithubRepositories(developer);
         var selectedRepoEntry = ResolveSelectedRepository(availableRepos, selectedRepo)
             ?? throw new UserFriendlyException("Selected GitHub repository was not found in your connected account.");
+        var selectedRepoUrl = NormalizeGithubRepoUrl(
+            selectedRepoEntry.HtmlUrl?.Trim() ?? $"https://github.com/{selectedRepoEntry.FullName}");
+        if (string.IsNullOrWhiteSpace(selectedRepoUrl))
+        {
+            throw new UserFriendlyException("Selected GitHub repository URL is invalid.");
+        }
+
+        var scanResult = await PerformRepoSafetyScan(selectedRepoUrl);
+        if (!IsRepoSafe(scanResult))
+        {
+            throw new UserFriendlyException(
+                "Repository safety scan detected potentially malicious code. Select a safer repository before creating a project.");
+        }
 
         var normalizedSkills = (input.Skills ?? new List<string>())
             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -234,7 +247,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Title = input.Title.Trim(),
             Description = input.Description.Trim(),
             MaxMembers = input.MaxMembers ?? 4,
-            GithubRepo = selectedRepoEntry.HtmlUrl?.Trim() ?? $"https://github.com/{selectedRepoEntry.FullName}",
+            GithubRepo = selectedRepoUrl,
             Type = input.Type,
             Status = input.Status,
         };
@@ -337,28 +350,18 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             throw new UserFriendlyException("Project repository must be a GitHub URL.");
         }
 
-        var payload = JsonSerializer.Serialize(new { url = repoUrl }, RepoSafetyJsonOptions());
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://www.scanrepo.dev/api/scan")
-        {
-            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
-        };
+        return await PerformRepoSafetyScan(repoUrl);
+    }
 
-        var client = _httpClientFactory.CreateClient();
-        using var response = await client.SendAsync(request);
-        var body = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+    public async Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input)
+    {
+        var repoUrl = NormalizeGithubRepoUrl(input?.GithubUrl);
+        if (string.IsNullOrWhiteSpace(repoUrl))
         {
-            throw new UserFriendlyException("Repository scan failed. Try again later.");
+            throw new UserFriendlyException("Repository URL must be a valid GitHub URL.");
         }
 
-        var scanResult = ParseRepoSafetyResponse(body);
-        if (scanResult?.Result == null)
-        {
-            throw new UserFriendlyException("Scan service returned an invalid response.");
-        }
-
-        return scanResult;
+        return await PerformRepoSafetyScan(repoUrl);
     }
 
     public async Task<DeveloperProjectDto> AiMatchProject()
@@ -845,6 +848,75 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
 
         var normalized = NormalizeGithubRepoKey(value);
         return string.IsNullOrWhiteSpace(normalized) ? string.Empty : $"https://github.com/{normalized}";
+    }
+
+    private async Task<RepoSafetyScanResultDto> PerformRepoSafetyScan(string repoUrl)
+    {
+        var payload = JsonSerializer.Serialize(new { url = repoUrl }, RepoSafetyJsonOptions());
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://www.scanrepo.dev/api/scan")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new UserFriendlyException("Repository scan failed. Try again later.");
+        }
+
+        var scanResult = ParseRepoSafetyResponse(body);
+        if (scanResult?.Result == null)
+        {
+            throw new UserFriendlyException("Scan service returned an invalid response.");
+        }
+
+        return scanResult;
+    }
+
+    private static bool IsRepoSafe(RepoSafetyScanResultDto scanResult)
+    {
+        var result = scanResult?.Result;
+        if (result == null)
+        {
+            return false;
+        }
+
+        var riskLevel = (result.RiskLevel ?? string.Empty).Trim().ToLowerInvariant();
+        if (riskLevel is "high" or "critical")
+        {
+            return false;
+        }
+
+        var findings = result.Findings ?? new List<RepoSafetyFindingDto>();
+        return findings.All(finding => !IsMaliciousFinding(finding));
+    }
+
+    private static bool IsMaliciousFinding(RepoSafetyFindingDto finding)
+    {
+        var severity = (finding?.Severity ?? string.Empty).Trim().ToLowerInvariant();
+        if (severity is "high" or "critical")
+        {
+            return true;
+        }
+
+        var evidence = string.Join(" ", new[]
+        {
+            finding?.Category ?? string.Empty,
+            finding?.Title ?? string.Empty,
+            finding?.Description ?? string.Empty,
+        }).ToLowerInvariant();
+
+        return evidence.Contains("malicious") ||
+               evidence.Contains("backdoor") ||
+               evidence.Contains("trojan") ||
+               evidence.Contains("ransomware") ||
+               evidence.Contains("credential") ||
+               evidence.Contains("stealer") ||
+               evidence.Contains("command and control") ||
+               evidence.Contains("payload");
     }
 
     private static RepoSafetyScanResultDto ParseRepoSafetyResponse(string payload)

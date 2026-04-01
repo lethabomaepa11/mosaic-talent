@@ -34,6 +34,59 @@ const OpenProjectsPage = () => {
     setSwipeIndex(0);
   }, [openProjects.length]);
 
+  useEffect(() => {
+    const projectsToScan = openProjects.filter(
+      (project) =>
+        Boolean(project.githubRepo) &&
+        !repoSafetyByProject[project.id] &&
+        !repoSafetyPending[project.id],
+    );
+
+    if (projectsToScan.length === 0) {
+      return;
+    }
+
+    let isActive = true;
+
+    const runScans = async () => {
+      for (const project of projectsToScan) {
+        if (!isActive) {
+          return;
+        }
+
+        setRepoSafetyPending((prev) => ({ ...prev, [project.id]: true }));
+        setRepoSafetyError((prev) => ({ ...prev, [project.id]: "" }));
+
+        try {
+          const result = await scanRepoSafety(project.id);
+          if (!isActive) {
+            return;
+          }
+
+          setRepoSafetyByProject((prev) => ({ ...prev, [project.id]: result }));
+        } catch (error) {
+          if (!isActive) {
+            return;
+          }
+
+          const message =
+            error instanceof Error ? error.message : "Failed to scan repository.";
+          setRepoSafetyError((prev) => ({ ...prev, [project.id]: message }));
+        } finally {
+          if (isActive) {
+            setRepoSafetyPending((prev) => ({ ...prev, [project.id]: false }));
+          }
+        }
+      }
+    };
+
+    void runScans();
+
+    return () => {
+      isActive = false;
+    };
+  }, [openProjects, repoSafetyByProject, repoSafetyPending, scanRepoSafety]);
+
   const swipeProjects = useMemo(() => {
     return openProjects.slice(swipeIndex, swipeIndex + 3);
   }, [openProjects, swipeIndex]);
@@ -53,22 +106,6 @@ const OpenProjectsPage = () => {
 
   const handleSwipeSkip = () => {
     setSwipeIndex((prev) => prev + 1);
-  };
-
-  const handleScanRepoSafety = async (projectId: string) => {
-    setRepoSafetyPending((prev) => ({ ...prev, [projectId]: true }));
-    setRepoSafetyError((prev) => ({ ...prev, [projectId]: "" }));
-
-    try {
-      const result = await scanRepoSafety(projectId);
-      setRepoSafetyByProject((prev) => ({ ...prev, [projectId]: result }));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to scan repository.";
-      setRepoSafetyError((prev) => ({ ...prev, [projectId]: message }));
-    } finally {
-      setRepoSafetyPending((prev) => ({ ...prev, [projectId]: false }));
-    }
   };
 
   return (
@@ -139,7 +176,6 @@ const OpenProjectsPage = () => {
                           repoSafetyProgress={repoSafetyByProject[project.id]?.progress}
                           isRepoSafetyPending={repoSafetyPending[project.id]}
                           repoSafetyError={repoSafetyError[project.id]}
-                          onScanRepo={() => void handleScanRepoSafety(project.id)}
                         />
                       </motion.div>
                     );

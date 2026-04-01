@@ -29,7 +29,6 @@ interface IProjectCardProps {
   repoSafetyProgress?: IRepoSafetyProgress[];
   isRepoSafetyPending?: boolean;
   repoSafetyError?: string;
-  onScanRepo?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -47,7 +46,6 @@ export const ProjectCard = ({
   repoSafetyProgress,
   isRepoSafetyPending,
   repoSafetyError,
-  onScanRepo,
 }: IProjectCardProps) => {
   const { styles } = useStyles();
   const tasksDone = project.tasks.filter(
@@ -99,7 +97,8 @@ export const ProjectCard = ({
         />
       </div>
 
-      {project.githubRepo ? (
+      {project.githubRepo &&
+      (Boolean(repoSafety) || Boolean(isRepoSafetyPending) || Boolean(repoSafetyError)) ? (
         <div className={styles.repoSafetyRow}>
           {repoSafety ? <Tag color={riskColor}>{riskLabel}</Tag> : null}
           {repoSafetyError ? (
@@ -114,10 +113,6 @@ export const ProjectCard = ({
                 {lastRepoProgress?.step ?? "Scanning repository..."}
               </Typography.Text>
             </Space>
-          ) : !repoSafety ? (
-            <Button size="small" onClick={onScanRepo} data-ai-action="scan-repo-safety">
-              Check Repo Safety
-            </Button>
           ) : null}
         </div>
       ) : null}

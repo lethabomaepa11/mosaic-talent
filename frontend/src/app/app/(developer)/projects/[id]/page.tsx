@@ -44,6 +44,7 @@ import {
   IRepoSafetyScan,
   IRepoGuardianScan,
 } from "@/providers/project-provider/context";
+import { isRepoSafetyUnsafe } from "@/utils/repoSafety";
 import { useStyles } from "./style";
 import { GithubOutlined } from "@ant-design/icons";
 
@@ -145,6 +146,39 @@ const ProjectDetailPage = () => {
       });
   }, [project?.githubRepo]);
 
+  useEffect(() => {
+    if (!projectId || !project?.githubRepo) {
+      return;
+    }
+
+    let isActive = true;
+    setRepoSafetyPending(true);
+    setRepoSafetyError(null);
+
+    scanRepoSafety(projectId)
+      .then((result) => {
+        if (isActive) {
+          setRepoSafetyScan(result);
+        }
+      })
+      .catch((error) => {
+        if (isActive) {
+          setRepoSafetyError(
+            error instanceof Error ? error.message : "Failed to scan repository.",
+          );
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setRepoSafetyPending(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [projectId, project?.githubRepo, scanRepoSafety]);
+
   const isMember = useMemo(() => {
     return myProjects.some((item) => item.id === projectId);
   }, [myProjects, projectId]);
@@ -185,6 +219,7 @@ const ProjectDetailPage = () => {
       : `Risk: ${riskLevel}`
     : "Unknown";
   const riskScore = repoSafetyResult?.riskScore ?? 0;
+  const repoSafetyUnsafe = isRepoSafetyUnsafe(repoSafetyResult);
 
   const handleFillTeam = async () => {
     if (!projectId) return;
@@ -330,23 +365,6 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to update skills.";
       toast.error("Update failed", message);
-    }
-  };
-
-  const handleScanRepoSafety = async () => {
-    if (!projectId) return;
-    setRepoSafetyPending(true);
-    setRepoSafetyError(null);
-
-    try {
-      const result = await scanRepoSafety(projectId);
-      setRepoSafetyScan(result);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to scan repository.";
-      setRepoSafetyError(message);
-    } finally {
-      setRepoSafetyPending(false);
     }
   };
 
@@ -540,17 +558,6 @@ const ProjectDetailPage = () => {
             </Space>
           }
           className={styles.repoSafetyCard}
-          extra={
-            project.githubRepo ? (
-              <Button
-                onClick={handleScanRepoSafety}
-                loading={repoSafetyPending}
-                data-ai-action="scan-repo-safety"
-              >
-                {repoSafetyResult ? "Rescan Repo" : "Scan Repo"}
-              </Button>
-            ) : null
-          }
         >
           {!project.githubRepo ? (
             <Typography.Text type="secondary">
@@ -640,10 +647,19 @@ const ProjectDetailPage = () => {
                       No high-risk findings detected.
                     </Typography.Text>
                   )}
+                  {repoSafetyUnsafe ? (
+                    <Alert
+                      type="error"
+                      showIcon
+                      message="Unsafe repository detected"
+                      description="Potentially malicious code was found. Team members should review findings before continuing work."
+                      className={styles.repoSafetyAlert}
+                    />
+                  ) : null}
                 </div>
               ) : (
                 <Typography.Text type="secondary">
-                  Run a scan to view safety signals for this repository.
+                  Safety scan runs automatically when this page loads.
                 </Typography.Text>
               )}
             </div>
