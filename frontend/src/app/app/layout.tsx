@@ -18,19 +18,22 @@ import { useStyles } from "./style";
 const DeveloperLayout = ({ children }: PropsWithChildren) => {
   const router = useRouter();
   const { styles } = useStyles();
-  const { isAuthenticated } = useAuthState();
+  const { isAuthenticated, isPending } = useAuthState();
   const { fetchMyEmployeeProfile } = useCompanyProfileAction();
   const { tenancyName } = useTenantResolutionState();
   const { fetchCurrentUser, fetchMyProfile } = useDeveloperAction();
   const hasToken = Boolean(getAuthToken());
+  const hasOAuthBootstrap =
+    typeof window !== "undefined" &&
+    window.location.hash.includes("oauthAccessToken=");
   const isCompanyTenant = Boolean(tenancyName);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated && !hasToken) {
+    if (!isAuthenticated && !hasToken && !hasOAuthBootstrap && !isPending) {
       router.push("/login");
     }
-  }, [hasToken, isAuthenticated, router]);
+  }, [hasOAuthBootstrap, hasToken, isAuthenticated, isPending, router]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -46,7 +49,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
     fetchMyProfile();
   }, [isAuthenticated, isCompanyTenant]);
 
-  if (!isAuthenticated && hasToken) {
+  if (!isAuthenticated && (hasToken || hasOAuthBootstrap || isPending)) {
     return (
       <div className={styles.loadingState}>
         Restoring your session...

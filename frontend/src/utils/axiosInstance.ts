@@ -11,7 +11,9 @@ let axiosInstance: AxiosInstance | null = null;
 
 export async function fetchAccessTokenFromApi(): Promise<string> {
   try {
-    const res = await axios.get(`${API_BASE_URL}/api/TokenAuth/GetAccessToken`);
+    const res = await axios.get(`${API_BASE_URL}/api/TokenAuth/GetAccessToken`, {
+      withCredentials: true,
+    });
     return res.data?.result ?? "";
   } catch {
     return "";

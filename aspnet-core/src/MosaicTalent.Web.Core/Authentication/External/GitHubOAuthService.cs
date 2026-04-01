@@ -60,7 +60,8 @@ namespace MosaicTalent.Authentication.External
 
         public string GetClientRootAddress()
         {
-            return _appConfiguration["App:ClientRootAddress"] + "/app";
+            var clientRootAddress = (_appConfiguration["App:ClientRootAddress"] ?? string.Empty).TrimEnd('/');
+            return clientRootAddress + "/app";
         }
 
         public string BuildAuthorizationUrl(string state, bool includeRepositoryScope = false)
