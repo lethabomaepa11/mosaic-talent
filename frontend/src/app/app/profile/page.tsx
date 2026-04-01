@@ -66,6 +66,16 @@ const LEARNING_GOALS = [
   "Give stronger peer feedback",
 ];
 
+const companyRoleLabel = (role?: number) => {
+  if (role === 1) {
+    return "Admin";
+  }
+  if (role === 2) {
+    return "HR";
+  }
+  return "Unknown";
+};
+
 const ProfilePage = () => {
   const [draft, setDraft] = useState({
     githubUsername: "",
@@ -459,7 +469,7 @@ const ProfilePage = () => {
                   </div>
                   <div className={styles.fullSpan}>
                     <Typography.Text type="secondary">Role</Typography.Text>
-                    <Input value={String(companyProfile?.role ?? "")} disabled />
+                    <Input value={companyRoleLabel(companyProfile?.role)} disabled />
                   </div>
                 </div>
               </Card>
