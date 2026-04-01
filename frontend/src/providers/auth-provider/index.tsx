@@ -6,6 +6,7 @@ import {
   getAuthToken,
   getAxiosInstance,
   removeAuthToken,
+  setAbpTenantId,
   setAuthToken,
 } from "@/utils/axiosInstance";
 import {
@@ -24,7 +25,6 @@ import {
   AuthStateContext,
   INITIAL_STATE,
   IRegisterInput,
-  IUser,
 } from "./context";
 import { AuthReducer } from "./reducer";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
@@ -33,6 +33,50 @@ interface IAuthResponse {
   accessToken: string;
   expireInSeconds: number;
   userId: number;
+}
+
+interface IOAuthBootstrap {
+  accessToken: string;
+  tenantId?: string | null;
+}
+
+function consumeOAuthBootstrapFromHash(): IOAuthBootstrap | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const hash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  if (!hash) {
+    return null;
+  }
+
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get("oauthAccessToken");
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const oauthTenantId = params.get("oauthTenantId");
+  const tenantId =
+    oauthTenantId === null
+      ? undefined
+      : oauthTenantId.toLowerCase() === "host"
+        ? null
+        : oauthTenantId;
+
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${window.location.search}`,
+  );
+
+  return {
+    accessToken,
+    tenantId,
+  };
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -48,6 +92,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let token = getAuthToken();
 
     const restoreSession = async () => {
+      dispatch(loginPending());
+
+      const oauthBootstrap = consumeOAuthBootstrapFromHash();
+      if (oauthBootstrap) {
+        token = oauthBootstrap.accessToken;
+        setAuthToken(oauthBootstrap.accessToken);
+        if (oauthBootstrap.tenantId !== undefined) {
+          setAbpTenantId(oauthBootstrap.tenantId);
+        }
+      }
+
       if (!token) {
         token = await fetchAccessTokenFromApi();
         if (token) {
@@ -56,6 +111,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       if (!token) {
+        dispatch(logoutSuccess());
         return;
       }
       try {

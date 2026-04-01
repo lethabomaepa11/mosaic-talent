@@ -206,6 +206,12 @@ If running non-interactively and `gh` cannot combine `--template` with `--body`,
 
 ---
 
+## React Effect Convention
+
+- When a function is called inside a `useEffect`, do not include that function in the effect dependency array.
+
+---
+
 ## Mandatory Planning Step
 
 Before writing a single line of code, the agent MUST output a plan in this exact format:
