@@ -22,6 +22,7 @@ const Consumer = () => {
     getMyGithubRepositories,
     createGithubRepository,
     scanRepoSafety,
+    scanRepoSafetyByGithubUrl,
   } = useProjectAction();
 
   return (
@@ -66,6 +67,17 @@ const Consumer = () => {
       >
         Scan Repo
       </button>
+      <button
+        onClick={async () => {
+          const result = await scanRepoSafetyByGithubUrl(
+            "https://github.com/octocat/alpha",
+          );
+          window.__TEST_SCAN_BY_URL__ = result;
+        }}
+        type="button"
+      >
+        Scan Repo By Url
+      </button>
     </div>
   );
 };
@@ -76,6 +88,7 @@ declare global {
     __TEST_REPOS__?: unknown;
     __TEST_CREATED_REPO__?: unknown;
     __TEST_SCAN__?: unknown;
+    __TEST_SCAN_BY_URL__?: unknown;
   }
 }
 
@@ -88,6 +101,7 @@ describe("ProjectProvider GitHub integration", () => {
     window.__TEST_REPOS__ = undefined;
     window.__TEST_CREATED_REPO__ = undefined;
     window.__TEST_SCAN__ = undefined;
+    window.__TEST_SCAN_BY_URL__ = undefined;
   });
 
   afterEach(() => {
@@ -257,6 +271,59 @@ describe("ProjectProvider GitHub integration", () => {
       "/api/services/app/DeveloperProject/ScanRepoSafety",
       {
         projectId: "project-1",
+      },
+    );
+  });
+
+  it("scans repo safety by github url", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          progress: [{ step: "Done!", progress: 100 }],
+          result: {
+            repoUrl: "https://github.com/octocat/alpha",
+            riskScore: 8,
+            riskLevel: "low",
+            categories: [],
+            findings: [],
+            badges: [],
+          },
+        },
+      },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan Repo By Url" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_SCAN_BY_URL__).toEqual({
+        progress: [{ step: "Done!", progress: 100 }],
+        result: {
+          repoUrl: "https://github.com/octocat/alpha",
+          riskScore: 8,
+          riskLevel: "low",
+          categories: [],
+          findings: [],
+          badges: [],
+          scannedAt: "",
+          commitSha: "",
+          filesScanned: undefined,
+          totalRepoFiles: undefined,
+          cached: undefined,
+          meta: undefined,
+        },
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/ScanRepoSafetyByUrl",
+      {
+        githubUrl: "https://github.com/octocat/alpha",
       },
     );
   });

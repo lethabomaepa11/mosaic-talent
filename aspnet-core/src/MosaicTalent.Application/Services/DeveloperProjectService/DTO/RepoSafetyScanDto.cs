@@ -8,6 +8,11 @@ public class ScanRepoSafetyInput
     public Guid ProjectId { get; set; }
 }
 
+public class ScanRepoSafetyByUrlInput
+{
+    public string GithubUrl { get; set; }
+}
+
 public class RepoSafetyScanResultDto
 {
     public List<RepoSafetyProgressDto> Progress { get; set; } = new();

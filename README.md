@@ -138,6 +138,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
+- [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)

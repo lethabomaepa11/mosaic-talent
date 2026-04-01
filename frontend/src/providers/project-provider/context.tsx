@@ -211,6 +211,9 @@ export interface IProjectActionContext {
   ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
   scanRepoSafety: (projectId: string) => Promise<IRepoSafetyScan | undefined>;
+  scanRepoSafetyByGithubUrl: (
+    githubUrl: string,
+  ) => Promise<IRepoSafetyScan | undefined>;
   scanRepoGuardian: (githubUrl: string) => Promise<IRepoGuardianScan | undefined>;
 }
 
@@ -246,5 +249,6 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
   scanRepoSafety: async () => undefined,
+  scanRepoSafetyByGithubUrl: async () => undefined,
   scanRepoGuardian: async () => undefined,
 });

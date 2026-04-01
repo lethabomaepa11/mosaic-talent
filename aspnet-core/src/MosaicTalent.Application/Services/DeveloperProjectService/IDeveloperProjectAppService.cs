@@ -16,6 +16,7 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<DeveloperProjectDto> CreateProject(CreateDeveloperProjectInput input);
     Task<DeveloperProjectDto> JoinProject(JoinDeveloperProjectInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafety(ScanRepoSafetyInput input);
+    Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input);
     Task<DeveloperProjectDto> AiMatchProject();
     Task<DeveloperProjectDto> AiFillTeam(GetDeveloperProjectInput input);
     Task<DeveloperProjectTaskDto> AddProjectTask(AddProjectTaskInput input);

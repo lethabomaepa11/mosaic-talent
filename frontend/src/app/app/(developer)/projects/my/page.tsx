@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -25,6 +25,8 @@ import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
+import { IRepoSafetyResult } from "@/providers/project-provider/context";
+import { isRepoSafetyUnsafe } from "@/utils/repoSafety";
 import { useStyles } from "./style";
 
 const MyProjectsPage = () => {
@@ -37,6 +39,11 @@ const MyProjectsPage = () => {
   const [isGithubStatusLoading, setIsGithubStatusLoading] = useState(false);
   const [isRepoCreateOpen, setIsRepoCreateOpen] = useState(false);
   const [isRepoCreating, setIsRepoCreating] = useState(false);
+  const [isRepoSafetyChecking, setIsRepoSafetyChecking] = useState(false);
+  const [repoSafetyError, setRepoSafetyError] = useState("");
+  const [repoSafetyResult, setRepoSafetyResult] = useState<IRepoSafetyResult | undefined>(
+    undefined,
+  );
   const [githubConnection, setGithubConnection] = useState({
     isConnected: false,
     githubUsername: "",
@@ -60,8 +67,10 @@ const MyProjectsPage = () => {
     getMyGithubRepositories,
     createGithubRepository,
     createProject,
+    scanRepoSafetyByGithubUrl,
     aiMatchProject,
   } = useProjectAction();
+  const selectedGithubRepo = Form.useWatch("githubRepo", form);
 
   const githubConnectUrl = process.env.NEXT_PUBLIC_API_BASE_URL
     ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/TokenAuth/GitHubAuth?mode=connect&returnPath=${encodeURIComponent("/projects/my?create=true")}`
@@ -71,6 +80,12 @@ const MyProjectsPage = () => {
     fetchCurrentUser();
     fetchMyProjects();
     fetchOpenProjects();
+  }, []);
+
+  const clearRepoSafetyState = useCallback(() => {
+    setRepoSafetyError("");
+    setRepoSafetyResult(undefined);
+    setIsRepoSafetyChecking(false);
   }, []);
 
   const loadGithubContext = async () => {
@@ -85,6 +100,7 @@ const MyProjectsPage = () => {
       if (!status.isConnected) {
         setGithubRepos([]);
         form.setFieldValue("githubRepo", undefined);
+        clearRepoSafetyState();
         return;
       }
 
@@ -109,6 +125,23 @@ const MyProjectsPage = () => {
       setIsGithubLoading(false);
     }
   };
+
+  const resolveSelectedRepoUrl = useCallback((value: string) => {
+    const selected = githubRepos.find((repo) => {
+      const repoKey = repo.fullName || repo.name;
+      return repoKey === value;
+    });
+
+    if (selected?.fullName) {
+      return `https://github.com/${selected.fullName}`;
+    }
+
+    if (value.startsWith("https://github.com/")) {
+      return value;
+    }
+
+    return "";
+  }, [githubRepos]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -144,6 +177,66 @@ const MyProjectsPage = () => {
       window.history.replaceState({}, "", nextUrl);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isCreateOpen || !githubConnection.isConnected) {
+      return;
+    }
+
+    if (!selectedGithubRepo) {
+      clearRepoSafetyState();
+      return;
+    }
+
+    const selectedUrl = resolveSelectedRepoUrl(String(selectedGithubRepo));
+    if (!selectedUrl) {
+      setRepoSafetyResult(undefined);
+      setRepoSafetyError("Select a repository from the list to run safety checks.");
+      return;
+    }
+
+    let isActive = true;
+    setIsRepoSafetyChecking(true);
+    setRepoSafetyError("");
+    setRepoSafetyResult(undefined);
+
+    scanRepoSafetyByGithubUrl(selectedUrl)
+      .then((scan) => {
+        if (!isActive) {
+          return;
+        }
+
+        setRepoSafetyResult(scan?.result);
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        setRepoSafetyResult(undefined);
+        setRepoSafetyError(
+          error instanceof Error
+            ? error.message
+            : "Repository safety scan failed.",
+        );
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsRepoSafetyChecking(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    clearRepoSafetyState,
+    githubConnection.isConnected,
+    isCreateOpen,
+    resolveSelectedRepoUrl,
+    scanRepoSafetyByGithubUrl,
+    selectedGithubRepo,
+  ]);
 
   const handleAIMatch = async () => {
     setIsMatching(true);
@@ -212,6 +305,26 @@ const MyProjectsPage = () => {
     try {
       const values = await form.validateFields();
       setIsCreating(true);
+      const selectedRepoUrl = resolveSelectedRepoUrl(String(values.githubRepo ?? ""));
+      const isUnsafeSelection = isRepoSafetyUnsafe(repoSafetyResult);
+
+      if (isRepoSafetyChecking) {
+        throw new Error("Repository safety scan is still running. Please wait.");
+      }
+
+      if (!selectedRepoUrl) {
+        throw new Error("Select a repository from the list to run safety checks.");
+      }
+
+      if (!repoSafetyResult) {
+        throw new Error("Repository safety check is required before project creation.");
+      }
+
+      if (isUnsafeSelection) {
+        throw new Error(
+          "This repository cannot be added because the safety scan detected potentially malicious code.",
+        );
+      }
 
       await createProject({
         title: values.title,
@@ -244,6 +357,7 @@ const MyProjectsPage = () => {
       label: `${repoKey}${repo.isPrivate ? " (private)" : ""}`,
     };
   });
+  const isUnsafeRepo = isRepoSafetyUnsafe(repoSafetyResult);
 
   return (
     <div className={styles.page} data-ai-page="projects-my">
@@ -328,7 +442,10 @@ const MyProjectsPage = () => {
           disabled:
             isGithubStatusLoading ||
             !githubConnection.isConnected ||
-            isGithubLoading,
+            isGithubLoading ||
+            isRepoSafetyChecking ||
+            isUnsafeRepo ||
+            (Boolean(selectedGithubRepo) && !repoSafetyResult),
         }}
       >
         <Form
@@ -414,6 +531,37 @@ const MyProjectsPage = () => {
                   showIcon
                   message="No repositories found."
                   description="Create a new repository and it will be auto-selected."
+                />
+              ) : null}
+
+              {isRepoSafetyChecking ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Running repository safety scan..."
+                />
+              ) : null}
+              {!isRepoSafetyChecking && repoSafetyError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={repoSafetyError}
+                />
+              ) : null}
+              {!isRepoSafetyChecking && repoSafetyResult && isUnsafeRepo ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Repository blocked"
+                  description="This repository contains potentially malicious code and cannot be added to a project."
+                />
+              ) : null}
+              {!isRepoSafetyChecking && repoSafetyResult && !isUnsafeRepo ? (
+                <Alert
+                  type="success"
+                  showIcon
+                  message="Repository passed safety checks"
+                  description="This repository is safe to use for project creation."
                 />
               ) : null}
             </>
