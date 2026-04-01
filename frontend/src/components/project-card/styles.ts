@@ -17,6 +17,21 @@ export const useStyles = createStyles(({ token, css }) => ({
       border-color: color-mix(in srgb, ${token.colorPrimary} 40%, ${token.colorBorderSecondary});
     }
   `,
+  cardSwipe: css`
+    height: 100%;
+    border-radius: 28px;
+    border-color: color-mix(in srgb, ${token.colorPrimary} 28%, ${token.colorBorderSecondary});
+    background: ${token.colorBgContainer};
+    box-shadow: ${token.boxShadowSecondary};
+
+    :global(.ant-card-body) {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: ${token.marginSM}px;
+      background: ${token.colorBgContainer};
+    }
+  `,
   cardTitleRow: css`
     display: flex;
     justify-content: space-between;
@@ -99,6 +114,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     justify-content: space-between;
     gap: ${token.marginSM}px;
     flex-wrap: wrap;
+    margin-top: auto;
+  `,
+  footerRowCompact: css`
+    border-top: 1px solid ${token.colorBorderSecondary};
+    padding-top: ${token.paddingSM}px;
   `,
   dateText: css`
     color: ${token.colorTextSecondary};

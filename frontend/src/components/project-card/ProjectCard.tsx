@@ -29,6 +29,8 @@ interface IProjectCardProps {
   repoSafetyProgress?: IRepoSafetyProgress[];
   isRepoSafetyPending?: boolean;
   repoSafetyError?: string;
+  variant?: "default" | "swipe";
+  hideActions?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -46,8 +48,13 @@ export const ProjectCard = ({
   repoSafetyProgress,
   isRepoSafetyPending,
   repoSafetyError,
+  variant = "default",
+  hideActions = false,
 }: IProjectCardProps) => {
   const { styles } = useStyles();
+  const cx = (...classes: Array<string | false | undefined>) =>
+    classes.filter(Boolean).join(" ");
+  const isSwipeVariant = variant === "swipe";
   const tasksDone = project.tasks.filter(
     (task) => task.status === "done",
   ).length;
@@ -65,7 +72,7 @@ export const ProjectCard = ({
   const riskLabel = riskLevel ? (riskLevel === "low" ? "Safe" : `Risk: ${riskLevel}`) : "";
 
   return (
-    <Card className={styles.card}>
+    <Card className={cx(styles.card, isSwipeVariant && styles.cardSwipe)}>
       <div className={styles.cardTitleRow}>
         <div>
           <Typography.Title level={5} style={{ margin: 0 }}>
@@ -85,7 +92,7 @@ export const ProjectCard = ({
             </a>
           ) : null}
           <Typography.Paragraph
-            ellipsis={{ rows: 2 }}
+            ellipsis={{ rows: isSwipeVariant ? 3 : 2 }}
             className={styles.description}
           >
             {project.description}
@@ -164,31 +171,42 @@ export const ProjectCard = ({
         </span>
       </p>
 
-      <div className={styles.footerRow}>
-        <Space>
-          <Clock size={14} />
-          <span className={styles.dateText}>
-            {new Date(project.createdAt).toLocaleDateString()}
-          </span>
-        </Space>
-
-        {isMember ? (
-          <Link href={`/app/projects/${project.id}`}>
-            <Button type="primary">
-              Open Project <ChevronRight size={14} />
-            </Button>
-          </Link>
-        ) : (
+      {hideActions ? (
+        <div className={cx(styles.footerRow, styles.footerRowCompact)}>
           <Space>
-            <Link href={`/app/projects/${project.id}`}>
-              <Button>View Project</Button>
-            </Link>
-            <Button type="primary" onClick={onJoin}>
-              Join Project
-            </Button>
+            <Clock size={14} />
+            <span className={styles.dateText}>
+              {new Date(project.createdAt).toLocaleDateString()}
+            </span>
           </Space>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className={styles.footerRow}>
+          <Space>
+            <Clock size={14} />
+            <span className={styles.dateText}>
+              {new Date(project.createdAt).toLocaleDateString()}
+            </span>
+          </Space>
+
+          {isMember ? (
+            <Link href={`/app/projects/${project.id}`}>
+              <Button type="primary">
+                Open Project <ChevronRight size={14} />
+              </Button>
+            </Link>
+          ) : (
+            <Space>
+              <Link href={`/app/projects/${project.id}`}>
+                <Button>View Project</Button>
+              </Link>
+              <Button type="primary" onClick={onJoin}>
+                Join Project
+              </Button>
+            </Space>
+          )}
+        </div>
+      )}
     </Card>
   );
 };
