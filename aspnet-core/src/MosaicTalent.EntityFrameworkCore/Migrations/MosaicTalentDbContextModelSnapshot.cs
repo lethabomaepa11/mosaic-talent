@@ -2558,8 +2558,14 @@ namespace MosaicTalent.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("Difficulty")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstimatedHoursPerWeek")
+                        .HasColumnType("integer");
 
                     b.Property<string>("GithubRepo")
                         .HasMaxLength(256)
@@ -2573,6 +2579,21 @@ namespace MosaicTalent.Migrations
 
                     b.Property<long?>("LastModifierUserId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("LastRepoSafetyCommitSha")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("LastRepoSafetyRiskLevel")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("LastRepoSafetyScanAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastUnsafeAlertCommitSha")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<int?>("MaxMembers")
                         .HasColumnType("integer");
@@ -2596,11 +2617,140 @@ namespace MosaicTalent.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "Difficulty");
+
                     b.HasIndex("TenantId", "OwnerDeveloperId");
 
                     b.HasIndex("TenantId", "Status");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectMeeting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Agenda")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CreatorUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("DeleterUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("JitsiRoomName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastModifierUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RequestedByDeveloperId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ScheduledByDeveloperId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "StartsAtUtc");
+
+                    b.HasIndex("ProjectId", "Status");
+
+                    b.HasIndex("TenantId", "ProjectId");
+
+                    b.ToTable("ProjectMeetings");
+                });
+
+            modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectMeetingReminderPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CreatorUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("DeleterUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeveloperId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastModifierUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastTriggeredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MinutesBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeetingId", "DeveloperId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeveloperId");
+
+                    b.ToTable("ProjectMeetingReminderPreferences");
                 });
 
             modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectMember", b =>
@@ -2706,6 +2856,9 @@ namespace MosaicTalent.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssignedDeveloperId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreationTime")
                         .HasColumnType("timestamp with time zone");
 
@@ -2746,6 +2899,8 @@ namespace MosaicTalent.Migrations
                         .HasColumnType("character varying(180)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "AssignedDeveloperId");
 
                     b.HasIndex("ProjectId", "Status");
 

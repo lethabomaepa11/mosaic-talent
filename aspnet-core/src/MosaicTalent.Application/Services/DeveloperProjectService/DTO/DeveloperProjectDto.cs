@@ -9,6 +9,9 @@ public class DeveloperProjectDto
     public string Title { get; set; }
     public string Description { get; set; }
     public int? MaxMembers { get; set; }
+    public string Difficulty { get; set; }
+    public int EstimatedHoursPerWeek { get; set; }
+    public int WorkloadScore { get; set; }
     public string GithubRepo { get; set; }
     public List<string> Skills { get; set; } = new();
     public string Type { get; set; }

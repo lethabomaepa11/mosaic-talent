@@ -30,6 +30,8 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<ProjectMember> ProjectMembers { get; set; }
     public DbSet<ProjectSkill> ProjectSkills { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
+    public DbSet<ProjectMeeting> ProjectMeetings { get; set; }
+    public DbSet<ProjectMeetingReminderPreference> ProjectMeetingReminderPreferences { get; set; }
     public DbSet<PeerReview> PeerReviews { get; set; }
     public DbSet<AIReviewQuestion> AIReviewQuestions { get; set; }
     public DbSet<AIReviewFeedback> AIReviewFeedbacks { get; set; }
@@ -126,6 +128,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         {
             builder.HasIndex(x => new { x.TenantId, x.OwnerDeveloperId });
             builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.Difficulty });
         });
 
         modelBuilder.Entity<ProjectMember>(builder =>
@@ -144,6 +147,20 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         {
             builder.HasIndex(x => new { x.ProjectId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.ProjectId });
+            builder.HasIndex(x => new { x.ProjectId, x.AssignedDeveloperId });
+        });
+
+        modelBuilder.Entity<ProjectMeeting>(builder =>
+        {
+            builder.HasIndex(x => new { x.ProjectId, x.StartsAtUtc });
+            builder.HasIndex(x => new { x.ProjectId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.ProjectId });
+        });
+
+        modelBuilder.Entity<ProjectMeetingReminderPreference>(builder =>
+        {
+            builder.HasIndex(x => new { x.MeetingId, x.DeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId });
         });
 
         modelBuilder.Entity<PeerReview>(builder =>

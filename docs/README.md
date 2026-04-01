@@ -19,3 +19,4 @@ Project documentation index.
 - [Global Search](feature/global-search.md)
 - [Public Developer Profiles and Project Visibility](feature/public-profiles-project-visibility.md)
 - [Tasks Header Full-Width](feature/tasks-header-full-width.md)
+- [Project Collaboration Tabs, Meetings, and Markdown Specs](feature/project-collaboration-tabs-meetings-markdown.md)
