@@ -452,6 +452,19 @@ const scanRepoSafety = async (projectId: string) => {
     }
   };
 
+  const scanRepoSafetyByGithubUrl = async (githubUrl: string) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/ScanRepoSafetyByUrl`, {
+        githubUrl,
+      });
+      return normalizeRepoSafetyScan(
+        (res.data?.result ?? {}) as Partial<IRepoSafetyScan>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Repo safety scan failed."));
+    }
+  };
+
   const scanRepoGuardian = async (githubUrl: string) => {
     try {
       const res = await axios.post(REPO_GUARDIAN_ENDPOINT, {
@@ -501,6 +514,7 @@ const scanRepoSafety = async (projectId: string) => {
           updateProjectSkills,
           completeProject,
           scanRepoSafety,
+          scanRepoSafetyByGithubUrl,
           scanRepoGuardian,
         }}
       >

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   removeAuthToken: vi.fn(),
+  setAbpTenantId: vi.fn(),
   setAuthToken: vi.fn(),
   useTenantResolutionState: vi.fn(),
 }));
@@ -19,6 +20,7 @@ vi.mock("@/utils/axiosInstance", () => ({
     post: mocks.post,
   }),
   setAuthToken: mocks.setAuthToken,
+  setAbpTenantId: mocks.setAbpTenantId,
   removeAuthToken: mocks.removeAuthToken,
   getAuthToken: mocks.getAuthToken,
   fetchAccessTokenFromApi: mocks.fetchAccessTokenFromApi,
@@ -69,6 +71,7 @@ describe("AuthProvider", () => {
     mocks.post.mockReset();
     mocks.get.mockReset();
     mocks.setAuthToken.mockReset();
+    mocks.setAbpTenantId.mockReset();
     mocks.removeAuthToken.mockReset();
     mocks.getAuthToken.mockReset();
     mocks.fetchAccessTokenFromApi.mockReset();
@@ -78,6 +81,7 @@ describe("AuthProvider", () => {
     mocks.useTenantResolutionState.mockReturnValue({
       isResolved: true,
     });
+    window.history.replaceState(null, "", "/");
   });
 
   afterEach(() => {
@@ -107,6 +111,36 @@ describe("AuthProvider", () => {
     expect(mocks.get).toHaveBeenCalledWith(
       "/api/services/app/Session/GetCurrentLoginInformations",
     );
+  });
+
+  it("hydrates auth from GitHub callback hash and clears it", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/app#oauthAccessToken=oauth-token-1&oauthTenantId=2",
+    );
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: {
+          user: { id: 55 },
+        },
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <Consumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-state")).toHaveTextContent('"userId":55');
+    });
+
+    expect(mocks.setAuthToken).toHaveBeenCalledWith("oauth-token-1");
+    expect(mocks.setAbpTenantId).toHaveBeenCalledWith("2");
+    expect(mocks.fetchAccessTokenFromApi).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("");
   });
 
   it("logs in successfully and persists the session", async () => {

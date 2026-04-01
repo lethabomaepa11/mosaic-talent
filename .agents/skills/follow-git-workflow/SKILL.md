@@ -25,9 +25,10 @@ Every piece of work — no matter how small — follows this sequence:
 9. If code changed, or folder structure changed, or new files added, update relevant tests to cover those changes
 10. Update the ReadMe if necessary (e.g. new dependencies, new scripts, new environment variables)
 11. Update any skills if necessary (e.g. new dependencies -> update setup-project skill)
-12. Commit
-13. Push
-14. Open PR to `dev` and link issue (`Closes #<issue-number>`)
+12. Ask the user to test the implemented functionality and wait for explicit confirmation
+13. Commit
+14. Push
+15. Open PR to `dev` and link issue (`Closes #<issue-number>`)
 ```
 
 ---
@@ -158,7 +159,7 @@ src/utils/__tests__/formatLeaveDate.test.ts
 
 ## Push
 
-Only after all tests are written and passing:
+Only after all tests are written and passing, and after the user confirms functional testing:
 
 ```bash
 git push origin feature/<name>
@@ -201,6 +202,13 @@ If running non-interactively and `gh` cannot combine `--template` with `--body`,
 - Open pull requests against `dev` (not `main`).
 - Link the issue in the PR body using `Closes #<issue-number>` or `Fixes #<issue-number>`.
 - Include test evidence in the PR body.
+- Before commit/push/PR, ask the user to test the implemented functionality and wait for explicit confirmation.
+
+---
+
+## React Effect Convention
+
+- When a function is called inside a `useEffect`, do not include that function in the effect dependency array.
 
 ---
 

@@ -33,8 +33,10 @@ namespace MosaicTalent.Controllers
         private const string GitHubStateCookieName = "mosaic-talent.github-oauth-state";
         private const string GitHubModeCookieName = "mosaic-talent.github-oauth-mode";
         private const string GitHubReturnPathCookieName = "mosaic-talent.github-oauth-return-path";
-        private const string AccessTokenCookieName = "mosaic-talent.access-token";
-        private const string TenantCookieName = "mosaic-talent.abp-tenant-id";
+        private const string ServerAccessTokenCookieName = "mosaic-talent.server-access-token";
+        private const string ServerTenantCookieName = "mosaic-talent.server-abp-tenant-id";
+        private const string LegacyFrontendAccessTokenCookieName = "mosaic-talent.access-token";
+        private const string LegacyFrontendTenantCookieName = "mosaic-talent.abp-tenant-id";
 
         public TokenAuthController(
             LogInManager logInManager,
@@ -170,44 +172,46 @@ namespace MosaicTalent.Controllers
             }
 
             var appAccessToken = CreateAccessToken(CreateJwtClaims(identity));
+            // Remove legacy names so localhost OAuth does not overwrite JS-managed frontend cookies with HttpOnly cookies.
+            Response.Cookies.Delete(LegacyFrontendAccessTokenCookieName, new CookieOptions { Path = "/" });
+            Response.Cookies.Delete(LegacyFrontendTenantCookieName, new CookieOptions { Path = "/" });
+
             Response.Cookies.Append(
-                AccessTokenCookieName,
+                ServerAccessTokenCookieName,
                 appAccessToken,
-                new CookieOptions
-                {
-                    HttpOnly = false,
-                    Secure = Request.IsHttps,
-                    SameSite = SameSiteMode.Lax,
-                    Path = "/"
-                });
+                BuildSessionCookieOptions());
 
             var tenantCookieValue = user.TenantId?.ToString()
                                     ?? (AbpSession.TenantId.HasValue ? AbpSession.TenantId.Value.ToString() : "host");
             Response.Cookies.Append(
-                TenantCookieName,
+                ServerTenantCookieName,
                 tenantCookieValue,
-                new CookieOptions
-                {
-                    HttpOnly = false,
-                    Secure = Request.IsHttps,
-                    SameSite = SameSiteMode.Lax,
-                    Path = "/"
-                });
+                BuildSessionCookieOptions());
 
-            return Redirect(BuildOAuthRedirect(oauthMode, returnPath, null));
+            return Redirect(BuildOAuthRedirect(oauthMode, returnPath, null, appAccessToken, tenantCookieValue));
         }
 
         [HttpGet]
         public IActionResult GetAccessToken()
         {
-            if (Request.Cookies.TryGetValue(AccessTokenCookieName, out var token) && !string.IsNullOrWhiteSpace(token))
+            if (Request.Cookies.TryGetValue(ServerAccessTokenCookieName, out var token) && !string.IsNullOrWhiteSpace(token))
+            {
+                return Ok(token);
+            }
+
+            if (Request.Cookies.TryGetValue(LegacyFrontendAccessTokenCookieName, out token) && !string.IsNullOrWhiteSpace(token))
             {
                 return Ok(token);
             }
             return Ok(string.Empty);
         }
 
-        private string BuildOAuthRedirect(string mode, string returnPath, string errorCode)
+        private string BuildOAuthRedirect(
+            string mode,
+            string returnPath,
+            string errorCode,
+            string appAccessToken = null,
+            string tenantCookieValue = null)
         {
             if (!string.Equals(mode, "connect", StringComparison.OrdinalIgnoreCase))
             {
@@ -216,7 +220,15 @@ namespace MosaicTalent.Controllers
                     return _gitHubOAuthService.BuildClientRedirect($"login?oauthError={errorCode}");
                 }
 
-                return _gitHubOAuthService.BuildClientRedirect(string.Empty);
+                var redirectUrl = _gitHubOAuthService.BuildClientRedirect(string.Empty);
+                if (string.IsNullOrWhiteSpace(appAccessToken))
+                {
+                    return redirectUrl;
+                }
+
+                var encodedToken = Uri.EscapeDataString(appAccessToken);
+                var encodedTenant = Uri.EscapeDataString(tenantCookieValue ?? "host");
+                return $"{redirectUrl}#oauthAccessToken={encodedToken}&oauthTenantId={encodedTenant}";
             }
 
             var normalizedPath = NormalizeReturnPath(returnPath);
@@ -270,6 +282,18 @@ namespace MosaicTalent.Controllers
             }
 
             return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        }
+
+        private CookieOptions BuildSessionCookieOptions()
+        {
+            var isHttps = Request.IsHttps;
+            return new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = isHttps,
+                SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
+                Path = "/"
+            };
         }
 
         private string GetTenancyNameOrNull()
