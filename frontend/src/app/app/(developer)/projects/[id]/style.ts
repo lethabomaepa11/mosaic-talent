@@ -137,6 +137,46 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: grid;
     gap: ${token.marginMD}px;
   `,
+  tabs: css`
+    :global(.ant-tabs-nav) {
+      margin-bottom: ${token.marginSM}px;
+    }
+
+    :global(.ant-tabs-tab) {
+      border-radius: ${token.borderRadiusLG}px;
+      transition: all 0.2s ease;
+    }
+
+    @media (max-width: 767px) {
+      :global(.ant-tabs-nav-wrap) {
+        overflow-x: auto;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      :global(.ant-tabs-nav-list) {
+        width: max-content;
+        min-width: max-content;
+      }
+
+      :global(.ant-tabs-tab) {
+        margin: 0 ${token.marginXXS}px 0 0;
+        padding: 8px ${token.paddingSM}px;
+        border: 1px solid ${token.colorBorderSecondary};
+        background: ${token.colorBgContainer};
+      }
+
+      :global(.ant-tabs-tab-btn) {
+        white-space: nowrap;
+        font-size: ${token.fontSizeSM}px;
+      }
+
+      :global(.ant-tabs-tab-active) {
+        border-color: color-mix(in srgb, ${token.colorPrimary} 50%, ${token.colorBorder});
+        background: color-mix(in srgb, ${token.colorPrimaryBg} 65%, ${token.colorBgContainer});
+      }
+    }
+  `,
   splitGrid: css`
     display: grid;
     gap: ${token.marginMD}px;

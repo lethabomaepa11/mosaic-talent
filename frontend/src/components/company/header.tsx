@@ -110,7 +110,7 @@ export const CompanyHeader = ({ onMenuClick }: ICompanyHeaderProps) => {
             <Avatar size={26} src={profile?.avatarUrl || undefined} className={styles.avatar}>
               {initials}
             </Avatar>
-            {displayName}
+            <span className={styles.userButtonLabel}>{displayName}</span>
           </Button>
         </Dropdown>
       </div>

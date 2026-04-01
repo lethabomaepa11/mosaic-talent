@@ -31,35 +31,87 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   swipeBoard: css`
     position: relative;
-    min-height: 460px;
-    border: 1px solid ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadiusLG}px;
-    background: color-mix(in srgb, ${token.colorFillTertiary} 55%, ${token.colorBgContainer});
-    padding: ${token.paddingLG}px;
+    width: min(100%, 620px);
+    margin: 0 auto;
+    min-height: clamp(520px, calc(100vh - 220px), 740px);
+    border: 1px solid color-mix(in srgb, ${token.colorPrimary} 20%, ${token.colorBorderSecondary});
+    border-radius: 30px;
+    background:
+      radial-gradient(
+        circle at 10% 8%,
+        color-mix(in srgb, ${token.colorPrimary} 16%, transparent) 0%,
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 85% 90%,
+        color-mix(in srgb, ${token.colorInfo} 14%, transparent) 0%,
+        transparent 44%
+      ),
+      color-mix(in srgb, ${token.colorFillTertiary} 62%, ${token.colorBgContainer});
+    padding: ${token.paddingSM}px;
+    box-shadow: ${token.boxShadowSecondary};
+
+    @media (min-width: 768px) {
+      padding: ${token.paddingLG}px;
+    }
   `,
   swipeStack: css`
     position: relative;
-    min-height: 340px;
+    min-height: clamp(370px, calc(100vh - 390px), 520px);
   `,
   swipeCard: css`
     position: absolute;
     inset: 0;
     transition: filter 0.2s ease;
   `,
+  swipeOverlayWrap: css`
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  `,
+  swipeOverlay: css`
+    position: absolute;
+    top: ${token.marginLG}px;
+    padding: 8px ${token.padding}px;
+    border: 2px solid;
+    border-radius: 10px;
+    font-family: var(--font-dm-mono), monospace;
+    font-size: ${token.fontSizeLG}px;
+    letter-spacing: 0.08em;
+    font-weight: ${token.fontWeightStrong};
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+
+    @media (max-width: 767px) {
+      top: ${token.marginSM}px;
+      font-size: ${token.fontSize}px;
+      padding: 6px ${token.paddingSM}px;
+    }
+  `,
+  swipeOverlayLike: css`
+    left: ${token.marginLG}px;
+    border-color: ${token.colorSuccess};
+    color: ${token.colorSuccess};
+    transform: rotate(-14deg) scale(0.92);
+  `,
+  swipeOverlayNope: css`
+    right: ${token.marginLG}px;
+    border-color: ${token.colorError};
+    color: ${token.colorError};
+    transform: rotate(14deg) scale(0.92);
+  `,
+  swipeOverlayVisible: css`
+    opacity: 1;
+  `,
   swipeCardTop: css`
     filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.18));
   `,
-  swipeActions: css`
-    margin-top: ${token.marginLG}px;
-    display: flex;
-    justify-content: center;
-    gap: ${token.marginSM}px;
-    flex-wrap: wrap;
-  `,
   swipeHint: css`
-    margin: 0;
+    margin: ${token.marginMD}px 0 ${token.marginXXS}px;
     text-align: center;
     color: ${token.colorTextSecondary};
-    font-size: ${token.fontSizeSM}px;
+    font-size: ${token.fontSize}px;
   `,
 }));

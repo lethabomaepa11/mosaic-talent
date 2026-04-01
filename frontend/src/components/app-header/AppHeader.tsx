@@ -323,7 +323,7 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
           options={autocompleteOptions}
           onSelect={handleSelect}
           onSearch={handleSearchChange}
-          dropdownMatchSelectWidth={320}
+          popupMatchSelectWidth={320}
           notFoundContent={
             normalizedSearch && !isDeveloperSearchPending && !hasAnyResults ? (
               <Space direction="vertical" align="center" style={{ padding: 16 }}>
