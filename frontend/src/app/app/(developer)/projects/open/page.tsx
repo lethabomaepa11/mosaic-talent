@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Button, Empty, Typography } from "antd";
+import { Button, Empty, Modal, Typography } from "antd";
 import { Sparkles, X } from "lucide-react";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
-import { IRepoSafetyScan } from "@/providers/project-provider/context";
+import {
+  IProjectJoinLoadWarning,
+  IRepoSafetyScan,
+} from "@/providers/project-provider/context";
 import { useStyles } from "./style";
 
 const OpenProjectsPage = () => {
@@ -19,11 +22,16 @@ const OpenProjectsPage = () => {
   >({});
   const [repoSafetyPending, setRepoSafetyPending] = useState<Record<string, boolean>>({});
   const [repoSafetyError, setRepoSafetyError] = useState<Record<string, string>>({});
+  const [joinWarning, setJoinWarning] = useState<{
+    projectId: string;
+    warning: IProjectJoinLoadWarning;
+  } | null>(null);
   const { styles } = useStyles();
 
   const { fetchCurrentUser } = useDeveloperAction();
   const { openProjects } = useProjectState();
-  const { fetchOpenProjects, joinProject, scanRepoSafety } = useProjectAction();
+  const { fetchOpenProjects, joinProject, getJoinProjectLoadWarning, scanRepoSafety } =
+    useProjectAction();
 
   useEffect(() => {
     fetchCurrentUser();
@@ -85,22 +93,38 @@ const OpenProjectsPage = () => {
     return () => {
       isActive = false;
     };
-  }, [openProjects, repoSafetyByProject, repoSafetyPending, scanRepoSafety]);
+  }, [openProjects, repoSafetyByProject, repoSafetyPending]);
 
   const swipeProjects = useMemo(() => {
     return openProjects.slice(swipeIndex, swipeIndex + 3);
   }, [openProjects, swipeIndex]);
   const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(" ");
 
-  const handleSwipeJoin = async (projectId: string) => {
+  const executeJoin = async (projectId: string, confirmHighWorkload = false) => {
     try {
-      await joinProject(projectId);
+      await joinProject(projectId, confirmHighWorkload);
       toast.success("Joined project", "You successfully joined this project.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to join project.";
       toast.error("Join failed", message);
     } finally {
       setSwipeIndex((prev) => prev + 1);
+    }
+  };
+
+  const handleSwipeJoin = async (projectId: string) => {
+    try {
+      const warning = await getJoinProjectLoadWarning(projectId);
+      if (warning?.shouldWarn) {
+        setJoinWarning({ projectId, warning });
+        return;
+      }
+
+      await executeJoin(projectId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to evaluate workload.";
+      toast.error("Join blocked", message);
     }
   };
 
@@ -199,6 +223,41 @@ const OpenProjectsPage = () => {
           </>
         )}
       </div>
+      <Modal
+        open={Boolean(joinWarning)}
+        title="Workload Warning"
+        onCancel={() => setJoinWarning(null)}
+        footer={[
+          <Button key="cancel" type="primary" onClick={() => setJoinWarning(null)}>
+            Cancel
+          </Button>,
+          <Button
+            key="continue"
+            onClick={() => {
+              const projectId = joinWarning?.projectId;
+              setJoinWarning(null);
+              if (projectId) {
+                void executeJoin(projectId, true);
+              }
+            }}
+          >
+            Continue Anyway
+          </Button>,
+        ]}
+      >
+        <Typography.Paragraph>
+          {joinWarning?.warning.message}
+        </Typography.Paragraph>
+        <Typography.Text type="secondary">
+          Active projects: {joinWarning?.warning.activeProjects ?? 0} /{" "}
+          {joinWarning?.warning.recommendedProjectLimit ?? 0}
+        </Typography.Text>
+        <br />
+        <Typography.Text type="secondary">
+          Workload score if you join: {joinWarning?.warning.proposedWorkloadScore ?? 0} /{" "}
+          {joinWarning?.warning.recommendedWorkloadLimit ?? 0}
+        </Typography.Text>
+      </Modal>
     </div>
   );
 };

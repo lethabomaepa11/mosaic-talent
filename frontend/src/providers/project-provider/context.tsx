@@ -7,7 +7,7 @@ export interface IProjectMember {
   name: string;
   userName?: string;
   avatar: string;
-  role: string;
+  role: "lead" | "member";
 }
 
 export interface IProjectTask {
@@ -15,6 +15,8 @@ export interface IProjectTask {
   title: string;
   description?: string;
   status: string;
+  assignedMemberId?: string;
+  assignedMemberName?: string;
 }
 
 export interface IProject {
@@ -22,6 +24,9 @@ export interface IProject {
   title: string;
   description: string;
   maxMembers: number;
+  difficulty: "beginner" | "intermediate" | "advanced" | "expert";
+  estimatedHoursPerWeek: number;
+  workloadScore: number;
   githubRepo?: string;
   skills: string[];
   type: string;
@@ -168,9 +173,50 @@ export interface ICreateProjectInput {
   description: string;
   maxMembers?: number;
   githubRepo?: string;
+  difficulty: number;
+  estimatedHoursPerWeek: number;
   skills: string[];
   type: number;
   status: number;
+}
+
+export interface IProjectJoinLoadWarning {
+  shouldWarn: boolean;
+  activeProjects: number;
+  recommendedProjectLimit: number;
+  currentWorkloadScore: number;
+  proposedWorkloadScore: number;
+  recommendedWorkloadLimit: number;
+  message: string;
+}
+
+export interface IAiGeneratedProjectSpec {
+  title: string;
+  descriptionMarkdown: string;
+  skills: string[];
+  difficulty: "beginner" | "intermediate" | "advanced" | "expert";
+  estimatedHoursPerWeek: number;
+}
+
+export interface IRepositoryReadme {
+  repoKey: string;
+  content: string;
+}
+
+export interface IProjectMeeting {
+  id: string;
+  projectId: string;
+  title: string;
+  agenda: string;
+  status: "requested" | "scheduled" | "completed" | "cancelled";
+  startsAtUtc: string;
+  endsAtUtc: string;
+  jitsiRoomName: string;
+  requestedByMemberId: string;
+  requestedByMemberName: string;
+  scheduledByMemberId: string;
+  reminderMinutesBefore: number;
+  reminderEnabled: boolean;
 }
 
 export interface IProjectStateContext {
@@ -192,13 +238,33 @@ export interface IProjectActionContext {
   createGithubRepository: (
     input: ICreateGithubRepositoryInput,
   ) => Promise<IGithubRepository | undefined>;
+  getRepositoryReadme: (repoKey: string) => Promise<IRepositoryReadme | undefined>;
+  aiGenerateProjectSpec: (
+    prompt: string,
+    repoNameHint?: string,
+  ) => Promise<IAiGeneratedProjectSpec | undefined>;
   createProject: (input: ICreateProjectInput) => Promise<IProject | undefined>;
-  joinProject: (projectId: string) => Promise<IProject | undefined>;
+  getJoinProjectLoadWarning: (
+    projectId: string,
+  ) => Promise<IProjectJoinLoadWarning | undefined>;
+  joinProject: (
+    projectId: string,
+    confirmHighWorkload?: boolean,
+  ) => Promise<IProject | undefined>;
+  leaveProject: (projectId: string, reason: string) => Promise<IProject | undefined>;
+  assignMemberRole: (
+    projectId: string,
+    memberId: string,
+    role: "lead" | "member",
+  ) => Promise<IProject | undefined>;
   aiMatchProject: () => Promise<IProject | undefined>;
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
+  aiGenerateProjectTasks: (
+    projectId: string,
+  ) => Promise<IProjectTask[]>;
   addProjectTask: (
     projectId: string,
-    input: { title: string; description?: string },
+    input: { title: string; description?: string; assignedMemberId?: string },
   ) => Promise<IProjectTask | undefined>;
   updateProjectTaskStatus: (
     projectId: string,
@@ -215,6 +281,37 @@ export interface IProjectActionContext {
     githubUrl: string,
   ) => Promise<IRepoSafetyScan | undefined>;
   scanRepoGuardian: (githubUrl: string) => Promise<IRepoGuardianScan | undefined>;
+  getProjectMeetings: (projectId: string) => Promise<IProjectMeeting[]>;
+  requestProjectMeeting: (
+    projectId: string,
+    input: {
+      title: string;
+      agenda?: string;
+      startsAtUtc: string;
+      endsAtUtc: string;
+    },
+  ) => Promise<IProjectMeeting | undefined>;
+  scheduleProjectMeeting: (
+    projectId: string,
+    meetingId: string,
+    input: {
+      title: string;
+      agenda?: string;
+      startsAtUtc: string;
+      endsAtUtc: string;
+      jitsiRoomName?: string;
+    },
+  ) => Promise<IProjectMeeting | undefined>;
+  setProjectMeetingReminder: (
+    projectId: string,
+    meetingId: string,
+    minutesBefore: number,
+    enabled: boolean,
+  ) => Promise<IProjectMeeting | undefined>;
+  cancelProjectMeeting: (
+    projectId: string,
+    meetingId: string,
+  ) => Promise<IProjectMeeting | undefined>;
 }
 
 export const INITIAL_STATE: IProjectStateContext = {
@@ -240,10 +337,16 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   }),
   getMyGithubRepositories: async () => [],
   createGithubRepository: async () => undefined,
+  getRepositoryReadme: async () => undefined,
+  aiGenerateProjectSpec: async () => undefined,
   createProject: async () => undefined,
+  getJoinProjectLoadWarning: async () => undefined,
   joinProject: async () => undefined,
+  leaveProject: async () => undefined,
+  assignMemberRole: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,
+  aiGenerateProjectTasks: async () => [],
   addProjectTask: async () => undefined,
   updateProjectTaskStatus: async () => undefined,
   updateProjectSkills: async () => undefined,
@@ -251,4 +354,9 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   scanRepoSafety: async () => undefined,
   scanRepoSafetyByGithubUrl: async () => undefined,
   scanRepoGuardian: async () => undefined,
+  getProjectMeetings: async () => [],
+  requestProjectMeeting: async () => undefined,
+  scheduleProjectMeeting: async () => undefined,
+  setProjectMeetingReminder: async () => undefined,
+  cancelProjectMeeting: async () => undefined,
 });

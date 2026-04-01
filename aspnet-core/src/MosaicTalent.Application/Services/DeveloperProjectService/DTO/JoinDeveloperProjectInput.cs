@@ -7,4 +7,6 @@ public class JoinDeveloperProjectInput
 {
     [Required]
     public Guid ProjectId { get; set; }
+
+    public bool ConfirmHighWorkload { get; set; }
 }

@@ -7,6 +7,9 @@ import {
   addTaskError,
   addTaskPending,
   addTaskSuccess,
+  assignRoleError,
+  assignRolePending,
+  assignRoleSuccess,
   aiFillTeamError,
   aiFillTeamPending,
   aiFillTeamSuccess,
@@ -31,6 +34,9 @@ import {
   joinProjectError,
   joinProjectPending,
   joinProjectSuccess,
+  leaveProjectError,
+  leaveProjectPending,
+  leaveProjectSuccess,
   updateTaskError,
   updateTaskPending,
   updateTaskSuccess,
@@ -39,11 +45,14 @@ import {
   updateSkillsSuccess,
 } from "./actions";
 import {
+  IAiGeneratedProjectSpec,
   ICreateGithubRepositoryInput,
   ICreateProjectInput,
   IGithubConnectionStatus,
   IGithubRepository,
   IProject,
+  IProjectJoinLoadWarning,
+  IProjectMeeting,
   IProjectTask,
   IRepoSafetyBadge,
   IRepoSafetyCategory,
@@ -54,6 +63,7 @@ import {
   IRepoSafetyScan,
   IRepoGuardianScan,
   IRepoGuardianScanResult,
+  IRepositoryReadme,
   INITIAL_STATE,
   ProjectActionContext,
   ProjectStateContext,
@@ -61,7 +71,8 @@ import {
 import { ProjectReducer } from "./reducer";
 
 const ENDPOINT = "/api/services/app/DeveloperProject";
-const REPO_GUARDIAN_ENDPOINT = "https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan";
+const REPO_GUARDIAN_ENDPOINT =
+  "https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan";
 
 const readApiErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof AxiosError) {
@@ -77,13 +88,37 @@ const normalizeTask = (input: Partial<IProjectTask>): IProjectTask => ({
   title: input.title ?? "",
   description: input.description ?? "",
   status: input.status ?? "todo",
+  assignedMemberId: input.assignedMemberId ?? "",
+  assignedMemberName: input.assignedMemberName ?? "",
 });
+
+const normalizeMemberRole = (role: string | undefined): "lead" | "member" =>
+  role?.toLowerCase() === "lead" ? "lead" : "member";
+
+const normalizeDifficulty = (
+  difficulty: string | undefined,
+): "beginner" | "intermediate" | "advanced" | "expert" => {
+  const normalized = (difficulty ?? "").toLowerCase();
+  if (
+    normalized === "beginner" ||
+    normalized === "intermediate" ||
+    normalized === "advanced" ||
+    normalized === "expert"
+  ) {
+    return normalized;
+  }
+
+  return "intermediate";
+};
 
 const normalizeProject = (input: Partial<IProject>): IProject => ({
   id: String(input.id ?? ""),
   title: input.title ?? "",
   description: input.description ?? "",
   maxMembers: Number(input.maxMembers ?? 4),
+  difficulty: normalizeDifficulty(input.difficulty),
+  estimatedHoursPerWeek: Number(input.estimatedHoursPerWeek ?? 6),
+  workloadScore: Number(input.workloadScore ?? 0),
   githubRepo: input.githubRepo ?? "",
   skills: input.skills ?? [],
   type: input.type ?? "group",
@@ -98,7 +133,7 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
     name: member.name ?? "Developer",
     userName: member.userName ?? "",
     avatar: member.avatar ?? "",
-    role: member.role ?? "member",
+    role: normalizeMemberRole(member.role),
   })),
   tasks: (input.tasks ?? []).map(normalizeTask),
 });
@@ -133,7 +168,9 @@ const normalizeGithubRepositoryList = (input: unknown): IGithubRepository[] => {
     return [];
   }
 
-  return input.map((repo) => normalizeGithubRepository(repo as Partial<IGithubRepository>));
+  return input.map((repo) =>
+    normalizeGithubRepository(repo as Partial<IGithubRepository>),
+  );
 };
 
 const normalizeRepoSafetyProgress = (
@@ -214,15 +251,11 @@ const normalizeRepoSafetyResult = (
   cached: input.cached,
 });
 
-const normalizeRepoSafetyScan = (input: Partial<IRepoSafetyScan>): IRepoSafetyScan => ({
-  progress: (input.progress ?? []).map((step) =>
-    normalizeRepoSafetyProgress(step),
-  ),
+const normalizeRepoSafetyScan = (
+  input: Partial<IRepoSafetyScan>,
+): IRepoSafetyScan => ({
+  progress: (input.progress ?? []).map((step) => normalizeRepoSafetyProgress(step)),
   result: input.result ? normalizeRepoSafetyResult(input.result) : undefined,
-});
-
-const normalizeRepoGuardianScan = (input: Partial<IRepoGuardianScan>): IRepoGuardianScan => ({
-  result: input.result,
 });
 
 const normalizeRepoGuardianScanResponse = (input: unknown): IRepoGuardianScan => {
@@ -230,6 +263,66 @@ const normalizeRepoGuardianScanResponse = (input: unknown): IRepoGuardianScan =>
   return {
     result: data.result,
   };
+};
+
+const normalizeJoinLoadWarning = (
+  input: Partial<IProjectJoinLoadWarning>,
+): IProjectJoinLoadWarning => ({
+  shouldWarn: Boolean(input.shouldWarn),
+  activeProjects: Number(input.activeProjects ?? 0),
+  recommendedProjectLimit: Number(input.recommendedProjectLimit ?? 3),
+  currentWorkloadScore: Number(input.currentWorkloadScore ?? 0),
+  proposedWorkloadScore: Number(input.proposedWorkloadScore ?? 0),
+  recommendedWorkloadLimit: Number(input.recommendedWorkloadLimit ?? 160),
+  message: input.message ?? "",
+});
+
+const normalizeProjectSpec = (
+  input: Partial<IAiGeneratedProjectSpec>,
+): IAiGeneratedProjectSpec => ({
+  title: input.title ?? "",
+  descriptionMarkdown: input.descriptionMarkdown ?? "",
+  skills: input.skills ?? [],
+  difficulty: normalizeDifficulty(input.difficulty),
+  estimatedHoursPerWeek: Number(input.estimatedHoursPerWeek ?? 6),
+});
+
+const normalizeRepositoryReadme = (
+  input: Partial<IRepositoryReadme>,
+): IRepositoryReadme => ({
+  repoKey: input.repoKey ?? "",
+  content: input.content ?? "",
+});
+
+const normalizeMeeting = (input: Partial<IProjectMeeting>): IProjectMeeting => ({
+  id: input.id ?? "",
+  projectId: input.projectId ?? "",
+  title: input.title ?? "",
+  agenda: input.agenda ?? "",
+  status:
+    input.status === "requested" ||
+    input.status === "scheduled" ||
+    input.status === "completed" ||
+    input.status === "cancelled"
+      ? input.status
+      : "requested",
+  startsAtUtc: input.startsAtUtc ?? "",
+  endsAtUtc: input.endsAtUtc ?? "",
+  jitsiRoomName: input.jitsiRoomName ?? "",
+  requestedByMemberId: input.requestedByMemberId ?? "",
+  requestedByMemberName: input.requestedByMemberName ?? "",
+  scheduledByMemberId: input.scheduledByMemberId ?? "",
+  reminderMinutesBefore: Number(input.reminderMinutesBefore ?? 15),
+  reminderEnabled:
+    typeof input.reminderEnabled === "boolean" ? input.reminderEnabled : true,
+});
+
+const normalizeMeetingList = (input: unknown): IProjectMeeting[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((meeting) => normalizeMeeting(meeting as Partial<IProjectMeeting>));
 };
 
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
@@ -241,8 +334,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
 
     try {
       const res = await instance.get(`${ENDPOINT}/GetMyProjects`);
-      const projects = normalizeProjectList(res.data?.result);
-      dispatch(fetchMyProjectsSuccess(projects));
+      dispatch(fetchMyProjectsSuccess(normalizeProjectList(res.data?.result)));
     } catch {
       dispatch(fetchMyProjectsError());
     }
@@ -253,8 +345,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
 
     try {
       const res = await instance.get(`${ENDPOINT}/GetOpenProjects`);
-      const projects = normalizeProjectList(res.data?.result);
-      dispatch(fetchOpenProjectsSuccess(projects));
+      dispatch(fetchOpenProjectsSuccess(normalizeProjectList(res.data?.result)));
     } catch {
       dispatch(fetchOpenProjectsError());
     }
@@ -317,6 +408,33 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const getRepositoryReadme = async (repoKey: string) => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetRepositoryReadme`, {
+        params: { githubRepo: repoKey },
+      });
+      return normalizeRepositoryReadme(
+        (res.data?.result ?? {}) as Partial<IRepositoryReadme>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load repository README."));
+    }
+  };
+
+  const aiGenerateProjectSpec = async (prompt: string, repoNameHint?: string) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/AiGenerateProjectSpec`, {
+        prompt,
+        repoNameHint,
+      });
+      return normalizeProjectSpec(
+        (res.data?.result ?? {}) as Partial<IAiGeneratedProjectSpec>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to generate project spec."));
+    }
+  };
+
   const createProject = async (input: ICreateProjectInput) => {
     dispatch(createProjectPending());
 
@@ -332,11 +450,29 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
-  const joinProject = async (projectId: string) => {
+  const getJoinProjectLoadWarning = async (projectId: string) => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetJoinProjectLoadWarning`, {
+        params: { projectId },
+      });
+      return normalizeJoinLoadWarning(
+        (res.data?.result ?? {}) as Partial<IProjectJoinLoadWarning>,
+      );
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "Failed to assess project workload."),
+      );
+    }
+  };
+
+  const joinProject = async (projectId: string, confirmHighWorkload = false) => {
     dispatch(joinProjectPending());
 
     try {
-      const res = await instance.post(`${ENDPOINT}/JoinProject`, { projectId });
+      const res = await instance.post(`${ENDPOINT}/JoinProject`, {
+        projectId,
+        confirmHighWorkload,
+      });
       const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
       dispatch(joinProjectSuccess());
       await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
@@ -344,6 +480,48 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     } catch (error) {
       dispatch(joinProjectError());
       throw new Error(readApiErrorMessage(error, "Failed to join project."));
+    }
+  };
+
+  const leaveProject = async (projectId: string, reason: string) => {
+    dispatch(leaveProjectPending());
+
+    try {
+      const res = await instance.post(`${ENDPOINT}/LeaveProject`, {
+        projectId,
+        reason,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(leaveProjectSuccess());
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(leaveProjectError());
+      throw new Error(readApiErrorMessage(error, "Failed to leave project."));
+    }
+  };
+
+  const assignMemberRole = async (
+    projectId: string,
+    memberId: string,
+    role: "lead" | "member",
+  ) => {
+    dispatch(assignRolePending());
+
+    try {
+      const res = await instance.put(`${ENDPOINT}/AssignMemberRole`, {
+        projectId,
+        memberId,
+        role,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(assignRoleSuccess());
+      dispatch(fetchProjectSuccess(project));
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(assignRoleError());
+      throw new Error(readApiErrorMessage(error, "Failed to update member role."));
     }
   };
 
@@ -380,9 +558,27 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const aiGenerateProjectTasks = async (projectId: string) => {
+    dispatch(addTaskPending());
+    try {
+      const res = await instance.post(`${ENDPOINT}/AiGenerateProjectTasks`, {
+        projectId,
+      });
+      const tasks = Array.isArray(res.data?.result)
+        ? (res.data.result as Array<Partial<IProjectTask>>).map(normalizeTask)
+        : [];
+      dispatch(addTaskSuccess());
+      await fetchProjectById(projectId);
+      return tasks;
+    } catch (error) {
+      dispatch(addTaskError());
+      throw new Error(readApiErrorMessage(error, "Failed to generate AI tasks."));
+    }
+  };
+
   const addProjectTask = async (
     projectId: string,
-    input: { title: string; description?: string },
+    input: { title: string; description?: string; assignedMemberId?: string },
   ) => {
     dispatch(addTaskPending());
 
@@ -391,6 +587,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
         projectId,
         title: input.title,
         description: input.description,
+        assignedMemberId: input.assignedMemberId || undefined,
       });
       const task = normalizeTask((res.data?.result ?? {}) as Partial<IProjectTask>);
       dispatch(addTaskSuccess());
@@ -441,7 +638,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
-const scanRepoSafety = async (projectId: string) => {
+  const scanRepoSafety = async (projectId: string) => {
     try {
       const res = await instance.post(`${ENDPOINT}/ScanRepoSafety`, { projectId });
       return normalizeRepoSafetyScan(
@@ -467,12 +664,97 @@ const scanRepoSafety = async (projectId: string) => {
 
   const scanRepoGuardian = async (githubUrl: string) => {
     try {
-      const res = await axios.post(REPO_GUARDIAN_ENDPOINT, {
-        githubUrl,
-      });
+      const res = await axios.post(REPO_GUARDIAN_ENDPOINT, { githubUrl });
       return normalizeRepoGuardianScanResponse(res.data);
     } catch (error) {
       throw new Error(readApiErrorMessage(error, "Repo guardian scan failed."));
+    }
+  };
+
+  const getProjectMeetings = async (projectId: string) => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetProjectMeetings`, {
+        params: { projectId },
+      });
+      return normalizeMeetingList(res.data?.result);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load project meetings."));
+    }
+  };
+
+  const requestProjectMeeting = async (
+    projectId: string,
+    input: { title: string; agenda?: string; startsAtUtc: string; endsAtUtc: string },
+  ) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/RequestProjectMeeting`, {
+        projectId,
+        title: input.title,
+        agenda: input.agenda,
+        startsAtUtc: input.startsAtUtc,
+        endsAtUtc: input.endsAtUtc,
+      });
+      return normalizeMeeting((res.data?.result ?? {}) as Partial<IProjectMeeting>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to request project meeting."));
+    }
+  };
+
+  const scheduleProjectMeeting = async (
+    projectId: string,
+    meetingId: string,
+    input: {
+      title: string;
+      agenda?: string;
+      startsAtUtc: string;
+      endsAtUtc: string;
+      jitsiRoomName?: string;
+    },
+  ) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/ScheduleProjectMeeting`, {
+        projectId,
+        meetingId,
+        title: input.title,
+        agenda: input.agenda,
+        startsAtUtc: input.startsAtUtc,
+        endsAtUtc: input.endsAtUtc,
+        jitsiRoomName: input.jitsiRoomName,
+      });
+      return normalizeMeeting((res.data?.result ?? {}) as Partial<IProjectMeeting>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to schedule meeting."));
+    }
+  };
+
+  const setProjectMeetingReminder = async (
+    projectId: string,
+    meetingId: string,
+    minutesBefore: number,
+    enabled: boolean,
+  ) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/SetProjectMeetingReminder`, {
+        projectId,
+        meetingId,
+        minutesBefore,
+        enabled,
+      });
+      return normalizeMeeting((res.data?.result ?? {}) as Partial<IProjectMeeting>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to save meeting reminder."));
+    }
+  };
+
+  const cancelProjectMeeting = async (projectId: string, meetingId: string) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/CancelProjectMeeting`, {
+        projectId,
+        meetingId,
+      });
+      return normalizeMeeting((res.data?.result ?? {}) as Partial<IProjectMeeting>);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to cancel meeting."));
     }
   };
 
@@ -497,7 +779,7 @@ const scanRepoSafety = async (projectId: string) => {
 
   return (
     <ProjectStateContext.Provider value={state}>
-<ProjectActionContext.Provider
+      <ProjectActionContext.Provider
         value={{
           fetchMyProjects,
           fetchOpenProjects,
@@ -505,10 +787,16 @@ const scanRepoSafety = async (projectId: string) => {
           getGithubConnectionStatus,
           getMyGithubRepositories,
           createGithubRepository,
+          getRepositoryReadme,
+          aiGenerateProjectSpec,
           createProject,
+          getJoinProjectLoadWarning,
           joinProject,
+          leaveProject,
+          assignMemberRole,
           aiMatchProject,
           aiFillTeam,
+          aiGenerateProjectTasks,
           addProjectTask,
           updateProjectTaskStatus,
           updateProjectSkills,
@@ -516,6 +804,11 @@ const scanRepoSafety = async (projectId: string) => {
           scanRepoSafety,
           scanRepoSafetyByGithubUrl,
           scanRepoGuardian,
+          getProjectMeetings,
+          requestProjectMeeting,
+          scheduleProjectMeeting,
+          setProjectMeetingReminder,
+          cancelProjectMeeting,
         }}
       >
         {children}

@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { fetchMyProjectsSuccess, fetchOpenProjectsSuccess } from "../actions";
+import {
+  fetchMyProjectsSuccess,
+  fetchOpenProjectsSuccess,
+  leaveProjectPending,
+} from "../actions";
 import { INITIAL_STATE } from "../context";
+import type { IProject } from "../context";
 import { ProjectReducer } from "../reducer";
 
-const project = {
+const project: IProject = {
   id: "1",
   title: "Project A",
   description: "Desc",
   maxMembers: 4,
+  difficulty: "intermediate",
+  estimatedHoursPerWeek: 8,
+  workloadScore: 108,
   githubRepo: "",
   skills: [],
   type: "group",
@@ -29,5 +37,10 @@ describe("ProjectReducer", () => {
     const state = ProjectReducer(INITIAL_STATE, fetchOpenProjectsSuccess([project]));
     expect(state.openProjects).toHaveLength(1);
     expect(state.openProjects[0].status).toBe("open");
+  });
+
+  it("sets pending state when leaving project", () => {
+    const state = ProjectReducer(INITIAL_STATE, leaveProjectPending());
+    expect(state.isPending).toBe(true);
   });
 });

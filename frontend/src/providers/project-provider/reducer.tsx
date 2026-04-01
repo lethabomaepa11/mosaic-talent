@@ -69,6 +69,30 @@ export const ProjectReducer = handleActions<
       ...state,
       ...payload,
     }),
+    [ProjectStateEnums.PROJECT_LEAVE_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_LEAVE_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_LEAVE_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_ASSIGN_ROLE_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_ASSIGN_ROLE_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_ASSIGN_ROLE_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
     [ProjectStateEnums.PROJECT_MATCH_PENDING]: (state, { payload }) => ({
       ...state,
       ...payload,

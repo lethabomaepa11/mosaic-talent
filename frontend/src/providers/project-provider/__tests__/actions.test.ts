@@ -2,15 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   fetchMyProjectsSuccess,
   fetchOpenProjectsSuccess,
+  leaveProjectPending,
   ProjectStateEnums,
 } from "../actions";
+import type { IProject } from "../context";
 
-const projects = [
+const projects: IProject[] = [
   {
     id: "1",
     title: "Project A",
     description: "Desc",
     maxMembers: 4,
+    difficulty: "intermediate",
+    estimatedHoursPerWeek: 8,
+    workloadScore: 108,
     githubRepo: "",
     skills: [],
     type: "group",
@@ -35,6 +40,13 @@ describe("project actions", () => {
       type: ProjectStateEnums.PROJECT_FETCH_OPEN_SUCCESS,
       payload: {
         openProjects: projects,
+      },
+    });
+
+    expect(leaveProjectPending()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_LEAVE_PENDING,
+      payload: {
+        isPending: true,
       },
     });
   });

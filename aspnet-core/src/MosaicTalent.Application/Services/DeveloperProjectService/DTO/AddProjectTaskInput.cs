@@ -14,4 +14,6 @@ public class AddProjectTaskInput
 
     [MaxLength(2000)]
     public string Description { get; set; }
+
+    public Guid? AssignedMemberId { get; set; }
 }
