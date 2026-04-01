@@ -4,6 +4,7 @@ import { AuthProvider, useAuthAction, useAuthState } from "..";
 import type { IRegisterInput } from "../context";
 
 const mocks = vi.hoisted(() => ({
+  fetchAccessTokenFromApi: vi.fn(),
   getAuthToken: vi.fn(),
   get: vi.fn(),
   post: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/utils/axiosInstance", () => ({
   setAuthToken: mocks.setAuthToken,
   removeAuthToken: mocks.removeAuthToken,
   getAuthToken: mocks.getAuthToken,
+  fetchAccessTokenFromApi: mocks.fetchAccessTokenFromApi,
 }));
 
 vi.mock("@/providers/tenant-provider", () => ({
@@ -69,8 +71,10 @@ describe("AuthProvider", () => {
     mocks.setAuthToken.mockReset();
     mocks.removeAuthToken.mockReset();
     mocks.getAuthToken.mockReset();
+    mocks.fetchAccessTokenFromApi.mockReset();
     mocks.useTenantResolutionState.mockReset();
     mocks.getAuthToken.mockReturnValue("");
+    mocks.fetchAccessTokenFromApi.mockResolvedValue("");
     mocks.useTenantResolutionState.mockReturnValue({
       isResolved: true,
     });
