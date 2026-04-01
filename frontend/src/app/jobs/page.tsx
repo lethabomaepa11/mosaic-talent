@@ -27,10 +27,6 @@ const JobsPage = () => {
   useEffect(() => {
     Promise.allSettled([fetchOpenJobs(), fetchPublicJobsPage()]).finally(() => {
       setIsPageLoading(false);
-      if (!tenancyName) {
-        const domain = window.location.hostname;
-        router.replace(domain.substring(0, domain.indexOf(".")) + "/login");
-      }
     });
   }, []);
 

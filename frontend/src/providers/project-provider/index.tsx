@@ -457,7 +457,6 @@ const scanRepoSafety = async (projectId: string) => {
       const res = await axios.post(REPO_GUARDIAN_ENDPOINT, {
         githubUrl,
       });
-      console.log("Raw Repo Guardian scan response:", res.data);
       return normalizeRepoGuardianScanResponse(res.data);
     } catch (error) {
       throw new Error(readApiErrorMessage(error, "Repo guardian scan failed."));
