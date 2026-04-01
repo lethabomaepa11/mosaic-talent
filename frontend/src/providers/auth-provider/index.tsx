@@ -2,6 +2,7 @@
 
 import { PropsWithChildren, useContext, useEffect, useReducer } from "react";
 import {
+  fetchAccessTokenFromApi,
   getAuthToken,
   getAxiosInstance,
   removeAuthToken,
@@ -44,13 +45,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const token = getAuthToken();
-
-    if (!token) {
-      return;
-    }
+    let token = getAuthToken();
 
     const restoreSession = async () => {
+      if (!token) {
+        token = await fetchAccessTokenFromApi();
+        if (token) {
+          setAuthToken(token);
+        }
+      }
+
+      if (!token) {
+        return;
+      }
       try {
         const res = await instance.get(
           "/api/services/app/Session/GetCurrentLoginInformations",
