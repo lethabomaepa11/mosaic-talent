@@ -1,6 +1,6 @@
 ---
 name: follow-git-workflow
-description: Use this skill before starting ANY feature or fix. Covers issue-first workflow, branch naming, commit message conventions, the mandatory planning step, and the push workflow. The agent must always show a plan, create an issue, and create a branch before writing code.
+description: Use this skill before starting ANY feature or fix. Covers issue-first workflow with repository issue templates, branch naming, commit message conventions, the mandatory planning step, and the push workflow. The agent must always show a plan, create a template-based issue, and create a branch before writing code.
 ---
 
 # Mosaic-Talent — Git Workflow
@@ -176,6 +176,23 @@ Before creating the branch, create a GitHub issue that documents:
 - Planned scope
 
 Use the issue number in branch and PR context where possible.
+
+---
+
+## Issue Template Rules (Mandatory)
+
+- Always use `.github/ISSUE_TEMPLATE/bug_report.md` for bug fixes.
+- Always use `.github/ISSUE_TEMPLATE/feature_request.md` for feature/chore/refactor work.
+- Issue body must follow the selected template sections.
+
+Preferred command:
+
+```bash
+gh issue create --template bug_report.md --title "<title>"
+gh issue create --template feature_request.md --title "<title>"
+```
+
+If running non-interactively and `gh` cannot combine `--template` with `--body`, create the issue with `--body` but keep the body section structure identical to the selected template.
 
 ---
 
