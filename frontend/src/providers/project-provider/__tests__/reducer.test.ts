@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { fetchMyProjectsSuccess, fetchOpenProjectsSuccess } from "../actions";
+import {
+  fetchMyProjectsSuccess,
+  fetchOpenProjectsSuccess,
+  leaveProjectPending,
+} from "../actions";
 import { INITIAL_STATE } from "../context";
 import { ProjectReducer } from "../reducer";
 
@@ -29,5 +33,10 @@ describe("ProjectReducer", () => {
     const state = ProjectReducer(INITIAL_STATE, fetchOpenProjectsSuccess([project]));
     expect(state.openProjects).toHaveLength(1);
     expect(state.openProjects[0].status).toBe("open");
+  });
+
+  it("sets pending state when leaving project", () => {
+    const state = ProjectReducer(INITIAL_STATE, leaveProjectPending());
+    expect(state.isPending).toBe(true);
   });
 });

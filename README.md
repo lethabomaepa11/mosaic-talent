@@ -139,6 +139,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
+- [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
@@ -212,10 +213,12 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/CreateGithubRepository`
 - `POST /api/services/app/DeveloperProject/CreateProject`
 - `POST /api/services/app/DeveloperProject/JoinProject`
+- `POST /api/services/app/DeveloperProject/LeaveProject`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
 - `POST /api/services/app/DeveloperProject/AddProjectTask`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
+- `PUT /api/services/app/DeveloperProject/AssignMemberRole`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
 - `POST /api/services/app/DeveloperProject/ScanRepoSafety`

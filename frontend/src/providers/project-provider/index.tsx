@@ -7,6 +7,9 @@ import {
   addTaskError,
   addTaskPending,
   addTaskSuccess,
+  assignRoleError,
+  assignRolePending,
+  assignRoleSuccess,
   aiFillTeamError,
   aiFillTeamPending,
   aiFillTeamSuccess,
@@ -31,6 +34,9 @@ import {
   joinProjectError,
   joinProjectPending,
   joinProjectSuccess,
+  leaveProjectError,
+  leaveProjectPending,
+  leaveProjectSuccess,
   updateTaskError,
   updateTaskPending,
   updateTaskSuccess,
@@ -79,6 +85,9 @@ const normalizeTask = (input: Partial<IProjectTask>): IProjectTask => ({
   status: input.status ?? "todo",
 });
 
+const normalizeMemberRole = (role: string | undefined): "lead" | "member" =>
+  role?.toLowerCase() === "lead" ? "lead" : "member";
+
 const normalizeProject = (input: Partial<IProject>): IProject => ({
   id: String(input.id ?? ""),
   title: input.title ?? "",
@@ -98,7 +107,7 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
     name: member.name ?? "Developer",
     userName: member.userName ?? "",
     avatar: member.avatar ?? "",
-    role: member.role ?? "member",
+    role: normalizeMemberRole(member.role),
   })),
   tasks: (input.tasks ?? []).map(normalizeTask),
 });
@@ -221,10 +230,6 @@ const normalizeRepoSafetyScan = (input: Partial<IRepoSafetyScan>): IRepoSafetySc
   result: input.result ? normalizeRepoSafetyResult(input.result) : undefined,
 });
 
-const normalizeRepoGuardianScan = (input: Partial<IRepoGuardianScan>): IRepoGuardianScan => ({
-  result: input.result,
-});
-
 const normalizeRepoGuardianScanResponse = (input: unknown): IRepoGuardianScan => {
   const data = input as { result?: IRepoGuardianScanResult };
   return {
@@ -344,6 +349,48 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     } catch (error) {
       dispatch(joinProjectError());
       throw new Error(readApiErrorMessage(error, "Failed to join project."));
+    }
+  };
+
+  const leaveProject = async (projectId: string, reason: string) => {
+    dispatch(leaveProjectPending());
+
+    try {
+      const res = await instance.post(`${ENDPOINT}/LeaveProject`, {
+        projectId,
+        reason,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(leaveProjectSuccess());
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(leaveProjectError());
+      throw new Error(readApiErrorMessage(error, "Failed to leave project."));
+    }
+  };
+
+  const assignMemberRole = async (
+    projectId: string,
+    memberId: string,
+    role: "lead" | "member",
+  ) => {
+    dispatch(assignRolePending());
+
+    try {
+      const res = await instance.put(`${ENDPOINT}/AssignMemberRole`, {
+        projectId,
+        memberId,
+        role,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(assignRoleSuccess());
+      dispatch(fetchProjectSuccess(project));
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(assignRoleError());
+      throw new Error(readApiErrorMessage(error, "Failed to update member role."));
     }
   };
 
@@ -507,6 +554,8 @@ const scanRepoSafety = async (projectId: string) => {
           createGithubRepository,
           createProject,
           joinProject,
+          leaveProject,
+          assignMemberRole,
           aiMatchProject,
           aiFillTeam,
           addProjectTask,

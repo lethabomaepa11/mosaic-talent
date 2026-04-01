@@ -168,6 +168,9 @@ export const useStyles = createStyles(({ token, css }) => ({
     max-width: 100%;
     color: ${token.colorPrimary};
   `,
+  memberRoleSelect: css`
+    min-width: 108px;
+  `,
   openSpots: css`
     border: 1px dashed ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusLG}px;

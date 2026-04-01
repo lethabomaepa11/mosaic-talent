@@ -15,6 +15,8 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<GithubRepositoryDto> CreateGithubRepository(CreateGithubRepositoryInput input);
     Task<DeveloperProjectDto> CreateProject(CreateDeveloperProjectInput input);
     Task<DeveloperProjectDto> JoinProject(JoinDeveloperProjectInput input);
+    Task<DeveloperProjectDto> LeaveProject(LeaveProjectInput input);
+    Task<DeveloperProjectDto> AssignMemberRole(AssignProjectMemberRoleInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafety(ScanRepoSafetyInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input);
     Task<DeveloperProjectDto> AiMatchProject();

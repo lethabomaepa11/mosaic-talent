@@ -114,7 +114,6 @@ export const AppSidebar = () => {
         >
           Sign Out
         </Button>
-        <p className={styles.footerMeta}>Session secured via cookies</p>
       </div>
     </aside>
   );

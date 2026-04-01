@@ -7,7 +7,7 @@ export interface IProjectMember {
   name: string;
   userName?: string;
   avatar: string;
-  role: string;
+  role: "lead" | "member";
 }
 
 export interface IProjectTask {
@@ -194,6 +194,12 @@ export interface IProjectActionContext {
   ) => Promise<IGithubRepository | undefined>;
   createProject: (input: ICreateProjectInput) => Promise<IProject | undefined>;
   joinProject: (projectId: string) => Promise<IProject | undefined>;
+  leaveProject: (projectId: string, reason: string) => Promise<IProject | undefined>;
+  assignMemberRole: (
+    projectId: string,
+    memberId: string,
+    role: "lead" | "member",
+  ) => Promise<IProject | undefined>;
   aiMatchProject: () => Promise<IProject | undefined>;
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
   addProjectTask: (
@@ -242,6 +248,8 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   createGithubRepository: async () => undefined,
   createProject: async () => undefined,
   joinProject: async () => undefined,
+  leaveProject: async () => undefined,
+  assignMemberRole: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,
   addProjectTask: async () => undefined,

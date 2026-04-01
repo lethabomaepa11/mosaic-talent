@@ -22,6 +22,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MosaicTalent.Services.DeveloperProjectService;
 
@@ -328,6 +329,158 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         catch (Exception ex)
         {
             Logger.Warn("Project join notifications failed.", ex);
+        }
+
+        var mapped = await MapProjects(new List<Project> { project });
+        return mapped.First();
+    }
+
+    public async Task<DeveloperProjectDto> LeaveProject(LeaveProjectInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project is required.");
+        }
+
+        var leaveReason = (input.Reason ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(leaveReason))
+        {
+            throw new UserFriendlyException("Tell us why you are leaving the project.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        var tenantId = project.TenantId;
+
+        var memberships = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .ToListAsync();
+
+        var currentMembership = memberships.FirstOrDefault(x => x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+
+        var remainingMembers = memberships
+            .Where(x => x.DeveloperId != developer.Id)
+            .ToList();
+
+        if (remainingMembers.Count == 0)
+        {
+            throw new UserFriendlyException("You cannot leave as the only remaining member.");
+        }
+
+        if (currentMembership.Role == MemberRole.Lead &&
+            remainingMembers.Count > 0 &&
+            remainingMembers.All(x => x.Role != MemberRole.Lead))
+        {
+            throw new UserFriendlyException("Assign another project lead before leaving.");
+        }
+
+        await _projectMemberRepository.DeleteAsync(currentMembership);
+
+        if (project.OwnerDeveloperId == developer.Id && remainingMembers.Count > 0)
+        {
+            var nextOwner = remainingMembers.FirstOrDefault(x => x.Role == MemberRole.Lead)
+                ?? remainingMembers.First();
+            if (nextOwner.Role != MemberRole.Lead)
+            {
+                nextOwner.Role = MemberRole.Lead;
+                await _projectMemberRepository.UpdateAsync(nextOwner);
+            }
+
+            project.OwnerDeveloperId = nextOwner.DeveloperId;
+            await _projectRepository.UpdateAsync(project);
+        }
+
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            await NotifyLeadsAboutMemberLeave(project, developer, leaveReason, tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to notify project leads about member leaving.", ex);
+        }
+
+        var mapped = await MapProjects(new List<Project> { project });
+        return mapped.First();
+    }
+
+    [HttpPut]
+    public async Task<DeveloperProjectDto> AssignMemberRole(AssignProjectMemberRoleInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.MemberId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project member is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+
+        var actorMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+
+        if (project.OwnerDeveloperId != developer.Id && actorMembership.Role != MemberRole.Lead)
+        {
+            throw new UserFriendlyException("Only project leads can assign member roles.");
+        }
+
+        var targetMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.MemberId)
+            ?? throw new UserFriendlyException("Selected member is not part of this project.");
+
+        var targetRole = ParseMemberRole(input.Role);
+        if (targetMembership.Role == targetRole)
+        {
+            var unchanged = await MapProjects(new List<Project> { project });
+            return unchanged.First();
+        }
+
+        if (project.OwnerDeveloperId == targetMembership.DeveloperId && targetRole != MemberRole.Lead)
+        {
+            throw new UserFriendlyException("Project owner must remain a lead.");
+        }
+
+        if (targetMembership.Role == MemberRole.Lead && targetRole != MemberRole.Lead)
+        {
+            var leadCount = await _projectMemberRepository.GetAll()
+                .CountAsync(x => x.ProjectId == project.Id && x.Role == MemberRole.Lead);
+
+            if (leadCount <= 1)
+            {
+                throw new UserFriendlyException("Project must have at least one lead.");
+            }
+        }
+
+        targetMembership.Role = targetRole;
+        await _projectMemberRepository.UpdateAsync(targetMembership);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            var targetUserId = await _developerRepository.GetAll()
+                .Where(x => x.Id == targetMembership.DeveloperId)
+                .Select(x => x.UserId)
+                .FirstOrDefaultAsync();
+            if (targetUserId > 0 && targetUserId != developer.UserId)
+            {
+                var roleLabel = targetRole == MemberRole.Lead ? "lead" : "member";
+                var message = $"Your role in \"{project.Title}\" was updated to {roleLabel}.";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    new[] { targetUserId },
+                    "MosaicTalent.ProjectRoleUpdated",
+                    message,
+                    NotificationSeverity.Info,
+                    $"/app/projects/{project.Id}",
+                    "Project role updated",
+                    message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch project role update notification.", ex);
         }
 
         var mapped = await MapProjects(new List<Project> { project });
@@ -691,6 +844,164 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
 
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
+    }
+
+    private async Task NotifyLeadsAboutMemberLeave(
+        Project project,
+        Developer leavingDeveloper,
+        string leaveReason,
+        int tenantId)
+    {
+        var leadDeveloperIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id && x.Role == MemberRole.Lead)
+            .Select(x => x.DeveloperId)
+            .Distinct()
+            .ToListAsync();
+
+        if (leadDeveloperIds.Count == 0)
+        {
+            return;
+        }
+
+        var leadUserIds = await _developerRepository.GetAll()
+            .Where(x => leadDeveloperIds.Contains(x.Id))
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        var recipients = leadUserIds
+            .Where(userId => userId > 0 && userId != leavingDeveloper.UserId)
+            .Distinct()
+            .ToList();
+        if (recipients.Count == 0)
+        {
+            return;
+        }
+
+        var leavingUser = await _userRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == leavingDeveloper.UserId);
+        var clippedReason = leaveReason.Length <= 240
+            ? leaveReason
+            : leaveReason.Substring(0, 240) + "...";
+        var leadFeedback = await BuildLeaveFeedbackForLead(project, leavingDeveloper, leavingUser, leaveReason);
+
+        var displayName = $"{leavingUser?.Name} {leavingUser?.Surname}".Trim();
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = leavingUser?.UserName ?? leavingDeveloper.GithubUsername ?? "A member";
+        }
+
+        var message = $"{displayName} left \"{project.Title}\". Reason: {clippedReason}";
+        if (!string.IsNullOrWhiteSpace(leadFeedback))
+        {
+            message += $" Lead feedback: {leadFeedback}";
+        }
+
+        await _notificationEventDispatcher.NotifyUsersAsync(
+            tenantId,
+            recipients,
+            "MosaicTalent.ProjectMemberLeft",
+            message,
+            NotificationSeverity.Info,
+            $"/app/projects/{project.Id}",
+            "Project member left",
+            message);
+    }
+
+    private async Task<string> BuildLeaveFeedbackForLead(
+        Project project,
+        Developer leavingDeveloper,
+        User leavingUser,
+        string leaveReason)
+    {
+        if (!_groqChatService.IsConfigured())
+        {
+            return BuildFallbackLeadFeedback(leaveReason);
+        }
+
+        var payload = new
+        {
+            project = new
+            {
+                title = project.Title,
+                description = project.Description,
+                status = project.Status.ToString(),
+            },
+            member = new
+            {
+                name = $"{leavingUser?.Name} {leavingUser?.Surname}".Trim(),
+                userName = leavingUser?.UserName ?? leavingDeveloper.GithubUsername,
+                yearsOfExperience = leavingDeveloper.YearsOfExperience,
+            },
+            leaveReason,
+        };
+
+        var systemPrompt =
+            "You are a team health assistant. Analyze why a project member left and return only JSON with {\"summary\":\"short insight for lead\",\"leadActions\":[\"action item\"]}. Keep summary under 160 chars and provide at most 2 actions.";
+        var userPrompt = JsonSerializer.Serialize(payload);
+        var response = await _groqChatService.TryCompleteAsync(systemPrompt, userPrompt);
+
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            return BuildFallbackLeadFeedback(leaveReason);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(response);
+            var summary = document.RootElement.TryGetProperty("summary", out var summaryElement)
+                ? summaryElement.GetString()
+                : string.Empty;
+            var actions = new List<string>();
+            if (document.RootElement.TryGetProperty("leadActions", out var actionsElement) &&
+                actionsElement.ValueKind == JsonValueKind.Array)
+            {
+                actions = actionsElement.EnumerateArray()
+                    .Select(x => x.GetString())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Take(2)
+                    .ToList();
+            }
+
+            var feedback = (summary ?? string.Empty).Trim();
+            if (actions.Count > 0)
+            {
+                var actionText = string.Join("; ", actions);
+                feedback = string.IsNullOrWhiteSpace(feedback)
+                    ? actionText
+                    : $"{feedback} Actions: {actionText}";
+            }
+
+            return string.IsNullOrWhiteSpace(feedback)
+                ? BuildFallbackLeadFeedback(leaveReason)
+                : feedback;
+        }
+        catch
+        {
+            return BuildFallbackLeadFeedback(leaveReason);
+        }
+    }
+
+    private static string BuildFallbackLeadFeedback(string leaveReason)
+    {
+        if (string.IsNullOrWhiteSpace(leaveReason))
+        {
+            return "Follow up with the team to understand blockers and workload pressure.";
+        }
+
+        var lowered = leaveReason.ToLowerInvariant();
+        if (lowered.Contains("time") || lowered.Contains("busy") || lowered.Contains("workload"))
+        {
+            return "Possible capacity mismatch. Rebalance scope and check team availability.";
+        }
+
+        if (lowered.Contains("communication") || lowered.Contains("support") || lowered.Contains("unclear"))
+        {
+            return "Possible collaboration gap. Clarify ownership and increase lead check-ins.";
+        }
+
+        return "Schedule a quick retrospective with remaining members and align expectations.";
     }
 
     private async Task<Developer> GetCurrentDeveloper()
@@ -1642,6 +1953,17 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             ProjectTaskStatus.InProgress => "in-progress",
             ProjectTaskStatus.Done => "done",
             _ => "todo",
+        };
+    }
+
+    private static MemberRole ParseMemberRole(string input)
+    {
+        var normalized = input?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "lead" => MemberRole.Lead,
+            "member" => MemberRole.Member,
+            _ => throw new UserFriendlyException("Invalid member role."),
         };
     }
 

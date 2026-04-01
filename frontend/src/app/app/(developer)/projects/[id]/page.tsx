@@ -25,6 +25,7 @@ import {
   Input,
   Modal,
   Progress,
+  Select,
   Space,
   Spin,
   Tag,
@@ -94,6 +95,10 @@ const ProjectDetailPage = () => {
   );
   const [repoGuardianPending, setRepoGuardianPending] = useState(false);
   const [repoGuardianError, setRepoGuardianError] = useState<string | null>(null);
+  const [isLeaveOpen, setIsLeaveOpen] = useState(false);
+  const [leaveReason, setLeaveReason] = useState("");
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [roleUpdateMemberId, setRoleUpdateMemberId] = useState<string | null>(null);
 
   const { styles } = useStyles();
   const { currentUser, isPending } = useDeveloperState();
@@ -103,6 +108,8 @@ const ProjectDetailPage = () => {
     fetchProjectById,
     fetchMyProjects,
     joinProject,
+    leaveProject,
+    assignMemberRole,
     aiFillTeam,
     addProjectTask,
     updateProjectTaskStatus,
@@ -182,6 +189,17 @@ const ProjectDetailPage = () => {
   const isMember = useMemo(() => {
     return myProjects.some((item) => item.id === projectId);
   }, [myProjects, projectId]);
+  const currentMember = useMemo(() => {
+    if (!project || !currentUser?.userName) {
+      return undefined;
+    }
+
+    const normalizedUserName = currentUser.userName.toLowerCase();
+    return project.members.find(
+      (member) => (member.userName ?? "").toLowerCase() === normalizedUserName,
+    );
+  }, [project, currentUser?.userName]);
+  const canManageMemberRoles = currentMember?.role === "lead";
 
   const canComplete = useMemo(() => {
     if (!project) return false;
@@ -345,6 +363,54 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleLeaveProject = async () => {
+    if (!projectId || !isMember) {
+      return;
+    }
+
+    const reason = leaveReason.trim();
+    if (!reason) {
+      toast.error("Reason required", "Tell us why you are leaving this project.");
+      return;
+    }
+
+    setIsLeaving(true);
+    try {
+      await leaveProject(projectId, reason);
+      setIsLeaveOpen(false);
+      setLeaveReason("");
+      toast.success("You left the project", "The lead has been notified.");
+      router.push("/app/projects");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to leave project.";
+      toast.error("Leave failed", message);
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  const handleAssignMemberRole = async (
+    memberId: string,
+    role: "lead" | "member",
+  ) => {
+    if (!projectId || !canManageMemberRoles) {
+      return;
+    }
+
+    setRoleUpdateMemberId(memberId);
+    try {
+      await assignMemberRole(projectId, memberId, role);
+      toast.success("Role updated", "Project member role has been updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update member role.";
+      toast.error("Role update failed", message);
+    } finally {
+      setRoleUpdateMemberId(null);
+    }
+  };
+
   const handleOpenSkillsEditor = () => {
     setSkillsInput(project!.skills.join(", "));
     setIsSkillsOpen(true);
@@ -497,6 +563,16 @@ const ProjectDetailPage = () => {
                 Complete Project
               </Button>
             ) : null}
+
+            {isMember ? (
+              <Button
+                danger
+                onClick={() => setIsLeaveOpen(true)}
+                data-ai-action="open-leave-project"
+              >
+                Leave Project
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </motion.div>
@@ -513,7 +589,9 @@ const ProjectDetailPage = () => {
         >
           <Space direction="vertical" size="small" className={styles.fullWidth}>
             {project.members.map((member) => {
-              const isYou = String(member.id) === String(currentUser?.id);
+              const isYou =
+                (member.userName ?? "").toLowerCase() ===
+                (currentUser?.userName ?? "").toLowerCase();
               return (
                 <div className={styles.memberItem} key={member.id}>
                   <Avatar src={member.avatar || undefined}>
@@ -537,6 +615,22 @@ const ProjectDetailPage = () => {
                       {member.role}
                     </Typography.Text>
                   </div>
+                  {canManageMemberRoles ? (
+                    <Select<"lead" | "member">
+                      size="small"
+                      value={member.role}
+                      loading={roleUpdateMemberId === member.id}
+                      disabled={roleUpdateMemberId !== null}
+                      onChange={(nextRole) => {
+                        void handleAssignMemberRole(member.id, nextRole);
+                      }}
+                      options={[
+                        { label: "Lead", value: "lead" },
+                        { label: "Member", value: "member" },
+                      ]}
+                      className={styles.memberRoleSelect}
+                    />
+                  ) : null}
                   {isYou ? <Badge color="gold" text="You" /> : null}
                 </div>
               );
@@ -957,6 +1051,29 @@ const ProjectDetailPage = () => {
           placeholder="React, TypeScript, PostgreSQL"
           data-ai-field="project-skills-input"
         />
+      </Modal>
+
+      <Modal
+        title="Leave Project"
+        open={isLeaveOpen}
+        confirmLoading={isLeaving}
+        onCancel={() => setIsLeaveOpen(false)}
+        onOk={handleLeaveProject}
+        okText="Leave Project"
+        okButtonProps={{ danger: true, "data-ai-action": "submit-leave-project" }}
+      >
+        <div className={styles.modalBody}>
+          <Typography.Text>
+            Why are you leaving this project? Your feedback helps the lead improve team health.
+          </Typography.Text>
+          <Input.TextArea
+            rows={4}
+            value={leaveReason}
+            onChange={(event) => setLeaveReason(event.target.value)}
+            placeholder="Example: Current workload changed and I can no longer commit enough time."
+            data-ai-field="leave-project-reason"
+          />
+        </div>
       </Modal>
     </div>
   );

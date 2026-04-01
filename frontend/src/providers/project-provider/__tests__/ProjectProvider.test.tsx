@@ -21,6 +21,8 @@ const Consumer = () => {
     getGithubConnectionStatus,
     getMyGithubRepositories,
     createGithubRepository,
+    leaveProject,
+    assignMemberRole,
     scanRepoSafety,
     scanRepoSafetyByGithubUrl,
   } = useProjectAction();
@@ -60,6 +62,24 @@ const Consumer = () => {
       </button>
       <button
         onClick={async () => {
+          const result = await leaveProject("project-1", "Need to focus on exams");
+          window.__TEST_LEAVE_PROJECT__ = result;
+        }}
+        type="button"
+      >
+        Leave Project
+      </button>
+      <button
+        onClick={async () => {
+          const result = await assignMemberRole("project-1", "member-2", "lead");
+          window.__TEST_ASSIGN_ROLE__ = result;
+        }}
+        type="button"
+      >
+        Assign Role
+      </button>
+      <button
+        onClick={async () => {
           const result = await scanRepoSafety("project-1");
           window.__TEST_SCAN__ = result;
         }}
@@ -87,6 +107,8 @@ declare global {
     __TEST_CONNECTION__?: unknown;
     __TEST_REPOS__?: unknown;
     __TEST_CREATED_REPO__?: unknown;
+    __TEST_LEAVE_PROJECT__?: unknown;
+    __TEST_ASSIGN_ROLE__?: unknown;
     __TEST_SCAN__?: unknown;
     __TEST_SCAN_BY_URL__?: unknown;
   }
@@ -100,6 +122,8 @@ describe("ProjectProvider GitHub integration", () => {
     window.__TEST_CONNECTION__ = undefined;
     window.__TEST_REPOS__ = undefined;
     window.__TEST_CREATED_REPO__ = undefined;
+    window.__TEST_LEAVE_PROJECT__ = undefined;
+    window.__TEST_ASSIGN_ROLE__ = undefined;
     window.__TEST_SCAN__ = undefined;
     window.__TEST_SCAN_BY_URL__ = undefined;
   });
@@ -271,6 +295,107 @@ describe("ProjectProvider GitHub integration", () => {
       "/api/services/app/DeveloperProject/ScanRepoSafety",
       {
         projectId: "project-1",
+      },
+    );
+  });
+
+  it("leaves a project with a reason", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "project-1",
+          title: "Alpha",
+          description: "Desc",
+          maxMembers: 4,
+          githubRepo: "",
+          skills: [],
+          type: "group",
+          status: "open",
+          ownerId: "owner-2",
+          createdAt: "2026-04-01T00:00:00Z",
+          members: [],
+          tasks: [],
+        },
+      },
+    });
+    mocks.get.mockResolvedValue({
+      data: { result: [] },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Leave Project" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_LEAVE_PROJECT__).toMatchObject({
+        id: "project-1",
+        ownerId: "owner-2",
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/LeaveProject",
+      {
+        projectId: "project-1",
+        reason: "Need to focus on exams",
+      },
+    );
+  });
+
+  it("assigns a new member role", async () => {
+    mocks.put.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "project-1",
+          title: "Alpha",
+          description: "Desc",
+          maxMembers: 4,
+          githubRepo: "",
+          skills: [],
+          type: "group",
+          status: "open",
+          ownerId: "owner-1",
+          createdAt: "2026-04-01T00:00:00Z",
+          members: [
+            {
+              id: "member-2",
+              name: "Member Two",
+              role: "lead",
+              avatar: "",
+            },
+          ],
+          tasks: [],
+        },
+      },
+    });
+    mocks.get.mockResolvedValue({
+      data: { result: [] },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Assign Role" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_ASSIGN_ROLE__).toMatchObject({
+        id: "project-1",
+      });
+    });
+
+    expect(mocks.put).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/AssignMemberRole",
+      {
+        projectId: "project-1",
+        memberId: "member-2",
+        role: "lead",
       },
     );
   });
