@@ -13,6 +13,7 @@ using MosaicTalent.Services.PeerReviewService;
 using MosaicTalent.Services.DeveloperProjectService.DTO;
 using MosaicTalent.Services.NotificationChannelService;
 using System.Net.Http;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System;
@@ -27,7 +28,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MosaicTalent.Services.DeveloperProjectService;
 
 [AbpAuthorize]
-public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloperProjectAppService
+public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloperProjectAppService
 {
     private readonly IRepository<Developer, Guid> _developerRepository;
     private readonly IRepository<User, long> _userRepository;
@@ -35,6 +36,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
     private readonly IRepository<ProjectMember, Guid> _projectMemberRepository;
     private readonly IRepository<ProjectSkill, Guid> _projectSkillRepository;
     private readonly IRepository<ProjectTask, Guid> _projectTaskRepository;
+    private readonly IRepository<ProjectMeeting, Guid> _projectMeetingRepository;
+    private readonly IRepository<ProjectMeetingReminderPreference, Guid> _projectMeetingReminderPreferenceRepository;
     private readonly IRepository<DeveloperProfile, Guid> _developerProfileRepository;
     private readonly IRepository<DeveloperProfileSkill, Guid> _developerProfileSkillRepository;
     private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
@@ -52,6 +55,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         IRepository<ProjectMember, Guid> projectMemberRepository,
         IRepository<ProjectSkill, Guid> projectSkillRepository,
         IRepository<ProjectTask, Guid> projectTaskRepository,
+        IRepository<ProjectMeeting, Guid> projectMeetingRepository,
+        IRepository<ProjectMeetingReminderPreference, Guid> projectMeetingReminderPreferenceRepository,
         IRepository<DeveloperProfile, Guid> developerProfileRepository,
         IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
@@ -68,6 +73,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         _projectMemberRepository = projectMemberRepository;
         _projectSkillRepository = projectSkillRepository;
         _projectTaskRepository = projectTaskRepository;
+        _projectMeetingRepository = projectMeetingRepository;
+        _projectMeetingReminderPreferenceRepository = projectMeetingReminderPreferenceRepository;
         _developerProfileRepository = developerProfileRepository;
         _developerProfileSkillRepository = developerProfileSkillRepository;
         _developerProfileGoalRepository = developerProfileGoalRepository;
@@ -186,9 +193,9 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
+            var githubError = ExtractGithubError(body);
             throw new UserFriendlyException(
-                ExtractGithubError(body)
-                ?? "Failed to create GitHub repository. Verify GitHub connection permissions and try again.");
+                BuildCreateGithubRepositoryErrorMessage(response.StatusCode, githubError));
         }
 
         try
@@ -248,6 +255,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Title = input.Title.Trim(),
             Description = input.Description.Trim(),
             MaxMembers = input.MaxMembers ?? 4,
+            Difficulty = input.Difficulty,
+            EstimatedHoursPerWeek = Math.Clamp(input.EstimatedHoursPerWeek, 1, 40),
             GithubRepo = selectedRepoUrl,
             Type = input.Type,
             Status = input.Status,
@@ -305,6 +314,12 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             throw new UserFriendlyException("You are already a member of this project.");
         }
 
+        var workloadWarning = await BuildJoinLoadWarning(developer.Id, project);
+        if (workloadWarning.ShouldWarn && !input.ConfirmHighWorkload)
+        {
+            throw new UserFriendlyException(workloadWarning.Message);
+        }
+
         var memberCount = await _projectMemberRepository.GetAll()
             .CountAsync(x => x.ProjectId == project.Id);
 
@@ -321,6 +336,11 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Role = MemberRole.Member,
         });
         await CurrentUnitOfWork.SaveChangesAsync();
+        var existingMeetingIds = await _projectMeetingRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .Select(x => x.Id)
+            .ToListAsync();
+        await EnsureReminderPreferenceRows(project.Id, existingMeetingIds);
 
         try
         {
@@ -503,7 +523,9 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             throw new UserFriendlyException("Project repository must be a GitHub URL.");
         }
 
-        return await PerformRepoSafetyScan(repoUrl);
+        var result = await PerformRepoSafetyScan(repoUrl);
+        await PersistProjectRepoSafetyAndNotify(project, result);
+        return result;
     }
 
     public async Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input)
@@ -616,6 +638,11 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             }
 
             await CurrentUnitOfWork.SaveChangesAsync();
+            var meetingIds = await _projectMeetingRepository.GetAll()
+                .Where(x => x.ProjectId == project.Id)
+                .Select(x => x.Id)
+                .ToListAsync();
+            await EnsureReminderPreferenceRows(project.Id, meetingIds);
 
             if (selectedCandidates.Count > 0)
             {
@@ -654,17 +681,35 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             throw new UserFriendlyException("Completed projects cannot be updated.");
         }
 
+        Guid? assignedDeveloperId = null;
+        if (input.AssignedMemberId.HasValue && input.AssignedMemberId.Value != Guid.Empty)
+        {
+            var isAssignedMemberInProject = await _projectMemberRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.AssignedMemberId.Value);
+            if (!isAssignedMemberInProject)
+            {
+                throw new UserFriendlyException("Assigned member must belong to the selected project.");
+            }
+
+            assignedDeveloperId = input.AssignedMemberId.Value;
+        }
+
         var task = new ProjectTask
         {
             TenantId = tenantId,
             ProjectId = project.Id,
             Title = input.Title.Trim(),
             Description = input.Description?.Trim(),
+            AssignedDeveloperId = assignedDeveloperId,
             Status = ProjectTaskStatus.Todo,
         };
 
         await _projectTaskRepository.InsertAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        var assignedMemberName = assignedDeveloperId.HasValue
+            ? await ResolveDeveloperDisplayName(assignedDeveloperId.Value)
+            : string.Empty;
 
         return new DeveloperProjectTaskDto
         {
@@ -672,6 +717,8 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
             Title = task.Title,
             Description = task.Description,
             Status = ToTaskStatusLabel(task.Status),
+            AssignedMemberId = assignedDeveloperId?.ToString() ?? string.Empty,
+            AssignedMemberName = assignedMemberName,
         };
     }
 
@@ -693,12 +740,18 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
         await _projectTaskRepository.UpdateAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        var assignedMemberName = task.AssignedDeveloperId.HasValue
+            ? await ResolveDeveloperDisplayName(task.AssignedDeveloperId.Value)
+            : string.Empty;
+
         return new DeveloperProjectTaskDto
         {
             Id = task.Id.ToString(),
             Title = task.Title,
             Description = task.Description,
             Status = ToTaskStatusLabel(task.Status),
+            AssignedMemberId = task.AssignedDeveloperId?.ToString() ?? string.Empty,
+            AssignedMemberName = assignedMemberName,
         };
     }
 
@@ -1431,6 +1484,7 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                     Role = member.Role == MemberRole.Lead ? "lead" : "member",
                 };
             }).ToList();
+            var memberNameMap = memberDtos.ToDictionary(x => x.Id, x => x.Name);
 
             var taskDtos = tasks
                 .Where(x => x.ProjectId == project.Id)
@@ -1440,6 +1494,11 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                     Title = task.Title,
                     Description = task.Description,
                     Status = ToTaskStatusLabel(task.Status),
+                    AssignedMemberId = task.AssignedDeveloperId?.ToString() ?? string.Empty,
+                    AssignedMemberName = task.AssignedDeveloperId.HasValue &&
+                        memberNameMap.TryGetValue(task.AssignedDeveloperId.Value, out var assignedName)
+                        ? assignedName
+                        : string.Empty,
                 })
                 .ToList();
 
@@ -1449,6 +1508,9 @@ public class DeveloperProjectAppService : MosaicTalentAppServiceBase, IDeveloper
                 Title = project.Title,
                 Description = project.Description,
                 MaxMembers = project.MaxMembers,
+                Difficulty = project.Difficulty.ToString().ToLowerInvariant(),
+                EstimatedHoursPerWeek = project.EstimatedHoursPerWeek,
+                WorkloadScore = CalculateProjectWorkloadScore(project),
                 GithubRepo = project.GithubRepo,
                 Skills = skills
                     .Where(x => x.ProjectId == project.Id)

@@ -106,6 +106,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project creation requires connected GitHub account
   - repositories are fetched from GitHub and selected from dropdown
   - inline repository creation when no suitable repo exists
+  - repository creation failure now returns reconnect guidance when GitHub token permissions are insufficient
 - Repo safety scan:
   - on-demand repository safety scan via `scanrepo.dev`
   - Safe/Risk tag shown on project cards and project detail
@@ -119,6 +120,17 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Global search in the header:
   - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
   - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
+- Project collaboration upgrade:
+  - project details now use tabs (`Repo Safety + Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
+  - project meetings support request/schedule/cancel, Jitsi joins, and per-member reminders
+  - project creation moved to `/app/projects/create` with a dedicated AI prompt section and realtime markdown editor/preview
+  - `Generate Project` action in AI section updates title, markdown, and skills together
+  - markdown and skills each include a focused `Use AI` action
+  - AI difficulty/hours estimates now include anti-default heuristics to reduce repeated `intermediate` + `20h/week` outputs
+  - markdown editor now follows light/dark theme for readable contrast
+  - AI project idea generation now returns a structured markdown spec format
+  - optional "Use README as Description" on selected GitHub repo
+  - join flow warns on high workload/overlap and supports explicit override
 
 ## Documentation
 
@@ -149,6 +161,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
 - [Tasks Header Full-Width](docs/feature/tasks-header-full-width.md)
+- [Project Collaboration Tabs, Meetings, and Markdown Specs](docs/feature/project-collaboration-tabs-meetings-markdown.md)
 
 ## Tenant Resolution Rules
 
@@ -213,15 +226,24 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/CreateGithubRepository`
 - `POST /api/services/app/DeveloperProject/CreateProject`
 - `POST /api/services/app/DeveloperProject/JoinProject`
+- `GET /api/services/app/DeveloperProject/GetJoinProjectLoadWarning`
 - `POST /api/services/app/DeveloperProject/LeaveProject`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
+- `POST /api/services/app/DeveloperProject/AiGenerateProjectTasks`
 - `POST /api/services/app/DeveloperProject/AddProjectTask`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/AssignMemberRole`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`
 - `POST /api/services/app/DeveloperProject/CompleteProject`
 - `POST /api/services/app/DeveloperProject/ScanRepoSafety`
+- `GET /api/services/app/DeveloperProject/GetRepositoryReadme`
+- `POST /api/services/app/DeveloperProject/AiGenerateProjectSpec`
+- `GET /api/services/app/DeveloperProject/GetProjectMeetings`
+- `POST /api/services/app/DeveloperProject/RequestProjectMeeting`
+- `POST /api/services/app/DeveloperProject/ScheduleProjectMeeting`
+- `POST /api/services/app/DeveloperProject/SetProjectMeetingReminder`
+- `POST /api/services/app/DeveloperProject/CancelProjectMeeting`
 
 ### AI peer reviews
 

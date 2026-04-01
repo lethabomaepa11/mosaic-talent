@@ -11,7 +11,7 @@ public class CreateDeveloperProjectInput
     public string Title { get; set; }
 
     [Required]
-    [MaxLength(2000)]
+    [MaxLength(8000)]
     public string Description { get; set; }
 
     [Range(2, 8)]
@@ -20,6 +20,11 @@ public class CreateDeveloperProjectInput
     [Required]
     [MaxLength(256)]
     public string GithubRepo { get; set; }
+
+    public ProjectDifficulty Difficulty { get; set; } = ProjectDifficulty.Intermediate;
+
+    [Range(1, 40)]
+    public int EstimatedHoursPerWeek { get; set; } = 6;
 
     public List<string> Skills { get; set; } = new();
 

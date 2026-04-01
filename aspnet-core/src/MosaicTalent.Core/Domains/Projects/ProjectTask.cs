@@ -18,5 +18,7 @@ public class ProjectTask : FullAuditedEntity<Guid>, IMustHaveTenant
     [MaxLength(2000)]
     public string Description { get; set; }
 
+    public Guid? AssignedDeveloperId { get; set; }
+
     public ProjectTaskStatus Status { get; set; }
 }
