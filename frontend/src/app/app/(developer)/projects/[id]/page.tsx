@@ -22,6 +22,7 @@ import {
   Badge,
   Button,
   Card,
+  DatePicker,
   Dropdown,
   Input,
   Modal,
@@ -34,6 +35,7 @@ import {
   Tabs,
   Typography,
 } from "antd";
+import type { Dayjs } from "dayjs";
 import MDEditor from "@uiw/react-md-editor";
 import { toast } from "@/components/providers";
 import {
@@ -139,8 +141,9 @@ const ProjectDetailPage = () => {
   const [isRequestMeetingOpen, setIsRequestMeetingOpen] = useState(false);
   const [requestMeetingTitle, setRequestMeetingTitle] = useState("");
   const [requestMeetingAgenda, setRequestMeetingAgenda] = useState("");
-  const [requestMeetingStart, setRequestMeetingStart] = useState("");
-  const [requestMeetingEnd, setRequestMeetingEnd] = useState("");
+  const [requestMeetingRange, setRequestMeetingRange] = useState<
+    [Dayjs, Dayjs] | null
+  >(null);
   const [isSavingMeeting, setIsSavingMeeting] = useState(false);
   const [scheduleMeetingTarget, setScheduleMeetingTarget] = useState<IProjectMeeting | null>(null);
   const [scheduleMeetingTitle, setScheduleMeetingTitle] = useState("");
@@ -572,7 +575,7 @@ const ProjectDetailPage = () => {
       return;
     }
 
-    if (!requestMeetingTitle.trim() || !requestMeetingStart || !requestMeetingEnd) {
+    if (!requestMeetingTitle.trim() || !requestMeetingRange) {
       toast.error("Missing fields", "Title, start and end time are required.");
       return;
     }
@@ -582,14 +585,13 @@ const ProjectDetailPage = () => {
       await requestProjectMeeting(projectId, {
         title: requestMeetingTitle.trim(),
         agenda: requestMeetingAgenda.trim(),
-        startsAtUtc: localInputToIso(requestMeetingStart),
-        endsAtUtc: localInputToIso(requestMeetingEnd),
+        startsAtUtc: requestMeetingRange[0].toISOString(),
+        endsAtUtc: requestMeetingRange[1].toISOString(),
       });
       setIsRequestMeetingOpen(false);
       setRequestMeetingTitle("");
       setRequestMeetingAgenda("");
-      setRequestMeetingStart("");
-      setRequestMeetingEnd("");
+      setRequestMeetingRange(null);
       await loadMeetings();
       toast.success("Meeting requested", "Project leads can now schedule it.");
     } catch (error) {
@@ -1541,7 +1543,10 @@ const ProjectDetailPage = () => {
         title="Request Meeting"
         open={isRequestMeetingOpen}
         confirmLoading={isSavingMeeting}
-        onCancel={() => setIsRequestMeetingOpen(false)}
+        onCancel={() => {
+          setIsRequestMeetingOpen(false);
+          setRequestMeetingRange(null);
+        }}
         onOk={() => void handleRequestMeeting()}
         okText="Request"
       >
@@ -1557,15 +1562,17 @@ const ProjectDetailPage = () => {
             onChange={(event) => setRequestMeetingAgenda(event.target.value)}
             placeholder="Agenda"
           />
-          <Input
-            type="datetime-local"
-            value={requestMeetingStart}
-            onChange={(event) => setRequestMeetingStart(event.target.value)}
-          />
-          <Input
-            type="datetime-local"
-            value={requestMeetingEnd}
-            onChange={(event) => setRequestMeetingEnd(event.target.value)}
+          <DatePicker.RangePicker
+            showTime
+            className={styles.fullWidth}
+            value={requestMeetingRange}
+            onChange={(value) => {
+              if (!value || !value[0] || !value[1]) {
+                setRequestMeetingRange(null);
+                return;
+              }
+              setRequestMeetingRange([value[0], value[1]]);
+            }}
           />
         </div>
       </Modal>

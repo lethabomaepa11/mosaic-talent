@@ -5,13 +5,17 @@ import {
   leaveProjectPending,
 } from "../actions";
 import { INITIAL_STATE } from "../context";
+import type { IProject } from "../context";
 import { ProjectReducer } from "../reducer";
 
-const project = {
+const project: IProject = {
   id: "1",
   title: "Project A",
   description: "Desc",
   maxMembers: 4,
+  difficulty: "intermediate",
+  estimatedHoursPerWeek: 8,
+  workloadScore: 108,
   githubRepo: "",
   skills: [],
   type: "group",

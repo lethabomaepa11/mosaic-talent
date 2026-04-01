@@ -5,13 +5,17 @@ import {
   leaveProjectPending,
   ProjectStateEnums,
 } from "../actions";
+import type { IProject } from "../context";
 
-const projects = [
+const projects: IProject[] = [
   {
     id: "1",
     title: "Project A",
     description: "Desc",
     maxMembers: 4,
+    difficulty: "intermediate",
+    estimatedHoursPerWeek: 8,
+    workloadScore: 108,
     githubRepo: "",
     skills: [],
     type: "group",
