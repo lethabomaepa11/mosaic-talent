@@ -28,6 +28,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Abp;
 using UglyToad.PdfPig;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MosaicTalent.Services.CompanyJobService;
 
@@ -198,6 +199,8 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         return mapped.First();
     }
 
+
+    [HttpPut]
     public async Task<JobDto> ToggleJobOpenStatus(ToggleJobOpenStatusInput input)
     {
         var job = await _jobRepository.FirstOrDefaultAsync(input.JobId)

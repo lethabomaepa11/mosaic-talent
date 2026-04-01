@@ -9,6 +9,15 @@ const DEFAULT_ABP_TENANT_ID = process.env.NEXT_PUBLIC_DEFAULT_ABP_TENANT_ID ?? "
 
 let axiosInstance: AxiosInstance | null = null;
 
+export async function fetchAccessTokenFromApi(): Promise<string> {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/TokenAuth/GetAccessToken`);
+    return res.data?.result ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function getTokenFromCookie() {
   if (typeof document === "undefined") {
     return "";

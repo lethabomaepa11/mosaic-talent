@@ -197,6 +197,16 @@ namespace MosaicTalent.Controllers
             return Redirect(BuildOAuthRedirect(oauthMode, returnPath, null));
         }
 
+        [HttpGet]
+        public IActionResult GetAccessToken()
+        {
+            if (Request.Cookies.TryGetValue(AccessTokenCookieName, out var token) && !string.IsNullOrWhiteSpace(token))
+            {
+                return Ok(token);
+            }
+            return Ok(string.Empty);
+        }
+
         private string BuildOAuthRedirect(string mode, string returnPath, string errorCode)
         {
             if (!string.Equals(mode, "connect", StringComparison.OrdinalIgnoreCase))

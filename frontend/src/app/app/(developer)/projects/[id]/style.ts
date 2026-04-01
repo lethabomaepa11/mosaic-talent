@@ -281,4 +281,35 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: grid;
     gap: ${token.marginSM}px;
   `,
+  analysisCard: css`
+    height: fit-content;
+  `,
+  analysisSection: css`
+    display: grid;
+    gap: ${token.marginMD}px;
+  `,
+  analysisScore: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginSM}px;
+    margin-bottom: ${token.marginSM}px;
+  `,
+  analysisCategories: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+    margin-bottom: ${token.marginMD}px;
+  `,
+  analysisRuleItem: css`
+    padding: ${token.paddingXS}px;
+    border-radius: ${token.borderRadiusSM}px;
+    background: ${token.colorFillTertiary};
+    margin-bottom: ${token.marginXS}px;
+  `,
+  analysisRecItem: css`
+    padding: ${token.paddingSM}px;
+    border-radius: ${token.borderRadiusSM}px;
+    background: color-mix(in srgb, ${token.colorWarningBg} 40%, ${token.colorBgContainer});
+    margin-bottom: ${token.marginXS}px;
+  `,
 }));

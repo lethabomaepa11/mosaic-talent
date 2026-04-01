@@ -53,6 +53,7 @@ import {
   IRepoSafetyResult,
   IRepoSafetyScan,
   IRepoGuardianScan,
+  IRepoGuardianScanResult,
   INITIAL_STATE,
   ProjectActionContext,
   ProjectStateContext,
@@ -225,9 +226,9 @@ const normalizeRepoGuardianScan = (input: Partial<IRepoGuardianScan>): IRepoGuar
 });
 
 const normalizeRepoGuardianScanResponse = (input: unknown): IRepoGuardianScan => {
-  const data = input as { result?: Partial<IRepoGuardianScan> };
+  const data = input as { result?: IRepoGuardianScanResult };
   return {
-    result: data.result?.result,
+    result: data.result,
   };
 };
 

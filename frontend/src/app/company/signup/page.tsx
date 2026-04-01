@@ -10,6 +10,7 @@ import {
   useCompanyAccountState,
 } from "@/providers/company-account-provider";
 import { uploadPublicFile } from "@/utils/fileUpload";
+import { buildCompanyLoginUrl } from "./buildCompanyLoginUrl";
 import { useStyles } from "./style";
 
 const CompanySignupPage = () => {
@@ -35,31 +36,6 @@ const CompanySignupPage = () => {
       toast.success("Company account created", "Use your tenant subdomain to sign in.");
     }
   }, [isSuccess, tenancyName]);
-
-  const buildCompanyLoginUrl = (resolvedTenancyName: string) => {
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname.toLowerCase();
-    const port = window.location.port ? `:${window.location.port}` : "";
-
-    if (hostname === "localhost" || hostname.endsWith(".localhost")) {
-      return `${protocol}//${resolvedTenancyName}.localhost${port}/login`;
-    }
-
-    if (
-      hostname === "mosaic-talent.vercel.app" ||
-      hostname.endsWith(".mosaic-talent.vercel.app")
-    ) {
-      return `${protocol}//${resolvedTenancyName}-mosaic-talent.vercel.app/login`;
-    }
-
-    const parts = hostname.split(".").filter(Boolean);
-    if (parts.length >= 3) {
-      parts[parts.length - 3] = resolvedTenancyName;
-      return `${protocol}//${parts.join(".")}${port}/login`;
-    }
-
-    return `${protocol}//${resolvedTenancyName}.${hostname}${port}/login`;
-  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -94,7 +70,12 @@ const CompanySignupPage = () => {
       const resolvedTenancyName = result?.tenancyName;
 
       if (resolvedTenancyName) {
-        window.location.href = buildCompanyLoginUrl(resolvedTenancyName);
+        window.location.href = buildCompanyLoginUrl({
+          tenancyName: resolvedTenancyName,
+          protocol: window.location.protocol,
+          hostname: window.location.hostname,
+          port: window.location.port,
+        });
       }
     } finally {
       setIsSubmitting(false);
