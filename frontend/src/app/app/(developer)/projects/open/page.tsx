@@ -4,24 +4,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button, Empty, Modal, Typography } from "antd";
-import { Sparkles, X } from "lucide-react";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
-import {
-  IProjectJoinLoadWarning,
-  IRepoSafetyScan,
-} from "@/providers/project-provider/context";
+import { IProjectJoinLoadWarning } from "@/providers/project-provider/context";
 import { useStyles } from "./style";
+
+const SWIPE_THRESHOLD = 120;
 
 const OpenProjectsPage = () => {
   const [swipeIndex, setSwipeIndex] = useState(0);
-  const [repoSafetyByProject, setRepoSafetyByProject] = useState<
-    Record<string, IRepoSafetyScan | undefined>
-  >({});
-  const [repoSafetyPending, setRepoSafetyPending] = useState<Record<string, boolean>>({});
-  const [repoSafetyError, setRepoSafetyError] = useState<Record<string, string>>({});
+  const [dragOffsetX, setDragOffsetX] = useState(0);
   const [joinWarning, setJoinWarning] = useState<{
     projectId: string;
     warning: IProjectJoinLoadWarning;
@@ -30,8 +24,7 @@ const OpenProjectsPage = () => {
 
   const { fetchCurrentUser } = useDeveloperAction();
   const { openProjects } = useProjectState();
-  const { fetchOpenProjects, joinProject, getJoinProjectLoadWarning, scanRepoSafety } =
-    useProjectAction();
+  const { fetchOpenProjects, joinProject, getJoinProjectLoadWarning } = useProjectAction();
 
   useEffect(() => {
     fetchCurrentUser();
@@ -41,59 +34,9 @@ const OpenProjectsPage = () => {
   useEffect(() => {
     setSwipeIndex(0);
   }, [openProjects.length]);
-
   useEffect(() => {
-    const projectsToScan = openProjects.filter(
-      (project) =>
-        Boolean(project.githubRepo) &&
-        !repoSafetyByProject[project.id] &&
-        !repoSafetyPending[project.id],
-    );
-
-    if (projectsToScan.length === 0) {
-      return;
-    }
-
-    let isActive = true;
-
-    const runScans = async () => {
-      for (const project of projectsToScan) {
-        if (!isActive) {
-          return;
-        }
-
-        setRepoSafetyPending((prev) => ({ ...prev, [project.id]: true }));
-        setRepoSafetyError((prev) => ({ ...prev, [project.id]: "" }));
-
-        try {
-          const result = await scanRepoSafety(project.id);
-          if (!isActive) {
-            return;
-          }
-
-          setRepoSafetyByProject((prev) => ({ ...prev, [project.id]: result }));
-        } catch (error) {
-          if (!isActive) {
-            return;
-          }
-
-          const message =
-            error instanceof Error ? error.message : "Failed to scan repository.";
-          setRepoSafetyError((prev) => ({ ...prev, [project.id]: message }));
-        } finally {
-          if (isActive) {
-            setRepoSafetyPending((prev) => ({ ...prev, [project.id]: false }));
-          }
-        }
-      }
-    };
-
-    void runScans();
-
-    return () => {
-      isActive = false;
-    };
-  }, [openProjects, repoSafetyByProject, repoSafetyPending]);
+    setDragOffsetX(0);
+  }, [swipeIndex]);
 
   const swipeProjects = useMemo(() => {
     return openProjects.slice(swipeIndex, swipeIndex + 3);
@@ -182,44 +125,63 @@ const OpenProjectsPage = () => {
                         drag={isTop ? "x" : false}
                         dragElastic={0.18}
                         dragConstraints={{ left: 0, right: 0 }}
+                        onDrag={(_, info) => {
+                          if (isTop) {
+                            setDragOffsetX(info.offset.x);
+                          }
+                        }}
                         onDragEnd={(_, info) => {
-                          if (info.offset.x > 120) {
+                          if (info.offset.x > SWIPE_THRESHOLD) {
+                            setDragOffsetX(0);
                             void handleSwipeJoin(project.id);
                             return;
                           }
 
-                          if (info.offset.x < -120) {
+                          if (info.offset.x < -SWIPE_THRESHOLD) {
+                            setDragOffsetX(0);
                             handleSwipeSkip();
+                            return;
                           }
+
+                          setDragOffsetX(0);
                         }}
                       >
+                        {isTop ? (
+                          <div className={styles.swipeOverlayWrap}>
+                            <span
+                              className={cx(
+                                styles.swipeOverlay,
+                                styles.swipeOverlayLike,
+                                dragOffsetX > 28 && styles.swipeOverlayVisible,
+                              )}
+                            >
+                              LIKE
+                            </span>
+                            <span
+                              className={cx(
+                                styles.swipeOverlay,
+                                styles.swipeOverlayNope,
+                                dragOffsetX < -28 && styles.swipeOverlayVisible,
+                              )}
+                            >
+                              NOPE
+                            </span>
+                          </div>
+                        ) : null}
                         <ProjectCard
                           project={project}
                           onJoin={() => void handleSwipeJoin(project.id)}
-                          repoSafety={repoSafetyByProject[project.id]?.result}
-                          repoSafetyProgress={repoSafetyByProject[project.id]?.progress}
-                          isRepoSafetyPending={repoSafetyPending[project.id]}
-                          repoSafetyError={repoSafetyError[project.id]}
+                          variant="swipe"
+                          hideActions
                         />
                       </motion.div>
                     );
                   })}
               </AnimatePresence>
             </div>
-            <div className={styles.swipeActions}>
-              <Button icon={<X size={14} />} onClick={handleSwipeSkip} data-ai-action="skip-open-project">
-                Skip
-              </Button>
-              <Button
-                type="primary"
-                icon={<Sparkles size={14} />}
-                onClick={() => void handleSwipeJoin(swipeProjects[0].id)}
-                data-ai-action="join-open-project"
-              >
-                Join
-              </Button>
-            </div>
-            <p className={styles.swipeHint}>Drag cards left/right to quickly browse projects.</p>
+            <p className={styles.swipeHint}>
+              Swipe right to join. Swipe left to skip.
+            </p>
           </>
         )}
       </div>

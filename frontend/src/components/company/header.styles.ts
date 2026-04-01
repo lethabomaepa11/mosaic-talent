@@ -4,7 +4,7 @@ export const useStyles = createStyles(({ token, css }) => ({
   header: css`
     display: flex;
     flex-direction: column;
-    gap: ${token.marginSM}px;
+    gap: ${token.marginXS}px;
     min-height: 64px;
     padding: ${token.paddingSM}px ${token.paddingMD}px;
     border-bottom: 1px solid ${token.colorBorder};
@@ -30,10 +30,23 @@ export const useStyles = createStyles(({ token, css }) => ({
   actions: css`
     display: flex;
     align-items: center;
-    gap: ${token.marginXS}px;
+    justify-content: space-between;
+    gap: ${token.marginXXS}px;
+    width: 100%;
+    padding-top: ${token.paddingXXS}px;
+
+    @media (min-width: 768px) {
+      width: auto;
+      justify-content: flex-end;
+      padding-top: 0;
+      gap: ${token.marginXS}px;
+    }
   `,
   menuButton: css`
     color: ${token.colorTextSecondary};
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
 
     @media (min-width: 992px) {
       display: none;
@@ -41,15 +54,39 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   iconButton: css`
     color: ${token.colorTextSecondary};
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
   `,
   userButton: css`
-    height: 36px;
-    padding-inline: ${token.paddingSM}px;
+    height: 38px;
+    padding-inline: ${token.paddingXS}px;
     border: 1px solid color-mix(in srgb, ${token.colorPrimary} 30%, transparent);
-    max-width: 180px;
+    max-width: 164px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    border-radius: 999px;
+    background: color-mix(in srgb, ${token.colorPrimaryBg} 35%, transparent);
+    box-shadow: ${token.boxShadowTertiary};
+
+    @media (max-width: 767px) {
+      width: 38px;
+      min-width: 38px;
+      padding-inline: 0;
+      justify-content: center;
+    }
+  `,
+  userButtonLabel: css`
+    display: inline-block;
+    max-width: 104px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    @media (max-width: 767px) {
+      display: none;
+    }
   `,
   avatar: css`
     background: ${token.colorPrimary};

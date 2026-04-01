@@ -826,8 +826,10 @@ const ProjectDetailPage = () => {
       </motion.div>
 
       <Tabs
+        className={styles.tabs}
         activeKey={activeTab}
         onChange={setActiveTab}
+        tabBarGutter={6}
         items={[
           { key: "overview", label: "Repo Safety + Team" },
           { key: "spec", label: "Project Spec" },
