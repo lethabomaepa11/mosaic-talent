@@ -31,3 +31,4 @@ Project documentation index.
 - [AI Task Generation From Spec + Repo Analysis](feature/ai-task-generation-spec-repo-analysis.md)
 - [Task Reassignment And Task Notifications](feature/task-reassignment-notifications.md)
 - [Join Loader And Discover Project Navigation](feature/join-loader-and-discover-project-navigation.md)
+- [AI Fill Team Invite Workflow](feature/ai-fill-team-invite-workflow.md)

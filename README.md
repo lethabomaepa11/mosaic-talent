@@ -122,6 +122,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
 - Project collaboration upgrade:
   - project details now use tabs (`Repo Safety`, `Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
+  - AI Fill Team now sends member invites (in-app + email when configured) instead of force-adding members
+  - invited users can accept/reject from project detail; rejected invites notify project lead(s)
   - project meetings support request/schedule/cancel, Jitsi joins, and per-member reminders
   - leads can remove project members with a required reason
   - non-lead members can log complaints to project lead(s)
@@ -175,6 +177,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [AI Task Generation From Spec + Repo Analysis](docs/feature/ai-task-generation-spec-repo-analysis.md)
 - [Task Reassignment And Task Notifications](docs/feature/task-reassignment-notifications.md)
 - [Join Loader And Discover Project Navigation](docs/feature/join-loader-and-discover-project-navigation.md)
+- [AI Fill Team Invite Workflow](docs/feature/ai-fill-team-invite-workflow.md)
 
 ## Tenant Resolution Rules
 
@@ -246,6 +249,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/SubmitProjectComplaint`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
+- `GET /api/services/app/DeveloperProject/GetProjectInvites`
+- `POST /api/services/app/DeveloperProject/AcceptProjectInvite`
+- `POST /api/services/app/DeveloperProject/RejectProjectInvite`
 - `POST /api/services/app/DeveloperProject/AiGenerateProjectTasks`
 - `POST /api/services/app/DeveloperProject/AddProjectTask`
 - `POST /api/services/app/DeveloperProject/ReassignProjectTask`

@@ -306,6 +306,23 @@ export const useStyles = createStyles(({ token, css }) => ({
     text-align: center;
     color: ${token.colorTextSecondary};
   `,
+  invitesSection: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+    padding: ${token.paddingSM}px;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+    background: ${token.colorFillTertiary};
+  `,
+  inviteItem: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingXS}px;
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorBgContainer};
+    flex-wrap: wrap;
+  `,
   repoSafetyBody: css`
     display: grid;
     gap: ${token.marginSM}px;

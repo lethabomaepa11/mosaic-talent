@@ -50,6 +50,7 @@ import {
 import { useAppearanceState } from "@/providers/appearance-provider";
 import {
   IProjectJoinLoadWarning,
+  IProjectInvite,
   IProjectMeeting,
   IProjectTask,
   IRepoGuardianScan,
@@ -172,6 +173,9 @@ const ProjectDetailPage = () => {
   const [scheduleMeetingStart, setScheduleMeetingStart] = useState("");
   const [scheduleMeetingEnd, setScheduleMeetingEnd] = useState("");
   const [scheduleMeetingRoom, setScheduleMeetingRoom] = useState("");
+  const [projectInvites, setProjectInvites] = useState<IProjectInvite[]>([]);
+  const [isInvitesLoading, setIsInvitesLoading] = useState(false);
+  const [inviteActionTargetId, setInviteActionTargetId] = useState<string | null>(null);
 
   const { styles } = useStyles();
   const { mode } = useAppearanceState();
@@ -195,6 +199,9 @@ const ProjectDetailPage = () => {
     updateProjectTaskStatus,
     updateProjectSkills,
     completeProject,
+    getProjectInvites,
+    acceptProjectInvite,
+    rejectProjectInvite,
     scanRepoSafety,
     scanRepoGuardian,
     getProjectMeetings,
@@ -296,6 +303,20 @@ const ProjectDetailPage = () => {
     !!currentMember &&
     project.ownerId !== currentMember.id &&
     currentMember.role !== "lead";
+  const pendingInvites = useMemo(
+    () => projectInvites.filter((invite) => invite.status === "pending"),
+    [projectInvites],
+  );
+  const currentUserInvite = useMemo(() => {
+    const normalizedUserName = (currentUser?.userName ?? "").toLowerCase();
+    if (!normalizedUserName) {
+      return undefined;
+    }
+
+    return pendingInvites.find(
+      (invite) => (invite.developerUserName ?? "").toLowerCase() === normalizedUserName,
+    );
+  }, [pendingInvites, currentUser?.userName]);
 
   const canComplete = useMemo(() => {
     if (!project) return false;
@@ -305,6 +326,16 @@ const ProjectDetailPage = () => {
       project.tasks.every((task) => task.status === "done")
     );
   }, [project]);
+  const availableMemberSpots = useMemo(() => {
+    if (!project) {
+      return 0;
+    }
+
+    return Math.max(
+      (project.maxMembers ?? 4) - (project.members.length + pendingInvites.length),
+      0,
+    );
+  }, [project, pendingInvites.length]);
 
   const shouldShowMatchInsight = useMemo(() => {
     return (
@@ -374,6 +405,23 @@ const ProjectDetailPage = () => {
     return lines.join("\n").trim();
   }, [repoSafetyResult, repoGuardianScan?.result]);
 
+  const loadProjectInvites = async () => {
+    if (!projectId) {
+      setProjectInvites([]);
+      return;
+    }
+
+    setIsInvitesLoading(true);
+    try {
+      const invites = await getProjectInvites(projectId);
+      setProjectInvites(invites);
+    } catch {
+      setProjectInvites([]);
+    } finally {
+      setIsInvitesLoading(false);
+    }
+  };
+
   const loadMeetings = async () => {
     if (!projectId || !isMember) {
       setMeetings([]);
@@ -409,6 +457,9 @@ const ProjectDetailPage = () => {
     void loadMeetings();
   }, [projectId, isMember]);
   useEffect(() => {
+    void loadProjectInvites();
+  }, [projectId, currentUser?.userName]);
+  useEffect(() => {
     if (!isJoiningProject) {
       return;
     }
@@ -430,8 +481,9 @@ const ProjectDetailPage = () => {
     setIsFillingTeam(true);
     try {
       await aiFillTeam(projectId);
-      toast.success("Team updated", "AI added available team members.");
+      toast.success("Invites sent", "AI sent project invites to suggested members.");
       await loadMeetings();
+      await loadProjectInvites();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to fill team.";
@@ -690,6 +742,45 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to evaluate workload.";
       toast.error("Join blocked", message);
+    }
+  };
+
+  const handleAcceptInvite = async (inviteId: string) => {
+    if (!projectId) {
+      return;
+    }
+
+    setInviteActionTargetId(inviteId);
+    try {
+      await acceptProjectInvite(projectId, inviteId);
+      await Promise.all([fetchMyProjects(), fetchProjectById(projectId)]);
+      await loadProjectInvites();
+      toast.success("Invite accepted", "You have joined the project.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to accept invite.";
+      toast.error("Accept invite failed", message);
+    } finally {
+      setInviteActionTargetId(null);
+    }
+  };
+
+  const handleRejectInvite = async (inviteId: string) => {
+    if (!projectId) {
+      return;
+    }
+
+    setInviteActionTargetId(inviteId);
+    try {
+      await rejectProjectInvite(projectId, inviteId);
+      await loadProjectInvites();
+      toast.success("Invite declined", "You declined the project invite.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reject invite.";
+      toast.error("Reject invite failed", message);
+    } finally {
+      setInviteActionTargetId(null);
     }
   };
 
@@ -1022,18 +1113,37 @@ const ProjectDetailPage = () => {
 
         {project.status !== "completed" ? (
           <div className={styles.actionRow}>
-            <Space wrap>
-              {!isMember && project.status === "open" ? (
-                <Button
-                  type="primary"
-                  onClick={handleJoinProject}
-                  loading={isJoiningProject}
-                  disabled={isJoiningProject}
-                  data-ai-action="join-project"
-                >
-                  Join Project
-                </Button>
-              ) : null}
+              <Space wrap>
+                {!isMember && project.status === "open" ? (
+                  currentUserInvite ? (
+                    <Space wrap>
+                      <Button
+                        type="primary"
+                        loading={inviteActionTargetId === currentUserInvite.id}
+                        onClick={() => void handleAcceptInvite(currentUserInvite.id)}
+                      >
+                        Accept Invite
+                      </Button>
+                      <Button
+                        danger
+                        loading={inviteActionTargetId === currentUserInvite.id}
+                        onClick={() => void handleRejectInvite(currentUserInvite.id)}
+                      >
+                        Reject Invite
+                      </Button>
+                    </Space>
+                  ) : (
+                    <Button
+                      type="primary"
+                      onClick={handleJoinProject}
+                      loading={isJoiningProject}
+                      disabled={isJoiningProject}
+                      data-ai-action="join-project"
+                    >
+                      Join Project
+                    </Button>
+                  )
+                ) : null}
 
               {canLogComplaint ? (
                 <Button onClick={() => setIsComplaintOpen(true)}>
@@ -1189,7 +1299,7 @@ const ProjectDetailPage = () => {
               </Space>
               {project.status !== "completed" ? (
                 <Space wrap>
-                  {isMember && project.members.length < project.maxMembers ? (
+                  {isMember && availableMemberSpots > 0 ? (
                     <Button
                       onClick={handleFillTeam}
                       loading={isFillingTeam}
@@ -1198,7 +1308,7 @@ const ProjectDetailPage = () => {
                       }
                       data-ai-action="ai-fill-team"
                     >
-                      AI Fill Team
+                      AI Fill Team (Invite)
                     </Button>
                   ) : null}
                   {isMember ? (
@@ -1277,9 +1387,64 @@ const ProjectDetailPage = () => {
               );
             })}
 
-            {project.members.length < project.maxMembers ? (
+            {pendingInvites.length > 0 ? (
+              <div className={styles.invitesSection}>
+                <Typography.Text strong>
+                  Invited ({pendingInvites.length})
+                </Typography.Text>
+                {isInvitesLoading ? (
+                  <Spin size="small" />
+                ) : (
+                  <Space direction="vertical" size="small" className={styles.fullWidth}>
+                    {pendingInvites.map((invite) => {
+                      const isCurrentUserInvite =
+                        (invite.developerUserName ?? "").toLowerCase() ===
+                        (currentUser?.userName ?? "").toLowerCase();
+                      return (
+                        <div className={styles.inviteItem} key={invite.id}>
+                          <div className={styles.memberMeta}>
+                            <Typography.Text ellipsis>
+                              {invite.developerName}
+                            </Typography.Text>
+                            <Typography.Text
+                              type="secondary"
+                              style={{ display: "block" }}
+                            >
+                              Invited by {invite.invitedByDeveloperName}
+                            </Typography.Text>
+                          </div>
+                          <Tag color="gold">Pending</Tag>
+                          {isCurrentUserInvite ? (
+                            <Space size="small" wrap>
+                              <Button
+                                size="small"
+                                type="primary"
+                                loading={inviteActionTargetId === invite.id}
+                                onClick={() => void handleAcceptInvite(invite.id)}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="small"
+                                danger
+                                loading={inviteActionTargetId === invite.id}
+                                onClick={() => void handleRejectInvite(invite.id)}
+                              >
+                                Reject
+                              </Button>
+                            </Space>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </Space>
+                )}
+              </div>
+            ) : null}
+
+            {availableMemberSpots > 0 ? (
               <div className={styles.openSpots}>
-                {project.maxMembers - project.members.length} spots available
+                {availableMemberSpots} spots available
               </div>
             ) : null}
           </Space>

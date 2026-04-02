@@ -61,6 +61,7 @@ import {
   IGithubRepository,
   IProject,
   IProjectJoinLoadWarning,
+  IProjectInvite,
   IProjectMeeting,
   IProjectTask,
   IRepoSafetyBadge,
@@ -332,6 +333,36 @@ const normalizeMeetingList = (input: unknown): IProjectMeeting[] => {
   }
 
   return input.map((meeting) => normalizeMeeting(meeting as Partial<IProjectMeeting>));
+};
+
+const normalizeProjectInvite = (
+  input: Partial<IProjectInvite>,
+): IProjectInvite => ({
+  id: input.id ?? "",
+  projectId: input.projectId ?? "",
+  developerId: input.developerId ?? "",
+  developerName: input.developerName ?? "",
+  developerUserName: input.developerUserName ?? "",
+  invitedByDeveloperId: input.invitedByDeveloperId ?? "",
+  invitedByDeveloperName: input.invitedByDeveloperName ?? "",
+  status:
+    input.status === "accepted" ||
+    input.status === "rejected" ||
+    input.status === "pending"
+      ? input.status
+      : "pending",
+  invitedAtUtc: input.invitedAtUtc ?? "",
+  respondedAtUtc: input.respondedAtUtc ?? "",
+});
+
+const normalizeProjectInviteList = (input: unknown): IProjectInvite[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((invite) =>
+    normalizeProjectInvite(invite as Partial<IProjectInvite>),
+  );
 };
 
 export const ProjectProvider = ({ children }: PropsWithChildren) => {
@@ -728,6 +759,52 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const getProjectInvites = async (projectId: string) => {
+    try {
+      const res = await instance.get(`${ENDPOINT}/GetProjectInvites`, {
+        params: { projectId },
+      });
+      return normalizeProjectInviteList(res.data?.result);
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to load project invites."));
+    }
+  };
+
+  const acceptProjectInvite = async (projectId: string, inviteId: string) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/AcceptProjectInvite`, {
+        projectId,
+        inviteId,
+      });
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return normalizeProjectInvite(
+        (res.data?.result ?? {}) as Partial<IProjectInvite>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to accept project invite."));
+    }
+  };
+
+  const rejectProjectInvite = async (
+    projectId: string,
+    inviteId: string,
+    reason?: string,
+  ) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/RejectProjectInvite`, {
+        projectId,
+        inviteId,
+        reason,
+      });
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return normalizeProjectInvite(
+        (res.data?.result ?? {}) as Partial<IProjectInvite>,
+      );
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to reject project invite."));
+    }
+  };
+
   const scanRepoSafety = async (projectId: string) => {
     try {
       const res = await instance.post(`${ENDPOINT}/ScanRepoSafety`, { projectId });
@@ -895,6 +972,9 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           updateProjectTaskStatus,
           updateProjectSkills,
           completeProject,
+          getProjectInvites,
+          acceptProjectInvite,
+          rejectProjectInvite,
           scanRepoSafety,
           scanRepoSafetyByGithubUrl,
           scanRepoGuardian,
