@@ -183,6 +183,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Project Detail Loading And 404 Fallback](docs/feature/project-detail-loading-and-404.md)
 - [Auth Route Group Guard](docs/feature/auth-route-group-guard.md)
 - [Restrict Landing On Subdomain](docs/feature/restrict-landing-on-subdomain.md)
+- [Company Email Template Types](docs/feature/company-email-template-types.md)
 
 ## Tenant Resolution Rules
 

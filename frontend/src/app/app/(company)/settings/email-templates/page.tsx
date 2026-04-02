@@ -6,47 +6,12 @@ import { toast } from "@/components/providers";
 import { useJobAction, useJobState } from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
-
-interface IEmailTemplateSettings {
-  applicationReceived: {
-    enabled: boolean;
-    mode: "manual" | "ai";
-    subject: string;
-    body: string;
-  };
-}
-
-const parseEmailTemplateSettings = (json?: string): IEmailTemplateSettings => {
-  const fallback: IEmailTemplateSettings = {
-    applicationReceived: {
-      enabled: true,
-      mode: "manual",
-      subject: "Application received for {jobTitle}",
-      body: "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application and our team will review it soon.\n\nRegards,\n{companyName} Team",
-    },
-  };
-  if (!json) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(json) as Partial<IEmailTemplateSettings>;
-    const item = parsed.applicationReceived;
-    if (!item) {
-      return fallback;
-    }
-    return {
-      applicationReceived: {
-        enabled: item.enabled ?? fallback.applicationReceived.enabled,
-        mode: item.mode === "ai" ? "ai" : "manual",
-        subject: item.subject || fallback.applicationReceived.subject,
-        body: item.body || fallback.applicationReceived.body,
-      },
-    };
-  } catch {
-    return fallback;
-  }
-};
+import {
+  EMAIL_TEMPLATE_TYPE_OPTIONS,
+  EmailTemplateTypeKey,
+  getDefaultEmailTemplateSettings,
+  parseEmailTemplateSettings,
+} from "./emailTemplateSettings";
 
 const EmailTemplatesPage = () => {
   const { styles } = useStyles();
@@ -54,8 +19,10 @@ const EmailTemplatesPage = () => {
   const { publicJobsPage, isPending } = useJobState();
   const { getMyJobsPageSettings, updateMyJobsPageSettings } = useJobAction();
   const [saving, setSaving] = useState(false);
-  const [emailSettings, setEmailSettings] = useState<IEmailTemplateSettings>(
-    parseEmailTemplateSettings(),
+  const [activeTemplateKey, setActiveTemplateKey] =
+    useState<EmailTemplateTypeKey>("applicationReceived");
+  const [emailSettings, setEmailSettings] = useState(
+    getDefaultEmailTemplateSettings(),
   );
 
   useEffect(() => {
@@ -72,8 +39,19 @@ const EmailTemplatesPage = () => {
   }, [publicJobsPage?.emailTemplateSettingsJson]);
 
   const tokens = useMemo(
-    () => ["{candidateName}", "{jobTitle}", "{companyName}", "{matchScore}", "{verdict}"],
+    () => [
+      "{candidateName}",
+      "{jobTitle}",
+      "{companyName}",
+      "{matchScore}",
+      "{verdict}",
+      "{assessmentLink}",
+    ],
     [],
+  );
+  const activeTemplate = emailSettings[activeTemplateKey];
+  const activeTemplateMeta = EMAIL_TEMPLATE_TYPE_OPTIONS.find(
+    (item) => item.key === activeTemplateKey,
   );
 
   const handleSave = async () => {
@@ -120,20 +98,48 @@ const EmailTemplatesPage = () => {
           Email Templates
         </Typography.Title>
         <Typography.Paragraph className={styles.subtitle}>
-          Configure applicant communication templates and AI generation mode.
+          Configure communication templates per hiring stage and AI generation mode.
         </Typography.Paragraph>
       </div>
 
-      <Card title="Application Received Email">
-        <Space direction="vertical" size={12} className={styles.fullWidth}>
+      <div className={styles.contentGrid}>
+        <Card title="Email Types" className={styles.typesCard}>
+          <Space direction="vertical" size={8} className={styles.fullWidth}>
+            {EMAIL_TEMPLATE_TYPE_OPTIONS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`${styles.typeButton} ${
+                  activeTemplateKey === item.key ? styles.typeButtonActive : ""
+                }`}
+                onClick={() => setActiveTemplateKey(item.key)}
+              >
+                <Typography.Text strong>{item.label}</Typography.Text>
+                <Typography.Text type="secondary">{item.description}</Typography.Text>
+              </button>
+            ))}
+          </Space>
+        </Card>
+
+        <Card title={activeTemplateMeta?.label ?? "Email Template"}>
+          <Space direction="vertical" size={12} className={styles.fullWidth}>
+            {activeTemplateMeta ? (
+              <Typography.Text type="secondary">
+                {activeTemplateMeta.description}
+              </Typography.Text>
+            ) : null}
+
           <div className={styles.switchRow}>
             <Typography.Text>Enable this email type</Typography.Text>
             <Switch
-              checked={emailSettings.applicationReceived.enabled}
+              checked={activeTemplate.enabled}
               onChange={(checked) =>
                 setEmailSettings((prev) => ({
                   ...prev,
-                  applicationReceived: { ...prev.applicationReceived, enabled: checked },
+                  [activeTemplateKey]: {
+                    ...prev[activeTemplateKey],
+                    enabled: checked,
+                  },
                 }))
               }
               data-ai-field="email-template-enabled"
@@ -144,7 +150,7 @@ const EmailTemplatesPage = () => {
             <Typography.Text type="secondary">Generation Mode</Typography.Text>
             <Select
               className={styles.fullWidth}
-              value={emailSettings.applicationReceived.mode}
+              value={activeTemplate.mode}
               options={[
                 { label: "Manual Template", value: "manual" },
                 { label: "AI Generated Body", value: "ai" },
@@ -152,7 +158,10 @@ const EmailTemplatesPage = () => {
               onChange={(value: "manual" | "ai") =>
                 setEmailSettings((prev) => ({
                   ...prev,
-                  applicationReceived: { ...prev.applicationReceived, mode: value },
+                  [activeTemplateKey]: {
+                    ...prev[activeTemplateKey],
+                    mode: value,
+                  },
                 }))
               }
               data-ai-field="email-template-mode"
@@ -162,11 +171,14 @@ const EmailTemplatesPage = () => {
           <div>
             <Typography.Text type="secondary">Subject</Typography.Text>
             <Input
-              value={emailSettings.applicationReceived.subject}
+              value={activeTemplate.subject}
               onChange={(event) =>
                 setEmailSettings((prev) => ({
                   ...prev,
-                  applicationReceived: { ...prev.applicationReceived, subject: event.target.value },
+                  [activeTemplateKey]: {
+                    ...prev[activeTemplateKey],
+                    subject: event.target.value,
+                  },
                 }))
               }
               data-ai-field="email-template-subject"
@@ -177,11 +189,14 @@ const EmailTemplatesPage = () => {
             <Typography.Text type="secondary">Body Template</Typography.Text>
             <Input.TextArea
               rows={8}
-              value={emailSettings.applicationReceived.body}
+              value={activeTemplate.body}
               onChange={(event) =>
                 setEmailSettings((prev) => ({
                   ...prev,
-                  applicationReceived: { ...prev.applicationReceived, body: event.target.value },
+                  [activeTemplateKey]: {
+                    ...prev[activeTemplateKey],
+                    body: event.target.value,
+                  },
                 }))
               }
               data-ai-field="email-template-body"
@@ -208,7 +223,8 @@ const EmailTemplatesPage = () => {
             Save Email Templates
           </Button>
         </Space>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

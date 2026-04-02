@@ -1393,6 +1393,20 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
                 mode = "manual",
                 subject = "Application received for {jobTitle}",
                 body = "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team",
+            },
+            shortlisted = new
+            {
+                enabled = true,
+                mode = "manual",
+                subject = "You have been shortlisted for {jobTitle}",
+                body = "Hi {candidateName},\n\nGreat news. You have been shortlisted for the {jobTitle} role at {companyName}. We will share next steps shortly.\n\nRegards,\n{companyName} Team",
+            },
+            interviewInvite = new
+            {
+                enabled = true,
+                mode = "manual",
+                subject = "Interview invitation for {jobTitle}",
+                body = "Hi {candidateName},\n\nWe would like to invite you to an interview for {jobTitle} at {companyName}.\n\nPlease reply with your availability so we can confirm the schedule.\n\nRegards,\n{companyName} Team",
             }
         });
     }
@@ -1408,29 +1422,29 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("applicationReceived", out var node) && node.ValueKind == JsonValueKind.Object)
-            {
-                if (node.TryGetProperty("enabled", out var enabledNode) &&
-                    (enabledNode.ValueKind == JsonValueKind.True || enabledNode.ValueKind == JsonValueKind.False))
-                {
-                    fallback.ApplicationReceivedEnabled = enabledNode.GetBoolean();
-                }
+            HydrateTemplateNode(
+                doc.RootElement,
+                "applicationReceived",
+                enabled => fallback.ApplicationReceivedEnabled = enabled,
+                mode => fallback.ApplicationReceivedMode = mode,
+                subject => fallback.ApplicationReceivedSubject = subject,
+                body => fallback.ApplicationReceivedBody = body);
 
-                if (node.TryGetProperty("mode", out var modeNode) && modeNode.ValueKind == JsonValueKind.String)
-                {
-                    fallback.ApplicationReceivedMode = modeNode.GetString() ?? fallback.ApplicationReceivedMode;
-                }
+            HydrateTemplateNode(
+                doc.RootElement,
+                "shortlisted",
+                enabled => fallback.ShortlistedEnabled = enabled,
+                mode => fallback.ShortlistedMode = mode,
+                subject => fallback.ShortlistedSubject = subject,
+                body => fallback.ShortlistedBody = body);
 
-                if (node.TryGetProperty("subject", out var subjectNode) && subjectNode.ValueKind == JsonValueKind.String)
-                {
-                    fallback.ApplicationReceivedSubject = subjectNode.GetString() ?? fallback.ApplicationReceivedSubject;
-                }
-
-                if (node.TryGetProperty("body", out var bodyNode) && bodyNode.ValueKind == JsonValueKind.String)
-                {
-                    fallback.ApplicationReceivedBody = bodyNode.GetString() ?? fallback.ApplicationReceivedBody;
-                }
-            }
+            HydrateTemplateNode(
+                doc.RootElement,
+                "interviewInvite",
+                enabled => fallback.InterviewInviteEnabled = enabled,
+                mode => fallback.InterviewInviteMode = mode,
+                subject => fallback.InterviewInviteSubject = subject,
+                body => fallback.InterviewInviteBody = body);
         }
         catch
         {
@@ -3641,6 +3655,41 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         };
     }
 
+    private static void HydrateTemplateNode(
+        JsonElement root,
+        string key,
+        Action<bool> assignEnabled,
+        Action<string> assignMode,
+        Action<string> assignSubject,
+        Action<string> assignBody)
+    {
+        if (!root.TryGetProperty(key, out var node) || node.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (node.TryGetProperty("enabled", out var enabledNode) &&
+            (enabledNode.ValueKind == JsonValueKind.True || enabledNode.ValueKind == JsonValueKind.False))
+        {
+            assignEnabled(enabledNode.GetBoolean());
+        }
+
+        if (node.TryGetProperty("mode", out var modeNode) && modeNode.ValueKind == JsonValueKind.String)
+        {
+            assignMode(modeNode.GetString() ?? "manual");
+        }
+
+        if (node.TryGetProperty("subject", out var subjectNode) && subjectNode.ValueKind == JsonValueKind.String)
+        {
+            assignSubject(subjectNode.GetString() ?? string.Empty);
+        }
+
+        if (node.TryGetProperty("body", out var bodyNode) && bodyNode.ValueKind == JsonValueKind.String)
+        {
+            assignBody(bodyNode.GetString() ?? string.Empty);
+        }
+    }
+
     private async Task<CompanyJobsPageSettings> TryGetPageSettingsOrNull(int tenantId, Guid companyId)
     {
         try
@@ -5206,5 +5255,17 @@ public partial class CompanyJobAppService : MosaicTalentAppServiceBase, ICompany
         public string ApplicationReceivedSubject { get; set; } = "Application received for {jobTitle}";
         public string ApplicationReceivedBody { get; set; } =
             "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team";
+
+        public bool ShortlistedEnabled { get; set; } = true;
+        public string ShortlistedMode { get; set; } = "manual";
+        public string ShortlistedSubject { get; set; } = "You have been shortlisted for {jobTitle}";
+        public string ShortlistedBody { get; set; } =
+            "Hi {candidateName},\n\nGreat news. You have been shortlisted for the {jobTitle} role at {companyName}. We will share next steps shortly.\n\nRegards,\n{companyName} Team";
+
+        public bool InterviewInviteEnabled { get; set; } = true;
+        public string InterviewInviteMode { get; set; } = "manual";
+        public string InterviewInviteSubject { get; set; } = "Interview invitation for {jobTitle}";
+        public string InterviewInviteBody { get; set; } =
+            "Hi {candidateName},\n\nWe would like to invite you to an interview for {jobTitle} at {companyName}.\n\nPlease reply with your availability so we can confirm the schedule.\n\nRegards,\n{companyName} Team";
     }
 }
