@@ -2,6 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.r2.dev",
+        port: "",
+        pathname: "/company-logos/**",
+        search: "",
+      },
+    ],
+  },
   async headers() {
     return [
       {

@@ -200,6 +200,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Company Reports PDF/Excel Export](docs/feature/company-reports-export-pdf-excel.md)
 - [Company AI Viz Lab](docs/feature/company-ai-viz-lab.md)
 - [Global Opening + Closing Transition](docs/feature/global-opening-closing-animation.md)
+- [R2 Image Host Allowlist + CI E2E Removal](docs/feature/r2-image-host-allowlist-and-ci-e2e-removal.md)
 
 ## Tenant Resolution Rules
 
