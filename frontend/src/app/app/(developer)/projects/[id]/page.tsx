@@ -26,6 +26,7 @@ import {
   Dropdown,
   Input,
   Modal,
+  Popover,
   Progress,
   Select,
   Space,
@@ -140,7 +141,7 @@ const ProjectDetailPage = () => {
   const [complaintInput, setComplaintInput] = useState("");
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [roleUpdateMemberId, setRoleUpdateMemberId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("repo-safety");
   const [joinWarning, setJoinWarning] = useState<IProjectJoinLoadWarning | null>(null);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
   const [meetings, setMeetings] = useState<IProjectMeeting[]>([]);
@@ -884,70 +885,61 @@ const ProjectDetailPage = () => {
 
         {project.status !== "completed" ? (
           <div className={styles.actionRow}>
-            {!isMember && project.status === "open" ? (
-              <Button type="primary" onClick={handleJoinProject} data-ai-action="join-project">
-                Join Project
-              </Button>
-            ) : null}
+            <Space wrap>
+              {!isMember && project.status === "open" ? (
+                <Button
+                  type="primary"
+                  onClick={handleJoinProject}
+                  data-ai-action="join-project"
+                >
+                  Join Project
+                </Button>
+              ) : null}
 
-            {isMember && project.members.length < project.maxMembers ? (
-              <Button
-                onClick={handleFillTeam}
-                loading={isFillingTeam}
-                icon={
-                  isFillingTeam ? <Loader2 size={14} /> : <Sparkles size={14} />
-                }
-                data-ai-action="ai-fill-team"
-              >
-                AI Fill Team
-              </Button>
-            ) : null}
+              {isMember && canComplete ? (
+                <Button
+                  type="primary"
+                  onClick={handleCompleteProject}
+                  loading={isCompleting}
+                  icon={<CheckCircle size={14} />}
+                  data-ai-action="complete-project"
+                >
+                  Complete Project
+                </Button>
+              ) : null}
 
-            {isMember && canComplete ? (
-              <Button
-                type="primary"
-                onClick={handleCompleteProject}
-                loading={isCompleting}
-                icon={<CheckCircle size={14} />}
-                data-ai-action="complete-project"
-              >
-                Complete Project
-              </Button>
-            ) : null}
+              {canLogComplaint ? (
+                <Button onClick={() => setIsComplaintOpen(true)}>
+                  Log Complaint
+                </Button>
+              ) : null}
+            </Space>
 
-            {isMember ? (
-              <Button
-                danger
-                onClick={() => setIsLeaveOpen(true)}
-                data-ai-action="open-leave-project"
-              >
-                Leave Project
-              </Button>
-            ) : null}
-
-            {canLogComplaint ? (
-              <Button onClick={() => setIsComplaintOpen(true)}>
-                Log Complaint
-              </Button>
-            ) : null}
-
-            {currentMember?.id === project.ownerId ? (
-              <Button
-                danger
-                disabled={!canDeleteProject}
-                loading={isDeletingProject}
-                onClick={() => void handleDeleteProject()}
-                data-ai-action="delete-project"
-              >
-                Delete Project
-              </Button>
-            ) : null}
+            <Space wrap>
+              {currentMember?.id === project.ownerId ? (
+                <Popover
+                  trigger="hover"
+                  content={
+                    !canDeleteProject
+                      ? "Remove other members first. You can only delete when you are the only member."
+                      : null
+                  }
+                >
+                  <span>
+                    <Button
+                      danger
+                      disabled={!canDeleteProject}
+                      loading={isDeletingProject}
+                      onClick={() => void handleDeleteProject()}
+                      data-ai-action="delete-project"
+                    >
+                      Delete Project
+                    </Button>
+                  </span>
+                </Popover>
+              ) : null}
+            </Space>
           </div>
-        ) : null}
-        {currentMember?.id === project.ownerId && project.members.length > 1 ? (
-          <Typography.Text type="secondary">
-            Remove other members first. You can only delete when you are the only member.
-          </Typography.Text>
         ) : null}
       </motion.div>
 
@@ -957,7 +949,8 @@ const ProjectDetailPage = () => {
         onChange={setActiveTab}
         tabBarGutter={6}
         items={[
-          { key: "overview", label: "Repo Safety + Team" },
+          { key: "repo-safety", label: "Repo Safety" },
+          { key: "team", label: "Team" },
           { key: "spec", label: "Project Spec" },
           { key: "analysis", label: "Repo Analysis" },
           { key: "tasks", label: "Tasks" },
@@ -965,84 +958,7 @@ const ProjectDetailPage = () => {
         ]}
       />
 
-      {activeTab === "overview" ? (
-        <div className={styles.contentGrid}>
-        <Card
-          title={
-            <Space>
-              <Users size={16} />
-              Team ({project.members.length}/{project.maxMembers})
-            </Space>
-          }
-          className={styles.membersCard}
-        >
-          <Space direction="vertical" size="small" className={styles.fullWidth}>
-            {project.members.map((member) => {
-              const isYou =
-                (member.userName ?? "").toLowerCase() ===
-                (currentUser?.userName ?? "").toLowerCase();
-              const isOwnerMember = member.id === project.ownerId;
-              return (
-                <div className={styles.memberItem} key={member.id}>
-                  <Avatar src={member.avatar || undefined}>
-                    {member.name.slice(0, 1).toUpperCase()}
-                  </Avatar>
-                  <div className={styles.memberMeta}>
-                    {member.userName ? (
-                      <Link
-                        href={`/developers/${encodeURIComponent(member.userName)}`}
-                        className={styles.memberLink}
-                      >
-                        <Typography.Text ellipsis>{member.name}</Typography.Text>
-                      </Link>
-                    ) : (
-                      <Typography.Text ellipsis>{member.name}</Typography.Text>
-                    )}
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: "block" }}
-                    >
-                      {member.role}
-                    </Typography.Text>
-                  </div>
-                  {canManageMemberRoles ? (
-                    <Select<"lead" | "member">
-                      size="small"
-                      value={member.role}
-                      loading={roleUpdateMemberId === member.id}
-                      disabled={roleUpdateMemberId !== null}
-                      onChange={(nextRole) => {
-                        void handleAssignMemberRole(member.id, nextRole);
-                      }}
-                      options={[
-                        { label: "Lead", value: "lead" },
-                        { label: "Member", value: "member" },
-                      ]}
-                      className={styles.memberRoleSelect}
-                    />
-                  ) : null}
-                  {canManageMemberRoles && !isYou && !isOwnerMember ? (
-                    <Button
-                      size="small"
-                      danger
-                      onClick={() => openRemoveMemberModal({ id: member.id, name: member.name })}
-                    >
-                      Remove
-                    </Button>
-                  ) : null}
-                  {isYou ? <Badge color="gold" text="You" /> : null}
-                </div>
-              );
-            })}
-
-            {project.members.length < project.maxMembers ? (
-              <div className={styles.openSpots}>
-                {project.maxMembers - project.members.length} spots available
-              </div>
-            ) : null}
-          </Space>
-        </Card>
-
+      {activeTab === "repo-safety" ? (
         <Card
           title={
             <Space>
@@ -1158,7 +1074,113 @@ const ProjectDetailPage = () => {
             </div>
           )}
         </Card>
-        </div>
+      ) : null}
+
+      {activeTab === "team" ? (
+        <Card
+          title={
+            <div className={styles.teamHeader}>
+              <Space>
+                <Users size={16} />
+                Team ({project.members.length}/{project.maxMembers})
+              </Space>
+              {project.status !== "completed" ? (
+                <Space wrap>
+                  {isMember && project.members.length < project.maxMembers ? (
+                    <Button
+                      onClick={handleFillTeam}
+                      loading={isFillingTeam}
+                      icon={
+                        isFillingTeam ? <Loader2 size={14} /> : <Sparkles size={14} />
+                      }
+                      data-ai-action="ai-fill-team"
+                    >
+                      AI Fill Team
+                    </Button>
+                  ) : null}
+                  {isMember ? (
+                    <Button
+                      danger
+                      onClick={() => setIsLeaveOpen(true)}
+                      data-ai-action="open-leave-project"
+                    >
+                      Leave Project
+                    </Button>
+                  ) : null}
+                </Space>
+              ) : null}
+            </div>
+          }
+          className={styles.membersCard}
+        >
+          <Space direction="vertical" size="small" className={styles.fullWidth}>
+            {project.members.map((member) => {
+              const isYou =
+                (member.userName ?? "").toLowerCase() ===
+                (currentUser?.userName ?? "").toLowerCase();
+              const isOwnerMember = member.id === project.ownerId;
+              return (
+                <div className={styles.memberItem} key={member.id}>
+                  <Avatar src={member.avatar || undefined}>
+                    {member.name.slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <div className={styles.memberMeta}>
+                    {member.userName ? (
+                      <Link
+                        href={`/developers/${encodeURIComponent(member.userName)}`}
+                        className={styles.memberLink}
+                      >
+                        <Typography.Text ellipsis>{member.name}</Typography.Text>
+                      </Link>
+                    ) : (
+                      <Typography.Text ellipsis>{member.name}</Typography.Text>
+                    )}
+                    <Typography.Text
+                      type="secondary"
+                      style={{ display: "block" }}
+                    >
+                      {member.role}
+                    </Typography.Text>
+                  </div>
+                  {canManageMemberRoles ? (
+                    <Select<"lead" | "member">
+                      size="small"
+                      value={member.role}
+                      loading={roleUpdateMemberId === member.id}
+                      disabled={roleUpdateMemberId !== null}
+                      onChange={(nextRole) => {
+                        void handleAssignMemberRole(member.id, nextRole);
+                      }}
+                      options={[
+                        { label: "Lead", value: "lead" },
+                        { label: "Member", value: "member" },
+                      ]}
+                      className={styles.memberRoleSelect}
+                    />
+                  ) : null}
+                  {canManageMemberRoles && !isYou && !isOwnerMember ? (
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() =>
+                        openRemoveMemberModal({ id: member.id, name: member.name })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                  {isYou ? <Badge color="gold" text="You" /> : null}
+                </div>
+              );
+            })}
+
+            {project.members.length < project.maxMembers ? (
+              <div className={styles.openSpots}>
+                {project.maxMembers - project.members.length} spots available
+              </div>
+            ) : null}
+          </Space>
+        </Card>
       ) : null}
 
       {activeTab === "spec" ? (

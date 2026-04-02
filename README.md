@@ -121,7 +121,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
   - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
 - Project collaboration upgrade:
-  - project details now use tabs (`Repo Safety + Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
+  - project details now use tabs (`Repo Safety`, `Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
   - project meetings support request/schedule/cancel, Jitsi joins, and per-member reminders
   - leads can remove project members with a required reason
   - non-lead members can log complaints to project lead(s)
@@ -171,6 +171,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
 - [Tasks Header Full-Width](docs/feature/tasks-header-full-width.md)
 - [Project Collaboration Tabs, Meetings, and Markdown Specs](docs/feature/project-collaboration-tabs-meetings-markdown.md)
+- [Project Detail Team Tab Split](docs/feature/project-detail-team-tab-split.md)
 
 ## Tenant Resolution Rules
 

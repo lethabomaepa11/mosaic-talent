@@ -27,3 +27,4 @@ Project documentation index.
 - [Public Developer Profiles and Project Visibility](feature/public-profiles-project-visibility.md)
 - [Tasks Header Full-Width](feature/tasks-header-full-width.md)
 - [Project Collaboration Tabs, Meetings, and Markdown Specs](feature/project-collaboration-tabs-meetings-markdown.md)
+- [Project Detail Team Tab Split](feature/project-detail-team-tab-split.md)
