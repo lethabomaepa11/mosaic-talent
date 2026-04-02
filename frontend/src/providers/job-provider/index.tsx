@@ -19,9 +19,11 @@ import {
   updateJobSuccess,
 } from "./actions";
 import {
+  IAIReportVisualizationResult,
   IAssessmentPromptResult,
   ICreateJobInput,
   IApplyToPublicJobInput,
+  IAIVisualizationChart,
   IJobAssessment,
   IJobCandidate,
   IJob,
@@ -327,6 +329,27 @@ const normalizeCandidateList = (input: unknown): IJobCandidate[] => {
   return input.map((candidate) => normalizeCandidate(candidate as Partial<IJobCandidate>));
 };
 
+const normalizeVisualizationChart = (input: Partial<IAIVisualizationChart>): IAIVisualizationChart => ({
+  id: String(input.id ?? ""),
+  title: input.title ?? "",
+  description: input.description ?? "",
+  optionJson: input.optionJson ?? "{}",
+});
+
+const normalizeVisualizationResult = (
+  input: Partial<IAIReportVisualizationResult>,
+): IAIReportVisualizationResult => ({
+  title: input.title ?? "",
+  summary: input.summary ?? "",
+  charts: Array.isArray(input.charts)
+    ? input.charts
+        .filter((item) => typeof item === "object" && item !== null)
+        .map((item) =>
+          normalizeVisualizationChart(item as Partial<IAIVisualizationChart>),
+        )
+    : [],
+});
+
 export const JobProvider = ({ children }: PropsWithChildren) => {
   const instance = getAxiosInstance();
   const [state, dispatch] = useReducer(JobReducer, INITIAL_STATE);
@@ -605,6 +628,25 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const generateReportVisualizationWithAi = async (input: {
+    prompt: string;
+    reportSnapshotJson: string;
+  }) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/GenerateReportVisualizationWithAi`, {
+        prompt: input.prompt,
+        reportSnapshotJson: input.reportSnapshotJson,
+      });
+      return normalizeVisualizationResult(
+        (res.data?.result ?? {}) as Partial<IAIReportVisualizationResult>,
+      );
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "AI visualization generation failed."),
+      );
+    }
+  };
+
   const applyToJob = async (
     jobId: string,
     payload?: { source?: number; resumeStoredFileId?: string },
@@ -658,6 +700,7 @@ export const JobProvider = ({ children }: PropsWithChildren) => {
           getMyJobsPageSettings,
           updateMyJobsPageSettings,
           generateMyJobsPageSettingsWithAi,
+          generateReportVisualizationWithAi,
           applyToJob,
           applyToPublicJob,
           updateApplicationStatus,
@@ -685,6 +728,8 @@ export const useJobAction = () => {
 
 export type {
   IApplyToPublicJobInput,
+  IAIReportVisualizationResult,
+  IAIVisualizationChart,
   ICreateJobInput,
   IAssessmentPromptResult,
   IJobCandidate,

@@ -128,5 +128,46 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     justify-content: center;
   `,
+  aiTabWrap: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginSM}px;
+  `,
+  aiPromptRow: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginSM}px;
+  `,
+  aiError: css`
+    margin-top: ${token.marginSM}px;
+  `,
+  aiSummary: css`
+    margin: ${token.marginSM}px 0 0 0 !important;
+    color: ${token.colorTextSecondary};
+  `,
+  aiLoadingWrap: css`
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `,
+  aiChartsGrid: css`
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: ${token.marginSM}px;
+
+    @media (min-width: 1200px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  `,
+  aiChartDescription: css`
+    margin: 0 0 ${token.marginSM}px 0 !important;
+    color: ${token.colorTextSecondary};
+  `,
+  aiChartCanvas: css`
+    width: 100%;
+    min-height: 300px;
+    height: 340px;
+  `,
 }));
 

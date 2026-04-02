@@ -81,6 +81,19 @@ export interface IAssessmentPromptResult {
   }>;
 }
 
+export interface IAIVisualizationChart {
+  id: string;
+  title: string;
+  description: string;
+  optionJson: string;
+}
+
+export interface IAIReportVisualizationResult {
+  title: string;
+  summary: string;
+  charts: IAIVisualizationChart[];
+}
+
 export interface IJobAssessmentProblem {
   id: string;
   title: string;
@@ -197,6 +210,10 @@ export interface IJobActionContext {
   getMyJobsPageSettings: () => Promise<IPublicJobsPage | undefined>;
   updateMyJobsPageSettings: (input: IUpdateJobsPageSettingsInput) => Promise<IPublicJobsPage | undefined>;
   generateMyJobsPageSettingsWithAi: (prompt: string) => Promise<IPublicJobsPage | undefined>;
+  generateReportVisualizationWithAi: (input: {
+    prompt: string;
+    reportSnapshotJson: string;
+  }) => Promise<IAIReportVisualizationResult>;
   applyToJob: (jobId: string, payload?: { source?: number; resumeStoredFileId?: string }) => Promise<IJobApplication | undefined>;
   applyToPublicJob: (input: IApplyToPublicJobInput) => Promise<IJobApplication | undefined>;
   updateApplicationStatus: (jobApplicationId: string, status: number) => Promise<IJobApplication | undefined>;
@@ -231,6 +248,11 @@ export const JobActionContext = createContext<IJobActionContext>({
   getMyJobsPageSettings: async () => undefined,
   updateMyJobsPageSettings: async () => undefined,
   generateMyJobsPageSettingsWithAi: async () => undefined,
+  generateReportVisualizationWithAi: async () => ({
+    title: "",
+    summary: "",
+    charts: [],
+  }),
   applyToJob: async () => undefined,
   applyToPublicJob: async () => undefined,
   updateApplicationStatus: async () => undefined,

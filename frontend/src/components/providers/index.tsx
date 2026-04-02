@@ -22,8 +22,27 @@ import {
 } from "@/providers/tenant-provider";
 import { AntdProvider } from "./antd-provider";
 import { AntdToastViewport } from "./antd-toast";
+import { PageTransitionGate } from "@/components/page-transition";
+import { ProgressProvider } from "@bprogress/next/app";
 
 export { toast } from "./antd-toast";
+
+const AppProgressProvider = ({ children }: PropsWithChildren) => {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+    return <>{children}</>;
+  }
+
+  return (
+    <ProgressProvider
+      height="3px"
+      color="#D4AF37"
+      options={{ showSpinner: false }}
+      shallowRouting
+    >
+      {children}
+    </ProgressProvider>
+  );
+};
 
 const TenantBootstrap = ({ children }: PropsWithChildren) => {
   const { resolveTenant } = useTenantResolutionAction();
@@ -85,10 +104,13 @@ export function AppProviders({ children }: PropsWithChildren) {
                           <NotificationProvider>
                             <SimulationProvider>
                               <AppOperatorProvider>
-                                <AntdProvider>
-                                  <AntdToastViewport />
-                                  {children}
-                                </AntdProvider>
+                                <AppProgressProvider>
+                                  <AntdProvider>
+                                    <PageTransitionGate />
+                                    <AntdToastViewport />
+                                    {children}
+                                  </AntdProvider>
+                                </AppProgressProvider>
                               </AppOperatorProvider>
                             </SimulationProvider>
                           </NotificationProvider>
