@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  deleteProjectPending,
   fetchMyProjectsSuccess,
   fetchOpenProjectsSuccess,
   leaveProjectPending,
+  removeProjectMemberPending,
+  submitComplaintPending,
 } from "../actions";
 import { INITIAL_STATE } from "../context";
 import type { IProject } from "../context";
@@ -41,6 +44,21 @@ describe("ProjectReducer", () => {
 
   it("sets pending state when leaving project", () => {
     const state = ProjectReducer(INITIAL_STATE, leaveProjectPending());
+    expect(state.isPending).toBe(true);
+  });
+
+  it("sets pending state when deleting project", () => {
+    const state = ProjectReducer(INITIAL_STATE, deleteProjectPending());
+    expect(state.isPending).toBe(true);
+  });
+
+  it("sets pending state when removing a project member", () => {
+    const state = ProjectReducer(INITIAL_STATE, removeProjectMemberPending());
+    expect(state.isPending).toBe(true);
+  });
+
+  it("sets pending state when submitting a complaint", () => {
+    const state = ProjectReducer(INITIAL_STATE, submitComplaintPending());
     expect(state.isPending).toBe(true);
   });
 });

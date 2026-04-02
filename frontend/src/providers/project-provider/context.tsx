@@ -252,6 +252,16 @@ export interface IProjectActionContext {
     confirmHighWorkload?: boolean,
   ) => Promise<IProject | undefined>;
   leaveProject: (projectId: string, reason: string) => Promise<IProject | undefined>;
+  deleteProject: (projectId: string) => Promise<void>;
+  removeProjectMember: (
+    projectId: string,
+    memberId: string,
+    reason: string,
+  ) => Promise<IProject | undefined>;
+  submitProjectComplaint: (
+    projectId: string,
+    complaint: string,
+  ) => Promise<void>;
   assignMemberRole: (
     projectId: string,
     memberId: string,
@@ -343,6 +353,9 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   getJoinProjectLoadWarning: async () => undefined,
   joinProject: async () => undefined,
   leaveProject: async () => undefined,
+  deleteProject: async () => undefined,
+  removeProjectMember: async () => undefined,
+  submitProjectComplaint: async () => undefined,
   assignMemberRole: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,

@@ -22,6 +22,15 @@ import {
   createProjectError,
   createProjectPending,
   createProjectSuccess,
+  deleteProjectError,
+  deleteProjectPending,
+  deleteProjectSuccess,
+  removeProjectMemberError,
+  removeProjectMemberPending,
+  removeProjectMemberSuccess,
+  submitComplaintError,
+  submitComplaintPending,
+  submitComplaintSuccess,
   fetchMyProjectsError,
   fetchMyProjectsPending,
   fetchMyProjectsSuccess,
@@ -501,6 +510,60 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const deleteProject = async (projectId: string) => {
+    dispatch(deleteProjectPending());
+
+    try {
+      await instance.delete(`${ENDPOINT}/DeleteProject`, {
+        params: { projectId },
+      });
+      dispatch(deleteProjectSuccess());
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+    } catch (error) {
+      dispatch(deleteProjectError());
+      throw new Error(readApiErrorMessage(error, "Failed to delete project."));
+    }
+  };
+
+  const removeProjectMember = async (
+    projectId: string,
+    memberId: string,
+    reason: string,
+  ) => {
+    dispatch(removeProjectMemberPending());
+
+    try {
+      const res = await instance.post(`${ENDPOINT}/RemoveProjectMember`, {
+        projectId,
+        memberId,
+        reason,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(removeProjectMemberSuccess());
+      dispatch(fetchProjectSuccess(project));
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      dispatch(removeProjectMemberError());
+      throw new Error(readApiErrorMessage(error, "Failed to remove member."));
+    }
+  };
+
+  const submitProjectComplaint = async (projectId: string, complaint: string) => {
+    dispatch(submitComplaintPending());
+
+    try {
+      await instance.post(`${ENDPOINT}/SubmitProjectComplaint`, {
+        projectId,
+        complaint,
+      });
+      dispatch(submitComplaintSuccess());
+    } catch (error) {
+      dispatch(submitComplaintError());
+      throw new Error(readApiErrorMessage(error, "Failed to submit complaint."));
+    }
+  };
+
   const assignMemberRole = async (
     projectId: string,
     memberId: string,
@@ -793,6 +856,9 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           getJoinProjectLoadWarning,
           joinProject,
           leaveProject,
+          deleteProject,
+          removeProjectMember,
+          submitProjectComplaint,
           assignMemberRole,
           aiMatchProject,
           aiFillTeam,

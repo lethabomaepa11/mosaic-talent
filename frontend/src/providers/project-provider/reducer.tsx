@@ -81,6 +81,42 @@ export const ProjectReducer = handleActions<
       ...state,
       ...payload,
     }),
+    [ProjectStateEnums.PROJECT_DELETE_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_DELETE_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_DELETE_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_REMOVE_MEMBER_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_REMOVE_MEMBER_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_REMOVE_MEMBER_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_COMPLAINT_PENDING]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_COMPLAINT_SUCCESS]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
+    [ProjectStateEnums.PROJECT_COMPLAINT_ERROR]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
     [ProjectStateEnums.PROJECT_ASSIGN_ROLE_PENDING]: (state, { payload }) => ({
       ...state,
       ...payload,

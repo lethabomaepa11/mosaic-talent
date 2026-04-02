@@ -19,6 +19,8 @@ Project documentation index.
 - [Assessment Submission Task/File Processing](feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](feature/repo-safety-scan.md)
+- [Project Delete Restricted To Sole Member](feature/project-delete-sole-member-only.md)
+- [Project Member Moderation And Complaints](feature/project-member-moderation-and-complaints.md)
 - [AI Learning Path Recommendations](feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](feature/gamification-badges-points-levels.md)
 - [Global Search](feature/global-search.md)

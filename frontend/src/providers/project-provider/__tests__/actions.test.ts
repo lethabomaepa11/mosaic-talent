@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  deleteProjectPending,
+  deleteProjectSuccess,
   fetchMyProjectsSuccess,
   fetchOpenProjectsSuccess,
   leaveProjectPending,
   ProjectStateEnums,
+  removeProjectMemberPending,
+  submitComplaintPending,
 } from "../actions";
 import type { IProject } from "../context";
 
@@ -45,6 +49,34 @@ describe("project actions", () => {
 
     expect(leaveProjectPending()).toMatchObject({
       type: ProjectStateEnums.PROJECT_LEAVE_PENDING,
+      payload: {
+        isPending: true,
+      },
+    });
+
+    expect(deleteProjectPending()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_DELETE_PENDING,
+      payload: {
+        isPending: true,
+      },
+    });
+
+    expect(deleteProjectSuccess()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_DELETE_SUCCESS,
+      payload: {
+        isSuccess: true,
+      },
+    });
+
+    expect(removeProjectMemberPending()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_REMOVE_MEMBER_PENDING,
+      payload: {
+        isPending: true,
+      },
+    });
+
+    expect(submitComplaintPending()).toMatchObject({
+      type: ProjectStateEnums.PROJECT_COMPLAINT_PENDING,
       payload: {
         isPending: true,
       },
