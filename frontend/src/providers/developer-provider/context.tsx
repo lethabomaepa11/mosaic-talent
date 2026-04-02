@@ -15,7 +15,7 @@ export interface IDeveloperProfile {
   studyLevel: number;
   bio?: string;
   location?: string;
-  teamworkRating: number;
+  teamworkRating?: number;
   skills: string[];
   goals: string[];
 }

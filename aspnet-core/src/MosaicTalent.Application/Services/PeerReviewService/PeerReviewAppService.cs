@@ -9,6 +9,7 @@ using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
 using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.GamificationService.DTO;
+using MosaicTalent.Services.DeveloperOnboardingService;
 using MosaicTalent.Services.NotificationChannelService;
 using MosaicTalent.Services.PeerReviewService.DTO;
 using System;
@@ -34,6 +35,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
     private readonly IPeerReviewGenerationService _generationService;
     private readonly INotificationEventDispatcher _notificationEventDispatcher;
     private readonly IDeveloperGamificationService _developerGamificationService;
+    private readonly ITeamworkRatingService _teamworkRatingService;
 
     public PeerReviewAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -46,7 +48,8 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         IRepository<AIReviewFeedback, Guid> feedbackRepository,
         IPeerReviewGenerationService generationService,
         INotificationEventDispatcher notificationEventDispatcher,
-        IDeveloperGamificationService developerGamificationService)
+        IDeveloperGamificationService developerGamificationService,
+        ITeamworkRatingService teamworkRatingService)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -59,6 +62,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         _generationService = generationService;
         _notificationEventDispatcher = notificationEventDispatcher;
         _developerGamificationService = developerGamificationService;
+        _teamworkRatingService = teamworkRatingService;
     }
 
     public async Task<List<ProjectPeerReviewsDto>> GetMyProjectPeerReviews()
@@ -123,6 +127,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         review.Rating = Math.Max(1, Math.Min(10, input.Rating));
         await _peerReviewRepository.UpdateAsync(review);
         await CurrentUnitOfWork.SaveChangesAsync();
+        await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, review.RevieweeDeveloperId);
 
         var dto = await BuildPeerReviewDto(review);
         dto.GamificationReward = await _developerGamificationService.AwardAsync(

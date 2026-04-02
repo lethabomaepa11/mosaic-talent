@@ -31,6 +31,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
     private readonly IRepository<ProjectSkill, Guid> _projectSkillRepository;
     private readonly IGroqChatService _groqChatService;
     private readonly IDeveloperGamificationService _developerGamificationService;
+    private readonly ITeamworkRatingService _teamworkRatingService;
 
     public DeveloperOnboardingAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -42,7 +43,8 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         IRepository<ProjectMember, Guid> projectMemberRepository,
         IRepository<ProjectSkill, Guid> projectSkillRepository,
         IGroqChatService groqChatService,
-        IDeveloperGamificationService developerGamificationService)
+        IDeveloperGamificationService developerGamificationService,
+        ITeamworkRatingService teamworkRatingService)
     {
         _developerRepository = developerRepository;
         _profileRepository = profileRepository;
@@ -54,6 +56,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         _projectSkillRepository = projectSkillRepository;
         _groqChatService = groqChatService;
         _developerGamificationService = developerGamificationService;
+        _teamworkRatingService = teamworkRatingService;
     }
 
     [AbpAllowAnonymous]
@@ -94,6 +97,14 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
 
         var profile = await _profileRepository.GetAll()
             .FirstOrDefaultAsync(x => x.DeveloperId == developer.Id);
+
+        var tenantId = AbpSession.TenantId;
+        if (profile != null)
+        {
+            await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, developer.Id);
+            profile = await _profileRepository.GetAll()
+                .FirstOrDefaultAsync(x => x.DeveloperId == developer.Id);
+        }
 
         var skills = profile == null
             ? new List<string>()
@@ -281,6 +292,14 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         var profile = await _profileRepository.GetAll()
             .FirstOrDefaultAsync(x => x.DeveloperId == developer.Id);
 
+        var tenantId = AbpSession.TenantId;
+        if (profile != null)
+        {
+            await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, developer.Id);
+            profile = await _profileRepository.GetAll()
+                .FirstOrDefaultAsync(x => x.DeveloperId == developer.Id);
+        }
+
         var skills = profile == null
             ? new List<string>()
             : await _profileSkillRepository.GetAll()
@@ -389,7 +408,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
                 DeveloperId = developer.Id,
                 Bio = input.Bio,
                 Location = input.Location,
-                TeamworkRating = input.TeamworkRating,
+                TeamworkRating = 0,
             };
             await _profileRepository.InsertAsync(profile);
             await CurrentUnitOfWork.SaveChangesAsync();
@@ -398,7 +417,6 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         {
             profile.Bio = input.Bio;
             profile.Location = input.Location;
-            profile.TeamworkRating = input.TeamworkRating;
             await _profileRepository.UpdateAsync(profile);
         }
 
@@ -488,6 +506,9 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         }
 
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, developer.Id);
 
         return await GetMyProfile();
     }

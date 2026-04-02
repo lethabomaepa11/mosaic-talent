@@ -110,6 +110,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     border-radius: ${token.borderRadius}px;
     background: ${token.colorFillTertiary};
   `,
+  readOnlyRating: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+    margin-top: ${token.marginXXS}px;
+    padding: ${token.paddingSM}px;
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorFillTertiary};
+  `,
   scanCard: css`
     border-radius: ${token.borderRadiusLG}px;
     border: 1px solid ${token.colorSuccessBorder};

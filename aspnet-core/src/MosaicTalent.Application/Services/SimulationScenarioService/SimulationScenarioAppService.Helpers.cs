@@ -287,7 +287,15 @@ public partial class SimulationScenarioAppService
             Content = botReply,
         });
 
-        await CreateAssessorObservation(tenantId, session.Id, messages.Count + 1, triggerText, botReply);
+        var shouldScoreTurn =
+            !string.Equals(triggerText, "Meeting kickoff", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(triggerText, "Session kickoff", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(triggerText, "Meeting progression", StringComparison.OrdinalIgnoreCase);
+
+        if (shouldScoreTurn)
+        {
+            await CreateAssessorObservation(tenantId, session.Id, messages.Count + 1, triggerText, botReply);
+        }
     }
 
     private async Task CreateAssessorObservation(int tenantId, Guid sessionId, int turnIndex, string userMessage, string botReply)

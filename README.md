@@ -84,6 +84,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
   - project-level AI feedback summary + strengths/improvements/tips + growth score
+- Teamwork rating governance:
+  - teamwork rating is system-managed (not user-editable)
+  - rating is derived from peer reviews and AI simulation performance
 - Company jobs:
   - company admin job posting management in `/app/jobs`
   - developer + public job applications with source + lifecycle status
@@ -188,6 +191,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Company Job Social Share + Copy Link](docs/feature/company-job-social-share.md)
 - [Peer Reviews Project Flow + Anonymous Reviews](docs/feature/peer-reviews-project-flow-anonymous.md)
 - [Profile AI Skill and Goal Suggestions](docs/feature/profile-ai-skill-goal-suggestions.md)
+- [Teamwork Rating System-Managed](docs/feature/teamwork-rating-system-managed.md)
 
 ## Tenant Resolution Rules
 

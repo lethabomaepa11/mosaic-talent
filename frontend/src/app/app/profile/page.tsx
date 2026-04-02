@@ -26,7 +26,6 @@ import {
   Progress,
   Row,
   Select,
-  Slider,
   Space,
   Spin,
   Tag,
@@ -369,7 +368,6 @@ const ProfilePage = () => {
         studyLevel: draft.studyLevel,
         bio: draft.bio,
         location: draft.location,
-        teamworkRating: draft.teamworkRating,
         skills: draft.skills,
         goals: draft.goals,
       });
@@ -414,7 +412,6 @@ const ProfilePage = () => {
             studyLevel: nextDraft.studyLevel,
             bio: nextDraft.bio,
             location: nextDraft.location,
-            teamworkRating: nextDraft.teamworkRating,
             skills: nextDraft.skills,
             goals: nextDraft.goals,
           });
@@ -665,20 +662,16 @@ const ProfilePage = () => {
                       </div>
                       <div className={styles.fullSpan}>
                         <Typography.Text type="secondary">
-                          Teamwork Rating ({draft.teamworkRating.toFixed(1)})
+                          Teamwork Rating (System-calculated)
                         </Typography.Text>
-                        <Slider
-                          min={0}
-                          max={10}
-                          step={0.1}
-                          value={draft.teamworkRating}
-                          onChange={(value) =>
-                            setDraft((prev) => ({
-                              ...prev,
-                              teamworkRating: value,
-                            }))
-                          }
-                        />
+                        <div className={styles.readOnlyRating}>
+                          <Typography.Text strong>
+                            {draft.teamworkRating.toFixed(1)}/10
+                          </Typography.Text>
+                          <Typography.Text type="secondary">
+                            Updated from AI simulation performance and peer reviews.
+                          </Typography.Text>
+                        </div>
                       </div>
                     </div>
                   </Card>
