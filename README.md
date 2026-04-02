@@ -194,6 +194,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Teamwork Rating System-Managed](docs/feature/teamwork-rating-system-managed.md)
 - [GitHub Identity Lock And Scan Flow Update](docs/feature/github-identity-lock-and-scan-flow-update.md)
 - [Ask Moahi Role-Scoped Actions](docs/feature/moahi-role-scoped-actions.md)
+- [Company Dashboard Uses Reports](docs/feature/company-dashboard-uses-reports.md)
 
 ## Tenant Resolution Rules
 

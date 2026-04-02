@@ -100,7 +100,7 @@ const isIntentAllowedForRole = (intent: IAppOperatorIntent, role: AppOperatorUse
 
 const roleSpecificCapabilityHint = (role: AppOperatorUserRole) => {
   if (role === "company") {
-    return "I can help with jobs, reports, candidate workflows, and company settings.";
+    return "I can help with jobs, dashboard analytics, candidate workflows, and company settings.";
   }
 
   return "I can help with projects, peer reviews, simulator actions, and profile updates.";
