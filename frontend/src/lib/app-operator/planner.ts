@@ -4,7 +4,11 @@ import { AxiosInstance } from "axios";
 import { APP_ACTION_REGISTRY } from "./actionRegistry";
 import { parseOperatorCommand } from "./intentParser";
 import { APP_ROUTE_REGISTRY } from "./routeRegistry";
-import { AppOperatorIntentType, IAppOperatorIntent } from "./types";
+import {
+  AppOperatorIntentType,
+  AppOperatorUserRole,
+  IAppOperatorIntent,
+} from "./types";
 
 const OPERATOR_PLANNER_ENDPOINT = "/api/services/app/AppOperator/Plan";
 
@@ -32,6 +36,86 @@ const SUPPORTED_INTENT_TYPES: AppOperatorIntentType[] = [
 ];
 
 const SUPPORTED_MODES = ["execute", "chat", "guided"] as const;
+
+const hasRoleAccess = (
+  roles: Array<AppOperatorUserRole | "all">,
+  role: AppOperatorUserRole,
+) => roles.includes("all") || roles.includes(role);
+
+const isRouteAllowedForRole = (
+  routeKey: string | undefined,
+  role: AppOperatorUserRole,
+) => {
+  if (!routeKey) {
+    return true;
+  }
+
+  const route = APP_ROUTE_REGISTRY[routeKey];
+  if (!route) {
+    return false;
+  }
+
+  return hasRoleAccess(route.roles, role);
+};
+
+const isRoutePathAllowedForRole = (path: string | undefined, role: AppOperatorUserRole) => {
+  if (!path) {
+    return true;
+  }
+
+  const route = Object.values(APP_ROUTE_REGISTRY).find((entry) => entry.path === path);
+  if (!route) {
+    return true;
+  }
+
+  return hasRoleAccess(route.roles, role);
+};
+
+const isActionAllowedForRole = (
+  actionKey: string | undefined,
+  role: AppOperatorUserRole,
+) => {
+  if (!actionKey) {
+    return false;
+  }
+
+  const action = APP_ACTION_REGISTRY[actionKey];
+  if (!action) {
+    return false;
+  }
+
+  return hasRoleAccess(action.roles, role) && isRouteAllowedForRole(action.routeKey, role);
+};
+
+const isIntentAllowedForRole = (intent: IAppOperatorIntent, role: AppOperatorUserRole) => {
+  if (intent.type === "navigate") {
+    return (
+      isRouteAllowedForRole(intent.routeKey, role) &&
+      isRoutePathAllowedForRole(intent.params.route, role)
+    );
+  }
+
+  return isActionAllowedForRole(intent.type, role);
+};
+
+const roleSpecificCapabilityHint = (role: AppOperatorUserRole) => {
+  if (role === "company") {
+    return "I can help with jobs, reports, candidate workflows, and company settings.";
+  }
+
+  return "I can help with projects, peer reviews, simulator actions, and profile updates.";
+};
+
+const buildRoleRestrictedReply = (
+  blockedIntent: IAppOperatorIntent,
+  role: AppOperatorUserRole,
+) => {
+  if (blockedIntent.type === "navigate") {
+    return `That page is not available for your account type. ${roleSpecificCapabilityHint(role)}`;
+  }
+
+  return `That action is not available for your account type. ${roleSpecificCapabilityHint(role)}`;
+};
 
 export type AppOperatorPlanningSource = "groq" | "fallback";
 export type AppOperatorPlanMode = (typeof SUPPORTED_MODES)[number];
@@ -187,23 +271,35 @@ const normalizeSteps = (value: unknown) => {
   return mapped.slice(0, 8);
 };
 
-const buildPayload = (command: string, currentPath: string): IPlannerPayload => ({
+const buildPayload = (
+  command: string,
+  currentPath: string,
+  role: AppOperatorUserRole,
+): IPlannerPayload => ({
   command,
   currentPath,
-  routes: Object.values(APP_ROUTE_REGISTRY).map((route) => ({
-    key: route.key,
-    path: route.path,
-    label: route.label,
-  })),
-  actions: Object.values(APP_ACTION_REGISTRY).map((action) => ({
-    id: action.id,
-    name: action.name,
-    description: action.description,
-    routeKey: action.routeKey,
-    requiredInputs: action.requiredInputs,
-    optionalInputs: action.optionalInputs,
-    requiresConfirmation: action.requiresConfirmation,
-  })),
+  routes: Object.values(APP_ROUTE_REGISTRY)
+    .filter((route) => hasRoleAccess(route.roles, role))
+    .map((route) => ({
+      key: route.key,
+      path: route.path,
+      label: route.label,
+    })),
+  actions: Object.values(APP_ACTION_REGISTRY)
+    .filter(
+      (action) =>
+        hasRoleAccess(action.roles, role) &&
+        isRouteAllowedForRole(action.routeKey, role),
+    )
+    .map((action) => ({
+      id: action.id,
+      name: action.name,
+      description: action.description,
+      routeKey: action.routeKey,
+      requiredInputs: action.requiredInputs,
+      optionalInputs: action.optionalInputs,
+      requiresConfirmation: action.requiresConfirmation,
+    })),
 });
 
 const normalizePlannedIntent = (
@@ -346,6 +442,26 @@ const buildFallbackReply = (command: string, intent: IAppOperatorIntent) => {
   return "I can help with this and execute it for you when you're ready.";
 };
 
+const buildRoleRestrictedPlanning = (
+  blockedIntent: IAppOperatorIntent,
+  role: AppOperatorUserRole,
+): IAppOperatorPlanningResult =>
+  toPlanningResult(
+    "fallback",
+    "chat",
+    {
+      type: "navigate",
+      rawCommand: blockedIntent.rawCommand,
+      routeKey: "dashboard",
+      params: { route: APP_ROUTE_REGISTRY.dashboard.path },
+      missingRequired: [],
+      requiresConfirmation: false,
+    },
+    buildRoleRestrictedReply(blockedIntent, role),
+    false,
+    [],
+  );
+
 const toPlanningResult = (
   source: AppOperatorPlanningSource,
   mode: AppOperatorPlanMode,
@@ -365,7 +481,12 @@ const toPlanningResult = (
 const buildFallbackPlanning = (
   command: string,
   fallbackIntent: IAppOperatorIntent,
+  role: AppOperatorUserRole,
 ): IAppOperatorPlanningResult => {
+  if (!isIntentAllowedForRole(fallbackIntent, role)) {
+    return buildRoleRestrictedPlanning(fallbackIntent, role);
+  }
+
   const howTo = looksLikeHowTo(command);
   const mode: AppOperatorPlanMode = howTo
     ? looksLikeGuided(command)
@@ -388,15 +509,20 @@ export const planOperatorIntent = async (
   instance: AxiosInstance,
   command: string,
   currentPath: string,
+  role: AppOperatorUserRole = "developer",
 ): Promise<IAppOperatorPlanningResult> => {
   const fallbackIntent = parseOperatorCommand(command);
-  const payload = buildPayload(command, currentPath);
+  if (!isIntentAllowedForRole(fallbackIntent, role)) {
+    return buildRoleRestrictedPlanning(fallbackIntent, role);
+  }
+
+  const payload = buildPayload(command, currentPath, role);
 
   try {
     const response = await instance.post(OPERATOR_PLANNER_ENDPOINT, payload);
     const candidate = response?.data?.result;
     if (!isRecord(candidate)) {
-      return buildFallbackPlanning(command, fallbackIntent);
+      return buildFallbackPlanning(command, fallbackIntent, role);
     }
 
     const mode = toMode(readCaseInsensitive(candidate, "mode")) ?? "execute";
@@ -411,6 +537,10 @@ export const planOperatorIntent = async (
           ? buildDefaultStepsFromIntent(plannedIntent)
           : [];
 
+    if (!isIntentAllowedForRole(plannedIntent, role)) {
+      return buildRoleRestrictedPlanning(plannedIntent, role);
+    }
+
     return toPlanningResult(
       "groq",
       mode,
@@ -420,6 +550,6 @@ export const planOperatorIntent = async (
       steps,
     );
   } catch {
-    return buildFallbackPlanning(command, fallbackIntent);
+    return buildFallbackPlanning(command, fallbackIntent, role);
   }
 };

@@ -2,6 +2,7 @@
 
 import { PropsWithChildren, useContext, useMemo, useReducer } from "react";
 import { planOperatorIntent } from "@/lib/app-operator/planner";
+import { AppOperatorUserRole } from "@/lib/app-operator/types";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import {
   addAssistantMessage,
@@ -42,8 +43,12 @@ export const AppOperatorProvider = ({ children }: PropsWithChildren) => {
       setConfirmation: (confirmation?: IOperatorPendingConfirmation) =>
         dispatch(setConfirmation(confirmation)),
       clearHistory: () => dispatch(clearHistory()),
-      planCommand: (command: string, currentPath: string) =>
-        planOperatorIntent(instance, command, currentPath),
+      planCommand: (
+        command: string,
+        currentPath: string,
+        role?: AppOperatorUserRole,
+      ) =>
+        planOperatorIntent(instance, command, currentPath, role),
     }),
     [instance],
   );
