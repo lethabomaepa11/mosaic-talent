@@ -13,7 +13,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
+import { Menu, Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useAppearanceAction,
@@ -40,10 +40,11 @@ interface IAppHeaderProps {
 export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
-  const [developerResults, setDeveloperResults] = useState<IDeveloperSearchResult[]>(
-    [],
-  );
-  const [isDeveloperSearchPending, setIsDeveloperSearchPending] = useState(false);
+  const [developerResults, setDeveloperResults] = useState<
+    IDeveloperSearchResult[]
+  >([]);
+  const [isDeveloperSearchPending, setIsDeveloperSearchPending] =
+    useState(false);
 
   const { styles } = useStyles();
   const { mode } = useAppearanceState();
@@ -136,7 +137,7 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
   const normalizedSearch = searchValue.trim().toLowerCase();
 
   const combinedProjects = useMemo(() => {
-    const map = new Map<string, typeof myProjects[number]>();
+    const map = new Map<string, (typeof myProjects)[number]>();
     myProjects.forEach((project) => map.set(project.id, project));
     openProjects.forEach((project) => map.set(project.id, project));
     return Array.from(map.values());
@@ -151,7 +152,8 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
         const title = project.title.toLowerCase();
         const description = project.description.toLowerCase();
         return (
-          title.includes(normalizedSearch) || description.includes(normalizedSearch)
+          title.includes(normalizedSearch) ||
+          description.includes(normalizedSearch)
         );
       })
       .slice(0, 6);
@@ -162,12 +164,16 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       return [];
     }
     return scenarios
-      .filter((scenario) => scenario.title.toLowerCase().includes(normalizedSearch))
+      .filter((scenario) =>
+        scenario.title.toLowerCase().includes(normalizedSearch),
+      )
       .slice(0, 6);
   }, [scenarios, normalizedSearch]);
 
   const hasAnyResults =
-    developerResults.length > 0 || projectMatches.length > 0 || scenarioMatches.length > 0;
+    developerResults.length > 0 ||
+    projectMatches.length > 0 ||
+    scenarioMatches.length > 0;
 
   const autocompleteOptions = useMemo(() => {
     const groups = [];
@@ -180,7 +186,8 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
           label: (
             <Space align="center" className={styles.searchOption}>
               <Avatar size={28} src={result.avatarUrl || undefined}>
-                {result.displayName?.slice(0, 2).toUpperCase() || result.userName.slice(0, 2).toUpperCase()}
+                {result.displayName?.slice(0, 2).toUpperCase() ||
+                  result.userName.slice(0, 2).toUpperCase()}
               </Avatar>
               <div>
                 <Typography.Text strong>
@@ -188,7 +195,9 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
                 </Typography.Text>
                 <Typography.Text type="secondary">
                   @{result.userName}
-                  {result.skillTags.length > 0 ? ` · ${result.skillTags.join(", ")}` : ""}
+                  {result.skillTags.length > 0
+                    ? ` · ${result.skillTags.join(", ")}`
+                    : ""}
                 </Typography.Text>
               </div>
             </Space>
@@ -209,7 +218,8 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
                 <div>
                   <Tag color="blue">{project.status}</Tag>
                   <Typography.Text type="secondary">
-                    {project.skills.slice(0, 3).join(", ") || "No skills listed"}
+                    {project.skills.slice(0, 3).join(", ") ||
+                      "No skills listed"}
                   </Typography.Text>
                 </div>
               </div>
@@ -239,12 +249,7 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
     }
 
     return groups;
-  }, [
-    developerResults,
-    projectMatches,
-    scenarioMatches,
-    styles.searchOption,
-  ]);
+  }, [developerResults, projectMatches, scenarioMatches, styles.searchOption]);
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
@@ -292,18 +297,6 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       {
         type: "divider",
       },
-      {
-        key: "profile",
-        label: "Profile Settings",
-      },
-      {
-        key: "notifications",
-        label: "Notifications",
-      },
-      {
-        key: "support",
-        label: "Help & Support",
-      },
     ],
     [
       displayName,
@@ -326,8 +319,14 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
           popupMatchSelectWidth={320}
           notFoundContent={
             normalizedSearch && !isDeveloperSearchPending && !hasAnyResults ? (
-              <Space direction="vertical" align="center" style={{ padding: 16 }}>
-                <Typography.Text type="secondary">No matches found</Typography.Text>
+              <Space
+                direction="vertical"
+                align="center"
+                style={{ padding: 16 }}
+              >
+                <Typography.Text type="secondary">
+                  No matches found
+                </Typography.Text>
               </Space>
             ) : null
           }
@@ -336,7 +335,9 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
             prefix={<Search size={16} />}
             placeholder="Search projects, reviews, simulations..."
             className={styles.searchInput}
-            suffix={isDeveloperSearchPending ? <Spin size="small" /> : undefined}
+            suffix={
+              isDeveloperSearchPending ? <Spin size="small" /> : undefined
+            }
           />
         </AutoComplete>
       </div>
@@ -363,14 +364,6 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
           onClick={toggleMode}
         />
 
-        <Button
-          type="text"
-          shape="circle"
-          icon={<Settings size={18} />}
-          className={styles.iconButton}
-          aria-label="Settings"
-        />
-
         <Dropdown
           trigger={["click"]}
           menu={{ items: menuItems }}
@@ -382,7 +375,11 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
             className={styles.avatarButton}
             aria-label="User menu"
           >
-            <Avatar size={30} src={selectedAvatarUrl || undefined} className={styles.avatar}>
+            <Avatar
+              size={30}
+              src={selectedAvatarUrl || undefined}
+              className={styles.avatar}
+            >
               {initials}
             </Avatar>
           </Button>

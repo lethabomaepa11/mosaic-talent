@@ -4,6 +4,14 @@ export const useStyles = createStyles(({ token, css }) => ({
   page: css`
     display: grid;
     gap: ${token.marginLG}px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+
+    > * {
+      min-width: 0;
+    }
   `,
   backButton: css`
     width: fit-content;
@@ -17,6 +25,19 @@ export const useStyles = createStyles(({ token, css }) => ({
       flex-direction: row;
       justify-content: space-between;
       align-items: flex-start;
+    }
+  `,
+  headerContent: css`
+    min-width: 0;
+    width: 100%;
+  `,
+  headerPrimaryActions: css`
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: ${token.marginSM}px;
+
+    @media (min-width: 992px) {
+      justify-content: flex-end;
     }
   `,
   titleRow: css`
@@ -69,6 +90,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-wrap: wrap;
     gap: ${token.marginXS}px;
+    min-width: 0;
   `,
   repoLink: css`
     display: inline-flex;
@@ -138,6 +160,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginMD}px;
   `,
   tabs: css`
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+
     :global(.ant-tabs-nav) {
       margin-bottom: ${token.marginSM}px;
     }
@@ -147,23 +174,57 @@ export const useStyles = createStyles(({ token, css }) => ({
       transition: all 0.2s ease;
     }
 
+    :global(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab) {
+      border-radius: ${token.borderRadiusLG}px ${token.borderRadiusLG}px 0 0;
+      border-color: ${token.colorBorderSecondary};
+      background: ${token.colorBgContainer};
+      margin-right: ${token.marginXXS}px;
+    }
+
+    :global(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active) {
+      border-color: color-mix(in srgb, ${token.colorPrimary} 38%, ${token.colorBorder});
+      background: color-mix(in srgb, ${token.colorPrimaryBg} 55%, ${token.colorBgContainer});
+    }
+
+    :global(.ant-tabs-card > .ant-tabs-content-holder) {
+      border: none;
+    }
+
     @media (max-width: 767px) {
+      :global(.ant-tabs-nav) {
+        max-width: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
       :global(.ant-tabs-nav-wrap) {
         overflow-x: auto;
+        overflow-y: hidden;
         scrollbar-width: thin;
         -webkit-overflow-scrolling: touch;
       }
 
       :global(.ant-tabs-nav-list) {
+        display: flex;
+        flex-wrap: nowrap;
         width: max-content;
         min-width: max-content;
       }
 
       :global(.ant-tabs-tab) {
+        flex: 0 0 auto;
         margin: 0 ${token.marginXXS}px 0 0;
         padding: 8px ${token.paddingSM}px;
         border: 1px solid ${token.colorBorderSecondary};
         background: ${token.colorBgContainer};
+      }
+
+      :global(.ant-tabs-nav-operations) {
+        display: none;
+      }
+
+      :global(.ant-tabs-content-holder) {
+        min-width: 0;
       }
 
       :global(.ant-tabs-tab-btn) {
@@ -175,6 +236,34 @@ export const useStyles = createStyles(({ token, css }) => ({
         border-color: color-mix(in srgb, ${token.colorPrimary} 50%, ${token.colorBorder});
         background: color-mix(in srgb, ${token.colorPrimaryBg} 65%, ${token.colorBgContainer});
       }
+    }
+  `,
+  tabLabel: css`
+    display: inline-flex;
+    align-items: center;
+    gap: ${token.marginXXS}px;
+  `,
+  tabIcon: css`
+    display: inline-flex;
+    align-items: center;
+    color: ${token.colorTextSecondary};
+
+    @media (max-width: 767px) {
+      color: ${token.colorPrimary};
+    }
+  `,
+  tabLabelFull: css`
+    display: inline;
+
+    @media (max-width: 767px) {
+      display: none;
+    }
+  `,
+  tabLabelShort: css`
+    display: none;
+
+    @media (max-width: 767px) {
+      display: inline;
     }
   `,
   splitGrid: css`

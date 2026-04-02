@@ -29,7 +29,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     }
   `,
   searchInput: css`
-    width: 100%;
+    width: 90svw;
+    @media (min-width: 768px) {
+      width: 50svw;
+    }
   `,
   actions: css`
     display: flex;

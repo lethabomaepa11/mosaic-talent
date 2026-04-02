@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -57,7 +57,15 @@ import {
 } from "@/providers/project-provider/context";
 import { isRepoSafetyUnsafe } from "@/utils/repoSafety";
 import { useStyles } from "./style";
-import { GithubOutlined } from "@ant-design/icons";
+import {
+  BarChartOutlined,
+  CheckSquareOutlined,
+  FileTextOutlined,
+  GithubOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  VideoCameraOutlined,
+} from "@ant-design/icons";
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -808,6 +816,14 @@ const ProjectDetailPage = () => {
     );
   }
 
+  const tabLabel = (icon: ReactNode, fullLabel: string, shortLabel: string) => (
+    <span className={styles.tabLabel}>
+      <span className={styles.tabIcon}>{icon}</span>
+      <span className={styles.tabLabelFull}>{fullLabel}</span>
+      <span className={styles.tabLabelShort}>{shortLabel}</span>
+    </span>
+  );
+
   return (
     <div className={styles.page} data-ai-page="project-detail">
       <Link href="/app/projects" className={styles.backButton}>
@@ -819,7 +835,46 @@ const ProjectDetailPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className={styles.header}
       >
-        <div>
+        <div className={styles.headerContent}>
+          {project.status !== "completed" ? (
+            <div className={styles.headerPrimaryActions}>
+              <Space wrap>
+                {isMember && canComplete ? (
+                  <Button
+                    type="primary"
+                    onClick={handleCompleteProject}
+                    loading={isCompleting}
+                    icon={<CheckCircle size={14} />}
+                    data-ai-action="complete-project"
+                  >
+                    Complete Project
+                  </Button>
+                ) : null}
+                {currentMember?.id === project.ownerId ? (
+                  <Popover
+                    trigger="hover"
+                    content={
+                      !canDeleteProject
+                        ? "Remove other members first. You can only delete when you are the only member."
+                        : null
+                    }
+                  >
+                    <span>
+                      <Button
+                        danger
+                        disabled={!canDeleteProject}
+                        loading={isDeletingProject}
+                        onClick={() => void handleDeleteProject()}
+                        data-ai-action="delete-project"
+                      >
+                        Delete Project
+                      </Button>
+                    </span>
+                  </Popover>
+                ) : null}
+              </Space>
+            </div>
+          ) : null}
           <div className={styles.titleRow}>
             <Typography.Title level={2} style={{ margin: 0 }}>
               {project.title}
@@ -896,47 +951,10 @@ const ProjectDetailPage = () => {
                 </Button>
               ) : null}
 
-              {isMember && canComplete ? (
-                <Button
-                  type="primary"
-                  onClick={handleCompleteProject}
-                  loading={isCompleting}
-                  icon={<CheckCircle size={14} />}
-                  data-ai-action="complete-project"
-                >
-                  Complete Project
-                </Button>
-              ) : null}
-
               {canLogComplaint ? (
                 <Button onClick={() => setIsComplaintOpen(true)}>
                   Log Complaint
                 </Button>
-              ) : null}
-            </Space>
-
-            <Space wrap>
-              {currentMember?.id === project.ownerId ? (
-                <Popover
-                  trigger="hover"
-                  content={
-                    !canDeleteProject
-                      ? "Remove other members first. You can only delete when you are the only member."
-                      : null
-                  }
-                >
-                  <span>
-                    <Button
-                      danger
-                      disabled={!canDeleteProject}
-                      loading={isDeletingProject}
-                      onClick={() => void handleDeleteProject()}
-                      data-ai-action="delete-project"
-                    >
-                      Delete Project
-                    </Button>
-                  </span>
-                </Popover>
               ) : null}
             </Space>
           </div>
@@ -944,17 +962,18 @@ const ProjectDetailPage = () => {
       </motion.div>
 
       <Tabs
+        type="card"
         className={styles.tabs}
         activeKey={activeTab}
         onChange={setActiveTab}
         tabBarGutter={6}
         items={[
-          { key: "repo-safety", label: "Repo Safety" },
-          { key: "team", label: "Team" },
-          { key: "spec", label: "Project Spec" },
-          { key: "analysis", label: "Repo Analysis" },
-          { key: "tasks", label: "Tasks" },
-          { key: "meetings", label: "Meetings (Jitsi)" },
+          { key: "repo-safety", label: tabLabel(<SafetyOutlined />, "Repo Safety", "Safety") },
+          { key: "team", label: tabLabel(<TeamOutlined />, "Team", "Team") },
+          { key: "spec", label: tabLabel(<FileTextOutlined />, "Project Spec", "Spec") },
+          { key: "analysis", label: tabLabel(<BarChartOutlined />, "Repo Analysis", "Analysis") },
+          { key: "tasks", label: tabLabel(<CheckSquareOutlined />, "Tasks", "Tasks") },
+          { key: "meetings", label: tabLabel(<VideoCameraOutlined />, "Meetings (Jitsi)", "Meetings") },
         ]}
       />
 
