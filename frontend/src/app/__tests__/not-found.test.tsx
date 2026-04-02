@@ -1,10 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NotFound from "../not-found";
 
 vi.mock("framer-motion", async () => {
   const React = await import("react");
-  const MotionStub = ({ children, ...props }: any) =>
+  const MotionStub = ({
+    children,
+    ...props
+  }: HTMLAttributes<HTMLDivElement> & { children?: ReactNode }) =>
     React.createElement("div", props, children);
 
   return {

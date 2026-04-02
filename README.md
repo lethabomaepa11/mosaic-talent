@@ -5,6 +5,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 ## Design Links
 
 - Figma: https://www.figma.com/design/ANQBVj5jIaFdaiaPcfCEqR/Untitled?node-id=2-879&t=Q1Kvsj8jSpJYwYOp-1
+- Domain Model (Lucid): https://lucid.app/lucidchart/2b80556d-bf37-4480-b88c-a88e975bdfb0/edit?viewport_loc=-242%2C-2359%2C4469%2C2051%2C0_0&invitationId=inv_fd837c65-e5cf-4e75-ac97-2a1cba27e779
 - Frontend (Vercel): https://mosaic-talent.vercel.app
 - Backend API (Render): https://api-mosaic-talent.onrender.com
 
@@ -198,6 +199,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Gamification Badge Threshold Fix](docs/feature/gamification-badge-threshold-fix.md)
 - [Company Reports PDF/Excel Export](docs/feature/company-reports-export-pdf-excel.md)
 - [Company AI Viz Lab](docs/feature/company-ai-viz-lab.md)
+- [Global Opening + Closing Transition](docs/feature/global-opening-closing-animation.md)
 
 ## Tenant Resolution Rules
 
