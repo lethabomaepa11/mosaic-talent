@@ -130,4 +130,7 @@ public class AiGenerateProjectTasksInput
 {
     [Required]
     public Guid ProjectId { get; set; }
+
+    [MaxLength(8000)]
+    public string RepoAnalysisSummary { get; set; }
 }

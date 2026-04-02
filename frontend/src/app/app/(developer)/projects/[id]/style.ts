@@ -381,6 +381,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: grid;
     grid-template-columns: 1fr;
     gap: ${token.marginSM}px;
+    align-items: start;
 
     @media (min-width: 900px) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -391,7 +392,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     border-radius: ${token.borderRadiusLG}px;
     padding: ${token.paddingSM}px;
     background: ${token.colorFillTertiary};
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+    align-content: flex-start;
     gap: ${token.marginXS}px;
   `,
   columnTodo: css`
@@ -440,6 +444,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: 0;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
+  `,
+  taskAssigneeSelect: css`
+    margin-top: ${token.marginXXS}px;
+    width: 100%;
+    max-width: 240px;
   `,
   emptyColumn: css`
     border: 1px dashed ${token.colorBorderSecondary};

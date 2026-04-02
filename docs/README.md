@@ -28,3 +28,5 @@ Project documentation index.
 - [Tasks Header Full-Width](feature/tasks-header-full-width.md)
 - [Project Collaboration Tabs, Meetings, and Markdown Specs](feature/project-collaboration-tabs-meetings-markdown.md)
 - [Project Detail Team Tab Split](feature/project-detail-team-tab-split.md)
+- [AI Task Generation From Spec + Repo Analysis](feature/ai-task-generation-spec-repo-analysis.md)
+- [Task Reassignment And Task Notifications](feature/task-reassignment-notifications.md)

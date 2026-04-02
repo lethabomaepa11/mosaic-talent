@@ -911,19 +911,57 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         await _projectTaskRepository.InsertAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        var assignedMemberName = assignedDeveloperId.HasValue
-            ? await ResolveDeveloperDisplayName(assignedDeveloperId.Value)
-            : string.Empty;
-
-        return new DeveloperProjectTaskDto
+        if (assignedDeveloperId.HasValue)
         {
-            Id = task.Id.ToString(),
-            Title = task.Title,
-            Description = task.Description,
-            Status = ToTaskStatusLabel(task.Status),
-            AssignedMemberId = assignedDeveloperId?.ToString() ?? string.Empty,
-            AssignedMemberName = assignedMemberName,
-        };
+            await NotifyTaskAssigned(project, task, assignedDeveloperId.Value);
+        }
+
+        return await MapTaskDto(task);
+    }
+
+    public async Task<DeveloperProjectTaskDto> ReassignProjectTask(ReassignProjectTaskInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.TaskId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project task is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        if (project.Status == ProjectStatus.Complete)
+        {
+            throw new UserFriendlyException("Completed projects cannot be updated.");
+        }
+
+        var task = await _projectTaskRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == input.TaskId && x.ProjectId == input.ProjectId)
+            ?? throw new UserFriendlyException("Task not found.");
+
+        Guid? assignedDeveloperId = null;
+        if (input.AssignedMemberId.HasValue && input.AssignedMemberId.Value != Guid.Empty)
+        {
+            var isAssignedMemberInProject = await _projectMemberRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.AssignedMemberId.Value);
+            if (!isAssignedMemberInProject)
+            {
+                throw new UserFriendlyException("Assigned member must belong to the selected project.");
+            }
+
+            assignedDeveloperId = input.AssignedMemberId.Value;
+        }
+
+        var previousAssignedDeveloperId = task.AssignedDeveloperId;
+        task.AssignedDeveloperId = assignedDeveloperId;
+        await _projectTaskRepository.UpdateAsync(task);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        if (assignedDeveloperId.HasValue &&
+            (!previousAssignedDeveloperId.HasValue || previousAssignedDeveloperId.Value != assignedDeveloperId.Value))
+        {
+            await NotifyTaskAssigned(project, task, assignedDeveloperId.Value);
+        }
+
+        return await MapTaskDto(task);
     }
 
     public async Task<DeveloperProjectTaskDto> UpdateProjectTaskStatus(UpdateProjectTaskStatusInput input)
@@ -940,10 +978,21 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             .FirstOrDefaultAsync(x => x.Id == input.TaskId && x.ProjectId == input.ProjectId)
             ?? throw new UserFriendlyException("Task not found.");
 
+        var previousStatus = task.Status;
         task.Status = ParseTaskStatus(input.Status);
         await _projectTaskRepository.UpdateAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        if (task.Status == ProjectTaskStatus.Done && previousStatus != ProjectTaskStatus.Done)
+        {
+            await NotifyTaskMovedToDone(project, task);
+        }
+
+        return await MapTaskDto(task);
+    }
+
+    private async Task<DeveloperProjectTaskDto> MapTaskDto(ProjectTask task)
+    {
         var assignedMemberName = task.AssignedDeveloperId.HasValue
             ? await ResolveDeveloperDisplayName(task.AssignedDeveloperId.Value)
             : string.Empty;
@@ -957,6 +1006,63 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             AssignedMemberId = task.AssignedDeveloperId?.ToString() ?? string.Empty,
             AssignedMemberName = assignedMemberName,
         };
+    }
+
+    private async Task NotifyTaskAssigned(Project project, ProjectTask task, Guid assignedDeveloperId)
+    {
+        try
+        {
+            var assignedUserId = await _developerRepository.GetAll()
+                .Where(x => x.Id == assignedDeveloperId)
+                .Select(x => x.UserId)
+                .FirstOrDefaultAsync();
+            if (assignedUserId <= 0)
+            {
+                return;
+            }
+
+            var message = $"You were assigned task \"{task.Title}\" in \"{project.Title}\".";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                project.TenantId,
+                new[] { assignedUserId },
+                "MosaicTalent.ProjectTaskAssigned",
+                message,
+                NotificationSeverity.Info,
+                $"/app/projects/{project.Id}",
+                "Task assigned",
+                message);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch task assignment notification.", ex);
+        }
+    }
+
+    private async Task NotifyTaskMovedToDone(Project project, ProjectTask task)
+    {
+        try
+        {
+            var memberUserIds = await ResolveProjectMemberUserIds(project.Id);
+            if (memberUserIds.Count == 0)
+            {
+                return;
+            }
+
+            var message = $"Task \"{task.Title}\" in \"{project.Title}\" was moved to Done.";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                project.TenantId,
+                memberUserIds,
+                "MosaicTalent.ProjectTaskCompleted",
+                message,
+                NotificationSeverity.Success,
+                $"/app/projects/{project.Id}",
+                "Task completed",
+                message);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch task completion notification.", ex);
+        }
     }
 
     public async Task<DeveloperProjectDto> UpdateProjectSkills(UpdateProjectSkillsInput input)

@@ -152,6 +152,7 @@ const ProjectDetailPage = () => {
   const [activeTab, setActiveTab] = useState("repo-safety");
   const [joinWarning, setJoinWarning] = useState<IProjectJoinLoadWarning | null>(null);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [reassigningTaskId, setReassigningTaskId] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<IProjectMeeting[]>([]);
   const [isMeetingsLoading, setIsMeetingsLoading] = useState(false);
   const [meetingReminderDraft, setMeetingReminderDraft] = useState<
@@ -189,6 +190,7 @@ const ProjectDetailPage = () => {
     aiFillTeam,
     aiGenerateProjectTasks,
     addProjectTask,
+    reassignProjectTask,
     updateProjectTaskStatus,
     updateProjectSkills,
     completeProject,
@@ -331,6 +333,45 @@ const ProjectDetailPage = () => {
     : "Unknown";
   const riskScore = repoSafetyResult?.riskScore ?? 0;
   const repoSafetyUnsafe = isRepoSafetyUnsafe(repoSafetyResult);
+  const repoAnalysisSummary = useMemo(() => {
+    const lines: string[] = [];
+
+    if (repoSafetyResult) {
+      lines.push("Repository safety scan:");
+      lines.push(
+        `- Risk level: ${repoSafetyResult.riskLevel || "unknown"} (score ${repoSafetyResult.riskScore})`,
+      );
+      if (repoSafetyResult.findings.length > 0) {
+        lines.push("- Key findings:");
+        repoSafetyResult.findings.slice(0, 5).forEach((finding) => {
+          lines.push(
+            `  - [${finding.severity || "info"}] ${finding.title}${finding.filePath ? ` (${finding.filePath})` : ""}`,
+          );
+        });
+      }
+    }
+
+    if (repoGuardianScan?.result) {
+      lines.push("Repository analysis scan:");
+      lines.push(
+        `- Overall score: ${repoGuardianScan.result.overallScore}, status: ${repoGuardianScan.result.status}`,
+      );
+      if (repoGuardianScan.result.categoryScores.length > 0) {
+        lines.push("- Category scores:");
+        repoGuardianScan.result.categoryScores.forEach((item) => {
+          lines.push(`  - ${item.category}: ${item.score}`);
+        });
+      }
+      if (repoGuardianScan.result.recommendations.length > 0) {
+        lines.push("- Priority recommendations:");
+        repoGuardianScan.result.recommendations.slice(0, 5).forEach((item) => {
+          lines.push(`  - ${item.issueDescription}: ${item.suggestedFix}`);
+        });
+      }
+    }
+
+    return lines.join("\n").trim();
+  }, [repoSafetyResult, repoGuardianScan?.result]);
 
   const loadMeetings = async () => {
     if (!projectId || !isMember) {
@@ -390,7 +431,7 @@ const ProjectDetailPage = () => {
 
     setIsGeneratingTasks(true);
     try {
-      const tasks = await aiGenerateProjectTasks(projectId);
+      const tasks = await aiGenerateProjectTasks(projectId, repoAnalysisSummary);
       toast.success("Tasks generated", `${tasks.length} task(s) created by AI.`);
     } catch (error) {
       const message =
@@ -437,6 +478,24 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to update task.";
       toast.error("Task update failed", message);
+    }
+  };
+
+  const handleReassignTask = async (taskId: string, assignedMemberId?: string) => {
+    if (!projectId || !isMember || project?.status === "completed") {
+      return;
+    }
+
+    setReassigningTaskId(taskId);
+    try {
+      await reassignProjectTask(projectId, taskId, assignedMemberId);
+      toast.success("Task updated", "Task assignee has been updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reassign task.";
+      toast.error("Task update failed", message);
+    } finally {
+      setReassigningTaskId(null);
     }
   };
 
@@ -1332,15 +1391,13 @@ const ProjectDetailPage = () => {
                   >
                     Add Task
                   </Button>
-                  {canManageMemberRoles ? (
-                    <Button
-                      icon={<Sparkles size={14} />}
-                      loading={isGeneratingTasks}
-                      onClick={() => void handleGenerateTasks()}
-                    >
-                      AI Generate Tasks
-                    </Button>
-                  ) : null}
+                  <Button
+                    icon={<Sparkles size={14} />}
+                    loading={isGeneratingTasks}
+                    onClick={() => void handleGenerateTasks()}
+                  >
+                    AI Generate Tasks
+                  </Button>
                   <Button size="small" onClick={handleOpenSkillsEditor}>
                     Update Skills
                   </Button>
@@ -1448,6 +1505,35 @@ const ProjectDetailPage = () => {
                                   ) : (
                                     <Tag>Unassigned</Tag>
                                   )}
+                                  {isMember && project.status !== "completed" ? (
+                                    <Select
+                                      size="small"
+                                      className={styles.taskAssigneeSelect}
+                                      value={task.assignedMemberId || "__unassigned__"}
+                                      loading={reassigningTaskId === task.id}
+                                      onChange={(value) => {
+                                        const nextAssigneeId =
+                                          value === "__unassigned__"
+                                            ? undefined
+                                            : String(value);
+                                        if (
+                                          (task.assignedMemberId || undefined) ===
+                                          nextAssigneeId
+                                        ) {
+                                          return;
+                                        }
+
+                                        void handleReassignTask(task.id, nextAssigneeId);
+                                      }}
+                                      options={[
+                                        { value: "__unassigned__", label: "Unassigned" },
+                                        ...project.members.map((member) => ({
+                                          value: member.id,
+                                          label: member.name,
+                                        })),
+                                      ]}
+                                    />
+                                  ) : null}
                                 </div>
                               </Space>
 

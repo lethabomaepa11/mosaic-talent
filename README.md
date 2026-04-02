@@ -172,6 +172,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Tasks Header Full-Width](docs/feature/tasks-header-full-width.md)
 - [Project Collaboration Tabs, Meetings, and Markdown Specs](docs/feature/project-collaboration-tabs-meetings-markdown.md)
 - [Project Detail Team Tab Split](docs/feature/project-detail-team-tab-split.md)
+- [AI Task Generation From Spec + Repo Analysis](docs/feature/ai-task-generation-spec-repo-analysis.md)
+- [Task Reassignment And Task Notifications](docs/feature/task-reassignment-notifications.md)
 
 ## Tenant Resolution Rules
 
@@ -245,6 +247,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
 - `POST /api/services/app/DeveloperProject/AiGenerateProjectTasks`
 - `POST /api/services/app/DeveloperProject/AddProjectTask`
+- `POST /api/services/app/DeveloperProject/ReassignProjectTask`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/AssignMemberRole`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`

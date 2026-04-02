@@ -271,10 +271,16 @@ export interface IProjectActionContext {
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
   aiGenerateProjectTasks: (
     projectId: string,
+    repoAnalysisSummary?: string,
   ) => Promise<IProjectTask[]>;
   addProjectTask: (
     projectId: string,
     input: { title: string; description?: string; assignedMemberId?: string },
+  ) => Promise<IProjectTask | undefined>;
+  reassignProjectTask: (
+    projectId: string,
+    taskId: string,
+    assignedMemberId?: string,
   ) => Promise<IProjectTask | undefined>;
   updateProjectTaskStatus: (
     projectId: string,
@@ -361,6 +367,7 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   aiFillTeam: async () => undefined,
   aiGenerateProjectTasks: async () => [],
   addProjectTask: async () => undefined,
+  reassignProjectTask: async () => undefined,
   updateProjectTaskStatus: async () => undefined,
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
