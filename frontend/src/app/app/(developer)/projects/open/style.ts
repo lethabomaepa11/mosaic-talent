@@ -114,4 +114,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSize}px;
   `,
+  joiningModalBody: css`
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px 0;
+  `,
+  joiningTitle: css`
+    margin: 0 !important;
+  `,
 }));

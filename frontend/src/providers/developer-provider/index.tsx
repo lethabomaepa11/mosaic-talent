@@ -34,6 +34,8 @@ import {
   IGamificationSummary,
   IGithubScanResult,
   ILearningPathResult,
+  IProfileFieldSuggestionsInput,
+  IProfileFieldSuggestionsResult,
   IPublicDeveloperProfile,
   INITIAL_PROFILE,
   INITIAL_STATE,
@@ -99,6 +101,19 @@ const normalizeGamificationSummary = (
     pointsAwarded: Number(item.pointsAwarded ?? 0),
     occurredAt: item.occurredAt ?? "",
   })),
+});
+
+const normalizeProfileFieldSuggestions = (
+  input: Partial<IProfileFieldSuggestionsResult>,
+): IProfileFieldSuggestionsResult => ({
+  field: input.field === "goal" ? "goal" : "skill",
+  query: input.query ?? "",
+  source: input.source === "ai" ? "ai" : "fallback",
+  suggestions: Array.isArray(input.suggestions)
+    ? input.suggestions
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean)
+    : [],
 });
 
 const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
@@ -302,6 +317,25 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const getProfileFieldSuggestions = async (input: IProfileFieldSuggestionsInput) => {
+    try {
+      const res = await instance.post(`${ENDPOINT}/GetProfileFieldSuggestions`, {
+        field: input.field,
+        query: (input.query ?? "").trim(),
+        existingValues: input.existingValues ?? [],
+        maxResults: input.maxResults ?? 8,
+      });
+
+      return normalizeProfileFieldSuggestions(
+        (res.data?.result ?? {}) as Partial<IProfileFieldSuggestionsResult>,
+      );
+    } catch (error) {
+      throw new Error(
+        readApiErrorMessage(error, "Failed to load profile suggestions."),
+      );
+    }
+  };
+
   const getPublicProfile = async (userName: string) => {
     const normalizedUserName = userName.trim();
     if (!normalizedUserName) {
@@ -355,6 +389,7 @@ export const DeveloperProvider = ({ children }: PropsWithChildren) => {
           searchPublicDevelopers,
           scanMyGithubProfile,
           fetchLearningPathRecommendations,
+          getProfileFieldSuggestions,
           fetchMyGamificationSummary,
         }}
       >

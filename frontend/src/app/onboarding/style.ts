@@ -61,6 +61,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     font-weight: ${token.fontWeightStrong};
   `,
+  fieldHint: css`
+    font-size: ${token.fontSizeSM}px;
+    color: ${token.colorTextSecondary};
+    line-height: 1.5;
+  `,
   input: css`
     background: color-mix(in srgb, ${token.colorText} 7%, transparent);
     border-color: ${token.colorBorder};
@@ -79,8 +84,14 @@ export const useStyles = createStyles(({ token, css }) => ({
   fullWidthInputNumber: css`
     width: 100%;
   `,
-  sliderWrap: css`
-    padding: 0 ${token.paddingSM}px;
+  systemRatingNotice: css`
+    border: 1px solid ${token.colorInfoBorder};
+    background: ${token.colorInfoBg};
+    color: ${token.colorInfoText};
+    border-radius: ${token.borderRadius}px;
+    padding: ${token.paddingSM}px;
+    font-size: ${token.fontSizeSM}px;
+    line-height: ${token.lineHeight}px;
   `,
   actions: css`
     margin-top: ${token.marginSM}px;

@@ -22,6 +22,8 @@ export type AppOperatorIntentType =
   | "reject_candidate"
   | "send_candidate_email";
 
+export type AppOperatorUserRole = "developer" | "company";
+
 export interface IAppOperatorIntent {
   type: AppOperatorIntentType;
   rawCommand: string;
@@ -49,6 +51,7 @@ export interface IActionDefinition {
   name: string;
   description: string;
   routeKey?: string;
+  roles: Array<AppOperatorUserRole | "all">;
   requiredInputs: string[];
   optionalInputs: string[];
   requiresConfirmation: boolean;

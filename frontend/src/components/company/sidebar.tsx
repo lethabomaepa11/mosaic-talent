@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   User,
   Briefcase,
-  FileText,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -28,7 +27,6 @@ const navigation: INavItem[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/profile", label: "My Profile", icon: User },
   { href: "/app/jobs", label: "Job Postings", icon: Briefcase },
-  { href: "/app/reports", label: "Reports", icon: FileText },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

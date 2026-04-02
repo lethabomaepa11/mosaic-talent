@@ -22,6 +22,15 @@ export enum ProjectStateEnums {
   PROJECT_LEAVE_PENDING = "PROJECT_LEAVE_PENDING",
   PROJECT_LEAVE_SUCCESS = "PROJECT_LEAVE_SUCCESS",
   PROJECT_LEAVE_ERROR = "PROJECT_LEAVE_ERROR",
+  PROJECT_DELETE_PENDING = "PROJECT_DELETE_PENDING",
+  PROJECT_DELETE_SUCCESS = "PROJECT_DELETE_SUCCESS",
+  PROJECT_DELETE_ERROR = "PROJECT_DELETE_ERROR",
+  PROJECT_REMOVE_MEMBER_PENDING = "PROJECT_REMOVE_MEMBER_PENDING",
+  PROJECT_REMOVE_MEMBER_SUCCESS = "PROJECT_REMOVE_MEMBER_SUCCESS",
+  PROJECT_REMOVE_MEMBER_ERROR = "PROJECT_REMOVE_MEMBER_ERROR",
+  PROJECT_COMPLAINT_PENDING = "PROJECT_COMPLAINT_PENDING",
+  PROJECT_COMPLAINT_SUCCESS = "PROJECT_COMPLAINT_SUCCESS",
+  PROJECT_COMPLAINT_ERROR = "PROJECT_COMPLAINT_ERROR",
   PROJECT_ASSIGN_ROLE_PENDING = "PROJECT_ASSIGN_ROLE_PENDING",
   PROJECT_ASSIGN_ROLE_SUCCESS = "PROJECT_ASSIGN_ROLE_SUCCESS",
   PROJECT_ASSIGN_ROLE_ERROR = "PROJECT_ASSIGN_ROLE_ERROR",
@@ -147,6 +156,51 @@ export const leaveProjectSuccess = createAction<ProjectStatePatch>(
 
 export const leaveProjectError = createAction<ProjectStatePatch>(
   ProjectStateEnums.PROJECT_LEAVE_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const deleteProjectPending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_DELETE_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const deleteProjectSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_DELETE_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const deleteProjectError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_DELETE_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const removeProjectMemberPending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_REMOVE_MEMBER_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const removeProjectMemberSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_REMOVE_MEMBER_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const removeProjectMemberError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_REMOVE_MEMBER_ERROR,
+  () => ({ isPending: false, isSuccess: false, isError: true }),
+);
+
+export const submitComplaintPending = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_COMPLAINT_PENDING,
+  () => ({ isPending: true, isSuccess: false, isError: false }),
+);
+
+export const submitComplaintSuccess = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_COMPLAINT_SUCCESS,
+  () => ({ isPending: false, isSuccess: true, isError: false }),
+);
+
+export const submitComplaintError = createAction<ProjectStatePatch>(
+  ProjectStateEnums.PROJECT_COMPLAINT_ERROR,
   () => ({ isPending: false, isSuccess: false, isError: true }),
 );
 

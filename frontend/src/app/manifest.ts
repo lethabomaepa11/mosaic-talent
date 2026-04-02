@@ -6,8 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Mosaic",
     description:
       "AI-powered hiring intelligence and developer growth platform.",
-    start_url: "/",
-    scope: "/",
+    start_url: "/app",
+    scope: "/app",
     display: "standalone",
     orientation: "portrait",
     background_color: "#0A0B0F",

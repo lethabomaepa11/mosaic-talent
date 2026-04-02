@@ -9,6 +9,7 @@ using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
 using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.GamificationService.DTO;
+using MosaicTalent.Services.DeveloperOnboardingService;
 using MosaicTalent.Services.NotificationChannelService;
 using MosaicTalent.Services.PeerReviewService.DTO;
 using System;
@@ -22,6 +23,7 @@ namespace MosaicTalent.Services.PeerReviewService;
 [AbpAuthorize]
 public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppService
 {
+    private const string AnonymousDisplayName = "Anonymous teammate";
     private readonly IRepository<Developer, Guid> _developerRepository;
     private readonly IRepository<User, long> _userRepository;
     private readonly IRepository<Project, Guid> _projectRepository;
@@ -33,6 +35,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
     private readonly IPeerReviewGenerationService _generationService;
     private readonly INotificationEventDispatcher _notificationEventDispatcher;
     private readonly IDeveloperGamificationService _developerGamificationService;
+    private readonly ITeamworkRatingService _teamworkRatingService;
 
     public PeerReviewAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -45,7 +48,8 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         IRepository<AIReviewFeedback, Guid> feedbackRepository,
         IPeerReviewGenerationService generationService,
         INotificationEventDispatcher notificationEventDispatcher,
-        IDeveloperGamificationService developerGamificationService)
+        IDeveloperGamificationService developerGamificationService,
+        ITeamworkRatingService teamworkRatingService)
     {
         _developerRepository = developerRepository;
         _userRepository = userRepository;
@@ -58,6 +62,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         _generationService = generationService;
         _notificationEventDispatcher = notificationEventDispatcher;
         _developerGamificationService = developerGamificationService;
+        _teamworkRatingService = teamworkRatingService;
     }
 
     public async Task<List<ProjectPeerReviewsDto>> GetMyProjectPeerReviews()
@@ -122,6 +127,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         review.Rating = Math.Max(1, Math.Min(10, input.Rating));
         await _peerReviewRepository.UpdateAsync(review);
         await CurrentUnitOfWork.SaveChangesAsync();
+        await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, review.RevieweeDeveloperId);
 
         var dto = await BuildPeerReviewDto(review);
         dto.GamificationReward = await _developerGamificationService.AwardAsync(
@@ -317,6 +323,12 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
 
         var reviewDtos = reviews.Select(review =>
         {
+            var reviewerKnownName = usersByDeveloper.TryGetValue(review.ReviewerDeveloperId, out var reviewerNameValue)
+                ? reviewerNameValue
+                : "Reviewer";
+            var revieweeKnownName = usersByDeveloper.TryGetValue(review.RevieweeDeveloperId, out var revieweeNameValue)
+                ? revieweeNameValue
+                : "Teammate";
             var reviewQuestions = questions
                 .Where(x => x.PeerReviewId == review.Id)
                 .Select(question =>
@@ -325,7 +337,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
                     return new PeerReviewQuestionDto
                     {
                         Id = question.Id,
-                        Text = question.Text,
+                        Text = SanitizeQuestionText(question.Text, reviewerKnownName, revieweeKnownName),
                         Type = question.Type,
                         RelatedGoal = question.RelatedGoal,
                         Category = question.Category,
@@ -340,13 +352,9 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
                 ProjectId = review.ProjectId,
                 ProjectTitle = project.Title,
                 ReviewerDeveloperId = review.ReviewerDeveloperId,
-                ReviewerName = usersByDeveloper.TryGetValue(review.ReviewerDeveloperId, out var reviewerName)
-                    ? reviewerName
-                    : "Reviewer",
+                ReviewerName = AnonymousDisplayName,
                 RevieweeDeveloperId = review.RevieweeDeveloperId,
-                RevieweeName = usersByDeveloper.TryGetValue(review.RevieweeDeveloperId, out var revieweeName)
-                    ? revieweeName
-                    : "Teammate",
+                RevieweeName = AnonymousDisplayName,
                 Rating = review.Rating,
                 IsCompleted = reviewQuestions.Count > 0 &&
                               reviewQuestions.All(x => !string.IsNullOrWhiteSpace(x.AnswerText)),
@@ -403,7 +411,14 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             return new PeerReviewQuestionDto
             {
                 Id = question.Id,
-                Text = question.Text,
+                Text = SanitizeQuestionText(
+                    question.Text,
+                    usersByDeveloper.TryGetValue(review.ReviewerDeveloperId, out var reviewerKnownName)
+                        ? reviewerKnownName
+                        : "Reviewer",
+                    usersByDeveloper.TryGetValue(review.RevieweeDeveloperId, out var revieweeKnownName)
+                        ? revieweeKnownName
+                        : "Teammate"),
                 Type = question.Type,
                 RelatedGoal = question.RelatedGoal,
                 Category = question.Category,
@@ -417,13 +432,9 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             ProjectId = review.ProjectId,
             ProjectTitle = project.Title,
             ReviewerDeveloperId = review.ReviewerDeveloperId,
-            ReviewerName = usersByDeveloper.TryGetValue(review.ReviewerDeveloperId, out var reviewerName)
-                ? reviewerName
-                : "Reviewer",
+            ReviewerName = AnonymousDisplayName,
             RevieweeDeveloperId = review.RevieweeDeveloperId,
-            RevieweeName = usersByDeveloper.TryGetValue(review.RevieweeDeveloperId, out var revieweeName)
-                ? revieweeName
-                : "Teammate",
+            RevieweeName = AnonymousDisplayName,
             Rating = review.Rating,
             IsCompleted = questionDtos.Count > 0 &&
                           questionDtos.All(x => !string.IsNullOrWhiteSpace(x.AnswerText)),
@@ -469,5 +480,32 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         {
             return new List<string>();
         }
+    }
+
+    private static string SanitizeQuestionText(string text, params string[] knownNames)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
+
+        var output = text;
+        foreach (var name in ExpandNameVariants(knownNames))
+        {
+            output = output.Replace(name, "your anonymous teammate", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return output;
+    }
+
+    private static List<string> ExpandNameVariants(IEnumerable<string> names)
+    {
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .SelectMany(name => new[] { name.Trim() }.Concat(
+                name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(part => part.Length > 2)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

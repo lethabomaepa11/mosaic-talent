@@ -88,6 +88,13 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-wrap: wrap;
     gap: ${token.marginXXS}px;
+    margin-bottom: ${token.marginMD}px;
+  `,
+  suggestionLoading: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginXS}px;
+    margin-top: -${token.marginSM}px;
   `,
   goalList: css`
     display: grid;
@@ -100,6 +107,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     gap: ${token.marginSM}px;
     padding: ${token.paddingXS}px ${token.paddingSM}px;
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorFillTertiary};
+  `,
+  readOnlyRating: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+    margin-top: ${token.marginXXS}px;
+    padding: ${token.paddingSM}px;
     border-radius: ${token.borderRadius}px;
     background: ${token.colorFillTertiary};
   `,

@@ -7,4 +7,5 @@ namespace MosaicTalent.Services.NotificationChannelService;
 public interface IProjectJoinNotificationDispatcher
 {
     Task NotifyOwnerAboutJoinAsync(Project project, Developer joinedDeveloper, int tenantId);
+    Task NotifyDeveloperAboutInviteAsync(Project project, Developer invitedDeveloper, Developer invitedByDeveloper, int tenantId);
 }

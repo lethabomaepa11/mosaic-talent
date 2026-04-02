@@ -118,14 +118,6 @@ public partial class DeveloperProjectAppService
             throw new UserFriendlyException("Completed projects cannot be updated.");
         }
 
-        var membership = await _projectMemberRepository.GetAll()
-            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
-            ?? throw new UserFriendlyException("Project membership not found.");
-        if (project.OwnerDeveloperId != developer.Id && membership.Role != MemberRole.Lead)
-        {
-            throw new UserFriendlyException("Only project leads can generate tasks with AI.");
-        }
-
         var members = await _projectMemberRepository.GetAll()
             .Where(x => x.ProjectId == project.Id)
             .ToListAsync();
@@ -135,17 +127,43 @@ public partial class DeveloperProjectAppService
             throw new UserFriendlyException("No project members found for task assignment.");
         }
 
+        var existingTasks = await _projectTaskRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .Select(x => new ProjectTaskDraft
+            {
+                Title = x.Title ?? string.Empty,
+                Description = x.Description ?? string.Empty,
+                AssignedDeveloperId = x.AssignedDeveloperId,
+            })
+            .ToListAsync();
+        var repoAnalysisSummary = (input.RepoAnalysisSummary ?? string.Empty).Trim();
+
         var memberSkillMap = await BuildMemberSkillMap(memberIds);
-        var generated = await TryGenerateTasksWithAi(project, memberSkillMap);
+        var generated = await TryGenerateTasksWithAi(
+            project,
+            memberSkillMap,
+            existingTasks,
+            repoAnalysisSummary);
         if (generated.Count == 0)
         {
-            generated = BuildFallbackTasks(project, memberSkillMap);
+            generated = BuildFallbackTasks(project, memberSkillMap, existingTasks);
         }
+        generated = DeduplicateTaskDrafts(generated, existingTasks);
 
         var tenantId = project.TenantId;
         var created = new List<ProjectTask>();
+        var existingTaskFingerprints = BuildTaskFingerprintSet(existingTasks);
+        var createdTaskFingerprints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in generated.Take(8))
         {
+            var fingerprint = BuildTaskFingerprint(item.Title, item.Description);
+            if (string.IsNullOrWhiteSpace(fingerprint) ||
+                existingTaskFingerprints.Contains(fingerprint) ||
+                createdTaskFingerprints.Contains(fingerprint))
+            {
+                continue;
+            }
+
             var assignedId = item.AssignedDeveloperId;
             var task = new ProjectTask
             {
@@ -158,9 +176,15 @@ public partial class DeveloperProjectAppService
             };
             await _projectTaskRepository.InsertAsync(task);
             created.Add(task);
+            createdTaskFingerprints.Add(fingerprint);
         }
 
         await CurrentUnitOfWork.SaveChangesAsync();
+        foreach (var task in created.Where(x => x.AssignedDeveloperId.HasValue))
+        {
+            await NotifyTaskAssigned(project, task, task.AssignedDeveloperId.Value);
+        }
+
         var createdDtos = new List<DeveloperProjectTaskDto>();
         foreach (var task in created)
         {

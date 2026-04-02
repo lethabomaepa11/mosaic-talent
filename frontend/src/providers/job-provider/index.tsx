@@ -288,6 +288,18 @@ const normalizePublicJobsPage = (input: Partial<IPublicJobsPage>): IPublicJobsPa
       subject: "Application received for {jobTitle}",
       body: "Hi {candidateName},\n\nThanks for applying to {companyName} for {jobTitle}. We received your application.\n\nComplete your assessment here:\n{assessmentLink}\n\nRegards,\n{companyName} Team",
     },
+    shortlisted: {
+      enabled: true,
+      mode: "manual",
+      subject: "You have been shortlisted for {jobTitle}",
+      body: "Hi {candidateName},\n\nGreat news. You have been shortlisted for the {jobTitle} role at {companyName}. We will share next steps shortly.\n\nRegards,\n{companyName} Team",
+    },
+    interviewInvite: {
+      enabled: true,
+      mode: "manual",
+      subject: "Interview invitation for {jobTitle}",
+      body: "Hi {candidateName},\n\nWe would like to invite you to an interview for {jobTitle} at {companyName}.\n\nPlease reply with your availability so we can confirm the schedule.\n\nRegards,\n{companyName} Team",
+    },
   }),
 });
 

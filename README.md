@@ -60,11 +60,13 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - AI project matching:
   - open projects sorted by match score
   - AI Match redirect to best-fit project
+  - excludes projects where developer is already a member
   - match insight + likely learning outcomes on project details
 - AI learning path recommendations:
   - profile-based skill-gap analysis against market role tracks
   - personalized next-step actions for career progression goals
   - resilient fallback recommendations when AI response is unavailable
+  - profile skills and learning goals now receive AI suggestion chips and typing suggestions
 - Gamification layer:
   - developer points and levels for collaboration/growth actions
   - badge unlocks for review participation, project completion, and simulation consistency
@@ -82,6 +84,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
   - project-level AI feedback summary + strengths/improvements/tips + growth score
+- Teamwork rating governance:
+  - teamwork rating is system-managed (not user-editable)
+  - rating is derived from peer reviews and AI simulation performance
 - Company jobs:
   - company admin job posting management in `/app/jobs`
   - developer + public job applications with source + lifecycle status
@@ -121,8 +126,12 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
   - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
 - Project collaboration upgrade:
-  - project details now use tabs (`Repo Safety + Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
+  - project details now use tabs (`Repo Safety`, `Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
+  - AI Fill Team now sends member invites (in-app + email when configured) instead of force-adding members
+  - invited users can accept/reject from project detail; rejected invites notify project lead(s)
   - project meetings support request/schedule/cancel, Jitsi joins, and per-member reminders
+  - leads can remove project members with a required reason
+  - non-lead members can log complaints to project lead(s)
   - project creation moved to `/app/projects/create` with a dedicated AI prompt section and realtime markdown editor/preview
   - `Generate Project` action in AI section updates title, markdown, and skills together
   - markdown and skills each include a focused `Use AI` action
@@ -144,6 +153,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Custom 404 Page](docs/feature/custom-404-page.md)
 - [Mobile Tabs and Header Responsiveness](docs/feature/mobile-tabs-and-header-responsiveness.md)
 - [Discover Mobile Swipe Layout](docs/feature/discover-mobile-swipe-layout.md)
+- [Remove Image URL Inputs Except Page Builder](docs/feature/remove-image-url-inputs-except-page-builder.md)
 - [Assessment Connected Workspace UI](docs/feature/assessment-connected-workspace-ui.md)
 - [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
 - [Company Settings Admin Access](docs/feature/company-settings-admin-access.md)
@@ -156,6 +166,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
+- [Project Delete Restricted To Sole Member](docs/feature/project-delete-sole-member-only.md)
+- [Project Member Moderation And Complaints](docs/feature/project-member-moderation-and-complaints.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
@@ -166,6 +178,25 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
 - [Tasks Header Full-Width](docs/feature/tasks-header-full-width.md)
 - [Project Collaboration Tabs, Meetings, and Markdown Specs](docs/feature/project-collaboration-tabs-meetings-markdown.md)
+- [Project Detail Team Tab Split](docs/feature/project-detail-team-tab-split.md)
+- [AI Task Generation From Spec + Repo Analysis](docs/feature/ai-task-generation-spec-repo-analysis.md)
+- [Task Reassignment And Task Notifications](docs/feature/task-reassignment-notifications.md)
+- [Join Loader And Discover Project Navigation](docs/feature/join-loader-and-discover-project-navigation.md)
+- [AI Fill Team Invite Workflow](docs/feature/ai-fill-team-invite-workflow.md)
+- [Exclude Joined Projects From Open List And AI Match](docs/feature/open-ai-match-exclude-joined.md)
+- [Project Detail Loading And 404 Fallback](docs/feature/project-detail-loading-and-404.md)
+- [Auth Route Group Guard](docs/feature/auth-route-group-guard.md)
+- [Restrict Landing On Subdomain](docs/feature/restrict-landing-on-subdomain.md)
+- [Company Email Template Types](docs/feature/company-email-template-types.md)
+- [Company Job Social Share + Copy Link](docs/feature/company-job-social-share.md)
+- [Peer Reviews Project Flow + Anonymous Reviews](docs/feature/peer-reviews-project-flow-anonymous.md)
+- [Profile AI Skill and Goal Suggestions](docs/feature/profile-ai-skill-goal-suggestions.md)
+- [Teamwork Rating System-Managed](docs/feature/teamwork-rating-system-managed.md)
+- [GitHub Identity Lock And Scan Flow Update](docs/feature/github-identity-lock-and-scan-flow-update.md)
+- [Ask Moahi Role-Scoped Actions](docs/feature/moahi-role-scoped-actions.md)
+- [Company Dashboard Uses Reports](docs/feature/company-dashboard-uses-reports.md)
+- [Gamification Badge Threshold Fix](docs/feature/gamification-badge-threshold-fix.md)
+- [Company Reports PDF/Excel Export](docs/feature/company-reports-export-pdf-excel.md)
 
 ## Tenant Resolution Rules
 
@@ -218,6 +249,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
 - `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`
 - `GET /api/services/app/DeveloperOnboarding/GetMyGamificationSummary`
+- `POST /api/services/app/DeveloperOnboarding/GetProfileFieldSuggestions`
 - `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
 
 ### Developer projects
@@ -232,10 +264,17 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/JoinProject`
 - `GET /api/services/app/DeveloperProject/GetJoinProjectLoadWarning`
 - `POST /api/services/app/DeveloperProject/LeaveProject`
+- `DELETE /api/services/app/DeveloperProject/DeleteProject`
+- `POST /api/services/app/DeveloperProject/RemoveProjectMember`
+- `POST /api/services/app/DeveloperProject/SubmitProjectComplaint`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
+- `GET /api/services/app/DeveloperProject/GetProjectInvites`
+- `POST /api/services/app/DeveloperProject/AcceptProjectInvite`
+- `POST /api/services/app/DeveloperProject/RejectProjectInvite`
 - `POST /api/services/app/DeveloperProject/AiGenerateProjectTasks`
 - `POST /api/services/app/DeveloperProject/AddProjectTask`
+- `POST /api/services/app/DeveloperProject/ReassignProjectTask`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectTaskStatus`
 - `PUT /api/services/app/DeveloperProject/AssignMemberRole`
 - `PUT /api/services/app/DeveloperProject/UpdateProjectSkills`

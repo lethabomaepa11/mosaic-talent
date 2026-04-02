@@ -130,8 +130,6 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                     project,
                     projectSkills,
                     tasks,
-                    usersById.TryGetValue(reviewerId, out var reviewerName) ? reviewerName : "Reviewer",
-                    usersById.TryGetValue(revieweeId, out var revieweeName) ? revieweeName : "Teammate",
                     reviewerId,
                     revieweeId);
 
@@ -212,8 +210,6 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         Project project,
         List<string> projectSkills,
         List<ProjectTask> tasks,
-        string reviewerName,
-        string revieweeName,
         Guid reviewerId,
         Guid revieweeId)
     {
@@ -225,21 +221,21 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         {
             new GeneratedQuestion
             {
-                Text = $"How effectively did {revieweeName} collaborate with you during {project.Title}?",
+                Text = $"How effectively did your anonymous teammate collaborate with you during {project.Title}?",
                 Type = "open",
                 RelatedGoal = reviewerGoals.FirstOrDefault() ?? "Collaboration",
                 Category = "Teamwork",
             },
             new GeneratedQuestion
             {
-                Text = $"Which {revieweeSkills.FirstOrDefault() ?? "technical"} contribution from {revieweeName} had the biggest impact?",
+                Text = $"Which {revieweeSkills.FirstOrDefault() ?? "technical"} contribution from your anonymous teammate had the biggest impact?",
                 Type = "open",
                 RelatedGoal = projectSkills.FirstOrDefault() ?? "Project Delivery",
                 Category = "Impact",
             },
             new GeneratedQuestion
             {
-                Text = $"What should {revieweeName} improve in future projects based on this interaction?",
+                Text = "What should your anonymous teammate improve in future projects based on this interaction?",
                 Type = "open",
                 RelatedGoal = reviewerGoals.Skip(1).FirstOrDefault() ?? "Growth",
                 Category = "Improvement",
@@ -263,12 +259,10 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
             },
             reviewer = new
             {
-                name = reviewerName,
                 goals = reviewerGoals,
             },
             reviewee = new
             {
-                name = revieweeName,
                 skills = revieweeSkills,
             },
         };

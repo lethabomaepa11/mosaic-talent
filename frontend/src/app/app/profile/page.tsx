@@ -4,17 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
-  CheckCircle,
   Code,
   Loader2,
   Plus,
   Save,
-  Sparkles,
   TrendingUp,
   User,
   X,
 } from "lucide-react";
 import {
+  AutoComplete,
   Avatar,
   Badge,
   Button,
@@ -25,8 +24,8 @@ import {
   Progress,
   Row,
   Select,
-  Slider,
   Space,
+  Spin,
   Tag,
   Typography,
   Upload,
@@ -44,27 +43,10 @@ import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
 import { GithubOutlined } from "@ant-design/icons";
-
-const AVAILABLE_SKILLS = [
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Node.js",
-  "C#",
-  ".NET",
-  "PostgreSQL",
-  "Docker",
-  "Testing",
-  "System Design",
-];
-
-const LEARNING_GOALS = [
-  "Improve communication in code reviews",
-  "Lead sprint planning confidently",
-  "Write clearer technical documentation",
-  "Handle conflict constructively",
-  "Give stronger peer feedback",
-];
+import {
+  normalizeSuggestionValues,
+  toSuggestionOptions,
+} from "./aiSuggestions";
 
 const companyRoleLabel = (role?: number) => {
   if (role === 1) {
@@ -91,8 +73,13 @@ const ProfilePage = () => {
   });
   const [newSkill, setNewSkill] = useState("");
   const [newGoal, setNewGoal] = useState("");
+  const [skillQuery, setSkillQuery] = useState("");
+  const [goalQuery, setGoalQuery] = useState("");
+  const [skillSuggestions, setSkillSuggestions] = useState<string[]>([]);
+  const [goalSuggestions, setGoalSuggestions] = useState<string[]>([]);
+  const [isSkillSuggestionLoading, setIsSkillSuggestionLoading] = useState(false);
+  const [isGoalSuggestionLoading, setIsGoalSuggestionLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [companyDraft, setCompanyDraft] = useState({
     name: "",
@@ -105,7 +92,6 @@ const ProfilePage = () => {
   const isCompanyTenant = Boolean(tenancyName);
   const {
     profile,
-    scanResult,
     learningPath,
     gamificationSummary,
     currentUser,
@@ -114,17 +100,19 @@ const ProfilePage = () => {
     isGamificationPending,
     studyLevels,
   } = useDeveloperState();
-  const { profile: companyProfile, isPending: isCompanyPending } = useCompanyProfileState();
+  const { profile: companyProfile, isPending: isCompanyPending } =
+    useCompanyProfileState();
   const {
     fetchCurrentUser,
     fetchMyProfile,
     fetchStudyLevels,
     fetchLearningPathRecommendations,
     fetchMyGamificationSummary,
-    scanMyGithubProfile,
+    getProfileFieldSuggestions,
     upsertMyProfile,
   } = useDeveloperAction();
-  const { fetchMyEmployeeProfile, updateMyEmployeeProfile } = useCompanyProfileAction();
+  const { fetchMyEmployeeProfile, updateMyEmployeeProfile } =
+    useCompanyProfileAction();
 
   useEffect(() => {
     if (isCompanyTenant) {
@@ -165,6 +153,95 @@ const ProfilePage = () => {
       avatarUrl: companyProfile.avatarUrl ?? "",
     });
   }, [companyProfile]);
+
+  useEffect(() => {
+    if (isCompanyTenant) {
+      return;
+    }
+
+    let isActive = true;
+    const timer = window.setTimeout(() => {
+      setIsSkillSuggestionLoading(true);
+
+      getProfileFieldSuggestions({
+        field: "skill",
+        query: skillQuery,
+        existingValues: draft.skills,
+        maxResults: 8,
+      })
+        .then((result) => {
+          if (!isActive) {
+            return;
+          }
+
+          setSkillSuggestions(
+            normalizeSuggestionValues(
+              result.suggestions,
+              draft.skills,
+              skillQuery,
+              8,
+            ),
+          );
+        })
+        .catch(() => {
+          if (isActive) {
+            setSkillSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (isActive) {
+            setIsSkillSuggestionLoading(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timer);
+    };
+  }, [isCompanyTenant, skillQuery, draft.skills]);
+
+  useEffect(() => {
+    if (isCompanyTenant) {
+      return;
+    }
+
+    let isActive = true;
+    const timer = window.setTimeout(() => {
+      setIsGoalSuggestionLoading(true);
+
+      getProfileFieldSuggestions({
+        field: "goal",
+        query: goalQuery,
+        existingValues: draft.goals,
+        maxResults: 6,
+      })
+        .then((result) => {
+          if (!isActive) {
+            return;
+          }
+
+          setGoalSuggestions(
+            normalizeSuggestionValues(result.suggestions, draft.goals, goalQuery, 6),
+          );
+        })
+        .catch(() => {
+          if (isActive) {
+            setGoalSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (isActive) {
+            setIsGoalSuggestionLoading(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timer);
+    };
+  }, [isCompanyTenant, goalQuery, draft.goals]);
 
   const displayName = useMemo(() => {
     if (isCompanyTenant) {
@@ -213,6 +290,7 @@ const ProfilePage = () => {
       toast.success("Skill added", `${normalized} added to draft.`);
     }
     setNewSkill("");
+    setSkillQuery("");
   };
 
   const handleAddGoal = (value: string) => {
@@ -230,6 +308,7 @@ const ProfilePage = () => {
       toast.success("Goal added", "Learning goal added to draft.");
     }
     setNewGoal("");
+    setGoalQuery("");
   };
 
   const handleSaveProfile = async () => {
@@ -242,9 +321,13 @@ const ProfilePage = () => {
           surname: companyDraft.surname,
           avatarUrl: companyDraft.avatarUrl,
         });
-        toast.success("Profile saved", "Your company profile has been updated.");
+        toast.success(
+          "Profile saved",
+          "Your company profile has been updated.",
+        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to save profile.";
+        const message =
+          error instanceof Error ? error.message : "Failed to save profile.";
         toast.error("Save failed", message);
       } finally {
         setIsSaving(false);
@@ -255,13 +338,16 @@ const ProfilePage = () => {
 
     if (!draft.githubUsername.trim()) {
       toast.error(
-        "GitHub username required",
-        "Please provide a GitHub username before saving.",
+        "GitHub connection required",
+        "Sign in with GitHub to sync your username before saving.",
       );
       return;
     }
     if (draft.yearOfStudy !== undefined && draft.yearOfStudy >= 10) {
-      toast.error("Invalid year of study", "Year of study must be less than 10.");
+      toast.error(
+        "Invalid year of study",
+        "Year of study must be less than 10.",
+      );
       return;
     }
 
@@ -277,7 +363,6 @@ const ProfilePage = () => {
         studyLevel: draft.studyLevel,
         bio: draft.bio,
         location: draft.location,
-        teamworkRating: draft.teamworkRating,
         skills: draft.skills,
         goals: draft.goals,
       });
@@ -287,7 +372,8 @@ const ProfilePage = () => {
         "Your developer profile has been updated.",
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save profile.";
+      const message =
+        error instanceof Error ? error.message : "Failed to save profile.";
       toast.error("Save failed", message);
     } finally {
       setIsSaving(false);
@@ -321,7 +407,6 @@ const ProfilePage = () => {
             studyLevel: nextDraft.studyLevel,
             bio: nextDraft.bio,
             location: nextDraft.location,
-            teamworkRating: nextDraft.teamworkRating,
             skills: nextDraft.skills,
             goals: nextDraft.goals,
           });
@@ -331,45 +416,18 @@ const ProfilePage = () => {
       toast.success("Avatar uploaded", "Profile avatar has been updated.");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unable to upload avatar right now.";
+        error instanceof Error
+          ? error.message
+          : "Unable to upload avatar right now.";
       toast.error("Upload failed", message);
     } finally {
       setIsUploadingAvatar(false);
     }
   };
 
-  const handleScanGithub = async () => {
-    if (!draft.githubUsername) {
-      toast.error(
-        "GitHub username required",
-        "Add your GitHub username first.",
-      );
-      return;
-    }
-
-    setIsScanning(true);
-
-    try {
-      const result = await scanMyGithubProfile();
-      if (result) {
-        toast.success(
-          "Scan complete",
-          "GitHub profile insights were refreshed.",
-        );
-      } else {
-        toast.error("Scan failed", "Unable to scan GitHub profile right now.");
-      }
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
   return (
     <div className={styles.page} data-ai-page="profile">
-      <motion.div
-        initial={false}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
         <Typography.Title level={2} className={styles.pageTitle}>
           My Profile
         </Typography.Title>
@@ -381,16 +439,14 @@ const ProfilePage = () => {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Space direction="vertical" size={16} className={styles.fullWidth}>
-            <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
               <Card>
                 <Space size={16} align="start" wrap>
                   <Avatar
                     src={
-                      (isCompanyTenant ? companyDraft.avatarUrl : draft.avatarUrl) ||
-                      undefined
+                      (isCompanyTenant
+                        ? companyDraft.avatarUrl
+                        : draft.avatarUrl) || undefined
                     }
                     size={72}
                   >
@@ -427,59 +483,60 @@ const ProfilePage = () => {
             </motion.div>
 
             {isCompanyTenant ? (
-              <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card
-                title={
-                  <Space>
-                    <User size={16} /> Employee Details
-                  </Space>
-                }
-              >
-                <div className={styles.detailsGrid}>
-                  <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">First Name</Typography.Text>
-                    <Input
-                      value={companyDraft.name}
-                      onChange={(event) =>
-                        setCompanyDraft((prev) => ({
-                          ...prev,
-                          name: event.target.value,
-                        }))
-                      }
-                      placeholder="First name"
-                      data-ai-field="profile-first-name"
-                    />
+              <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
+                <Card
+                  title={
+                    <Space>
+                      <User size={16} /> Employee Details
+                    </Space>
+                  }
+                >
+                  <div className={styles.detailsGrid}>
+                    <div className={styles.fullSpan}>
+                      <Typography.Text type="secondary">
+                        First Name
+                      </Typography.Text>
+                      <Input
+                        value={companyDraft.name}
+                        onChange={(event) =>
+                          setCompanyDraft((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder="First name"
+                        data-ai-field="profile-first-name"
+                      />
+                    </div>
+                    <div className={styles.fullSpan}>
+                      <Typography.Text type="secondary">
+                        Last Name
+                      </Typography.Text>
+                      <Input
+                        value={companyDraft.surname}
+                        onChange={(event) =>
+                          setCompanyDraft((prev) => ({
+                            ...prev,
+                            surname: event.target.value,
+                          }))
+                        }
+                        placeholder="Last name"
+                        data-ai-field="profile-last-name"
+                      />
+                    </div>
+                    <div className={styles.fullSpan}>
+                      <Typography.Text type="secondary">Role</Typography.Text>
+                      <Input
+                        value={companyRoleLabel(companyProfile?.role)}
+                        disabled
+                      />
+                    </div>
                   </div>
-                  <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">Last Name</Typography.Text>
-                    <Input
-                      value={companyDraft.surname}
-                      onChange={(event) =>
-                        setCompanyDraft((prev) => ({
-                          ...prev,
-                          surname: event.target.value,
-                        }))
-                      }
-                      placeholder="Last name"
-                      data-ai-field="profile-last-name"
-                    />
-                  </div>
-                  <div className={styles.fullSpan}>
-                    <Typography.Text type="secondary">Role</Typography.Text>
-                    <Input value={companyRoleLabel(companyProfile?.role)} disabled />
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
+                </Card>
+              </motion.div>
             ) : (
               <>
-                <motion.div
-                  initial={false}
-                  animate={{ opacity: 1, y: 0 }}
-                >
+                <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
                   <Card
                     title={
                       <Space>
@@ -489,7 +546,9 @@ const ProfilePage = () => {
                   >
                     <div className={styles.detailsGrid}>
                       <div>
-                        <Typography.Text type="secondary">Years of Experience</Typography.Text>
+                        <Typography.Text type="secondary">
+                          Years of Experience
+                        </Typography.Text>
                         <InputNumber
                           min={0}
                           max={80}
@@ -504,7 +563,9 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div>
-                        <Typography.Text type="secondary">Year of Study</Typography.Text>
+                        <Typography.Text type="secondary">
+                          Year of Study
+                        </Typography.Text>
                         <InputNumber
                           min={0}
                           max={9}
@@ -519,7 +580,9 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div>
-                        <Typography.Text type="secondary">Study Level</Typography.Text>
+                        <Typography.Text type="secondary">
+                          Study Level
+                        </Typography.Text>
                         <Select
                           className={styles.fullControl}
                           value={draft.studyLevel}
@@ -536,7 +599,9 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div className={styles.fullSpan}>
-                        <Typography.Text type="secondary">Location</Typography.Text>
+                        <Typography.Text type="secondary">
+                          Location
+                        </Typography.Text>
                         <Input
                           value={draft.location}
                           onChange={(event) =>
@@ -566,167 +631,195 @@ const ProfilePage = () => {
                       </div>
                       <div className={styles.fullSpan}>
                         <Typography.Text type="secondary">
-                          Teamwork Rating ({draft.teamworkRating.toFixed(1)})
+                          Teamwork Rating (System-calculated)
                         </Typography.Text>
-                        <Slider
-                          min={0}
-                          max={10}
-                          step={0.1}
-                          value={draft.teamworkRating}
-                          onChange={(value) =>
-                            setDraft((prev) => ({
-                              ...prev,
-                              teamworkRating: value,
-                            }))
-                          }
-                        />
+                        <div className={styles.readOnlyRating}>
+                          <Typography.Text strong>
+                            {draft.teamworkRating.toFixed(1)}/10
+                          </Typography.Text>
+                          <Typography.Text type="secondary">
+                            Updated from AI simulation performance and peer reviews.
+                          </Typography.Text>
+                        </div>
                       </div>
                     </div>
                   </Card>
                 </motion.div>
-                <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card
-                title={
-                  <Space>
-                    <Code size={16} /> Skills
-                  </Space>
-                }
-              >
-                <div className={styles.tagWrap}>
-                  {currentSkills.map((skill) => (
-                    <Tag key={skill} color="gold" className={styles.tag}>
-                      {skill}
-                      <button
-                        type="button"
-                        className={styles.iconButton}
-                        onClick={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            skills: prev.skills.filter((item) => item !== skill),
-                          }))
-                        }
-                      >
-                        <X size={12} />
-                      </button>
-                    </Tag>
-                  ))}
-                </div>
-
-                <div className={styles.inputRow}>
-                  <Input
-                    value={newSkill}
-                    placeholder="Add a custom skill"
-                    onChange={(event) => setNewSkill(event.target.value)}
-                    onPressEnter={() => handleAddSkill(newSkill)}
-                  />
-                  <Button
-                    icon={<Plus size={14} />}
-                    onClick={() => handleAddSkill(newSkill)}
+                <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
+                  <Card
+                    title={
+                      <Space>
+                        <Code size={16} /> Skills
+                      </Space>
+                    }
                   >
-                    Add
-                  </Button>
-                </div>
-
-                <div className={styles.suggestWrap}>
-                  {AVAILABLE_SKILLS.filter(
-                    (item) =>
-                      !currentSkills.some(
-                        (skill) => skill.toLowerCase() === item.toLowerCase(),
-                      ),
-                  ).map((item) => (
-                    <Button
-                      key={item}
-                      size="small"
-                      onClick={() => handleAddSkill(item)}
-                    >
-                      + {item}
-                    </Button>
-                  ))}
-                </div>
-              </Card>
-            </motion.div>
-                <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card
-                title={
-                  <Space>
-                    <TrendingUp size={16} /> Learning Goals
-                  </Space>
-                }
-              >
-                <div className={styles.goalList}>
-                  {currentGoals.map((goal) => (
-                    <div key={goal} className={styles.goalItem}>
-                      <Typography.Text>{goal}</Typography.Text>
-                      <button
-                        type="button"
-                        className={styles.iconButton}
-                        onClick={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            goals: prev.goals.filter((item) => item !== goal),
-                          }))
-                        }
-                      >
-                        <X size={14} />
-                      </button>
+                    <div className={styles.tagWrap}>
+                      {currentSkills.map((skill) => (
+                        <Tag key={skill} color="gold" className={styles.tag}>
+                          {skill}
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                skills: prev.skills.filter(
+                                  (item) => item !== skill,
+                                ),
+                              }))
+                            }
+                          >
+                            <X size={12} />
+                          </button>
+                        </Tag>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                <div className={styles.inputRow}>
-                  <Input
-                    value={newGoal}
-                    placeholder="Add a learning goal"
-                    onChange={(event) => setNewGoal(event.target.value)}
-                    onPressEnter={() => handleAddGoal(newGoal)}
-                  />
-                  <Button
-                    icon={<Plus size={14} />}
-                    onClick={() => handleAddGoal(newGoal)}
+                    <div className={styles.inputRow}>
+                      <AutoComplete
+                        className={styles.fullControl}
+                        value={newSkill}
+                        options={toSuggestionOptions(skillSuggestions)}
+                        filterOption={false}
+                        onSelect={(value) => handleAddSkill(String(value))}
+                        onChange={(value) => {
+                          setNewSkill(value);
+                          setSkillQuery(value);
+                        }}
+                      >
+                        <Input
+                          placeholder="Add a skill"
+                          onPressEnter={() => handleAddSkill(newSkill)}
+                        />
+                      </AutoComplete>
+                      <Button
+                        icon={<Plus size={14} />}
+                        onClick={() => handleAddSkill(newSkill)}
+                      >
+                        Add
+                      </Button>
+                    </div>
+
+                    <div className={styles.suggestWrap}>
+                      {skillSuggestions.map((item) => (
+                        <Button
+                          key={item}
+                          size="small"
+                          onClick={() => handleAddSkill(item)}
+                        >
+                          + {item}
+                        </Button>
+                      ))}
+                    </div>
+                    {isSkillSuggestionLoading ? (
+                      <div className={styles.suggestionLoading}>
+                        <Spin size="small" />
+                        <Typography.Text type="secondary">
+                          Loading AI skill suggestions...
+                        </Typography.Text>
+                      </div>
+                    ) : null}
+                  </Card>
+                </motion.div>
+                <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
+                  <Card
+                    title={
+                      <Space>
+                        <TrendingUp size={16} /> Learning Goals
+                      </Space>
+                    }
                   >
-                    Add
-                  </Button>
-                </div>
+                    <div className={styles.goalList}>
+                      {currentGoals.map((goal) => (
+                        <div key={goal} className={styles.goalItem}>
+                          <Typography.Text>{goal}</Typography.Text>
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                goals: prev.goals.filter(
+                                  (item) => item !== goal,
+                                ),
+                              }))
+                            }
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
 
-                <div className={styles.suggestWrap}>
-                  {LEARNING_GOALS.filter(
-                    (item) =>
-                      !currentGoals.some(
-                        (goal) => goal.toLowerCase() === item.toLowerCase(),
-                      ),
-                  ).map((item) => (
-                    <Button
-                      key={item}
-                      size="small"
-                      onClick={() => handleAddGoal(item)}
-                    >
-                      + {item}
-                    </Button>
-                  ))}
-                </div>
-              </Card>
-            </motion.div>
+                    <div className={styles.inputRow}>
+                      <AutoComplete
+                        className={styles.fullControl}
+                        value={newGoal}
+                        options={toSuggestionOptions(goalSuggestions)}
+                        filterOption={false}
+                        onSelect={(value) => handleAddGoal(String(value))}
+                        onChange={(value) => {
+                          setNewGoal(value);
+                          setGoalQuery(value);
+                        }}
+                      >
+                        <Input
+                          placeholder="Add a learning goal"
+                          onPressEnter={() => handleAddGoal(newGoal)}
+                        />
+                      </AutoComplete>
+                      <Button
+                        icon={<Plus size={14} />}
+                        onClick={() => handleAddGoal(newGoal)}
+                      >
+                        Add
+                      </Button>
+                    </div>
+
+                    <div className={styles.suggestWrap}>
+                      {goalSuggestions.map((item) => (
+                        <Button
+                          key={item}
+                          size="small"
+                          onClick={() => handleAddGoal(item)}
+                        >
+                          + {item}
+                        </Button>
+                      ))}
+                    </div>
+                    {isGoalSuggestionLoading ? (
+                      <div className={styles.suggestionLoading}>
+                        <Spin size="small" />
+                        <Typography.Text type="secondary">
+                          Loading AI goal suggestions...
+                        </Typography.Text>
+                      </div>
+                    ) : null}
+                  </Card>
+                </motion.div>
               </>
             )}
+            <Button
+              type="primary"
+              onClick={handleSaveProfile}
+              loading={isSaving || isPending || isCompanyPending}
+              icon={<Save size={14} />}
+              block
+              data-ai-action="save-profile"
+            >
+              Save Profile
+            </Button>
           </Space>
         </Col>
 
         <Col xs={24} lg={8}>
           <Space direction="vertical" size={16} className={styles.fullWidth}>
-            <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
               <Card
                 title={
                   <Space>
-                    <GithubOutlined size={16} /> {isCompanyTenant ? "Avatar" : "GitHub Integration"}
+                    <GithubOutlined size={16} />{" "}
+                    {isCompanyTenant ? "Avatar" : "GitHub Integration"}
                   </Space>
                 }
               >
@@ -745,141 +838,92 @@ const ProfilePage = () => {
                         return false;
                       }}
                     >
-                      <Button loading={isUploadingAvatar} icon={<Plus size={14} />}>
+                      <Button
+                        loading={isUploadingAvatar}
+                        icon={<Plus size={14} />}
+                      >
                         Upload Avatar
                       </Button>
                     </Upload>
-                    {!isCompanyTenant ? (
-                      <Input
-                        value={draft.avatarUrl}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            avatarUrl: event.target.value,
-                          }))
-                        }
-                        placeholder="Or paste avatar URL"
-                      />
-                    ) : null}
                   </div>
                   {!isCompanyTenant ? (
                     <Input
-                    value={draft.githubUsername}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        githubUsername: event.target.value,
-                      }))
-                    }
-                    placeholder="GitHub username"
-                    data-ai-field="profile-github-username"
+                      value={draft.githubUsername}
+                      disabled
+                      readOnly
+                      placeholder="Connected GitHub username"
+                      data-ai-field="profile-github-username"
                     />
                   ) : null}
                   {!isCompanyTenant ? (
-                    <Button
-                    type="primary"
-                    onClick={handleScanGithub}
-                    disabled={!draft.githubUsername || isScanning || isPending}
-                    icon={
-                      isScanning ? (
-                        <Loader2 size={14} className={styles.spinIcon} />
-                      ) : (
-                        <Sparkles size={14} />
-                      )
-                    }
-                    block
-                    data-ai-action="scan-github-profile"
-                  >
-                    {isScanning ? "Scanning..." : "Scan GitHub"}
-                  </Button>
-                  ) : null}
-                  {!isCompanyTenant && scanResult ? (
-                    <div className={styles.scanCard}>
-                      <Space>
-                        <CheckCircle size={16} />
-                        <Typography.Text strong>Scan Complete</Typography.Text>
-                      </Space>
-                      <Typography.Title
-                        level={3}
-                        className={styles.noMarginTitle}
-                      >
-                        {scanResult.score}%
-                      </Typography.Title>
-                      <ul className={styles.insights}>
-                        {scanResult.insights.slice(0, 3).map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <Typography.Text type="secondary">
+                      GitHub username is sourced from your connected GitHub
+                      account and cannot be edited manually.
+                    </Typography.Text>
                   ) : null}
                 </Space>
               </Card>
             </motion.div>
 
             {!isCompanyTenant ? (
-              <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card
-                title={
-                  <Space>
-                    <User size={16} /> Your Stats
-                  </Space>
-                }
-              >
-                <Space
-                  direction="vertical"
-                  size={12}
-                  className={styles.fullWidth}
+              <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
+                <Card
+                  title={
+                    <Space>
+                      <User size={16} /> Your Stats
+                    </Space>
+                  }
                 >
-                  <div>
-                    <div className={styles.statRow}>
-                      <Typography.Text type="secondary">
-                        Teamwork Rating
-                      </Typography.Text>
-                      <Typography.Text strong>
-                        {draft.teamworkRating.toFixed(1)}/10
-                      </Typography.Text>
+                  <Space
+                    direction="vertical"
+                    size={12}
+                    className={styles.fullWidth}
+                  >
+                    <div>
+                      <div className={styles.statRow}>
+                        <Typography.Text type="secondary">
+                          Teamwork Rating
+                        </Typography.Text>
+                        <Typography.Text strong>
+                          {draft.teamworkRating.toFixed(1)}/10
+                        </Typography.Text>
+                      </div>
+                      <Progress
+                        percent={Math.round(draft.teamworkRating * 10)}
+                        showInfo={false}
+                      />
                     </div>
-                    <Progress
-                      percent={Math.round(draft.teamworkRating * 10)}
-                      showInfo={false}
-                    />
-                  </div>
-                  <div>
-                    <div className={styles.statRow}>
-                      <Typography.Text type="secondary">
-                        Code Quality
-                      </Typography.Text>
-                      <Typography.Text strong>
-                        {scanResult?.score ?? 0}%
-                      </Typography.Text>
+                    <div>
+                      <div className={styles.statRow}>
+                        <Typography.Text type="secondary">
+                          Skills
+                        </Typography.Text>
+                        <Typography.Text strong>
+                          {currentSkills.length}
+                        </Typography.Text>
+                      </div>
+                      <Progress percent={Math.min(currentSkills.length * 10, 100)} showInfo={false} />
                     </div>
-                    <Progress
-                      percent={scanResult?.score ?? 0}
-                      showInfo={false}
-                    />
-                  </div>
-                </Space>
-              </Card>
-            </motion.div>
+                  </Space>
+                </Card>
+              </motion.div>
             ) : null}
 
             {!isCompanyTenant ? (
-              <motion.div
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
                 <Card
-                  title={(
+                  title={
                     <Space>
                       <Award size={16} /> Progress & Badges
                     </Space>
-                  )}
+                  }
                   data-ai-section="gamification"
                 >
-                  <Space direction="vertical" size={12} className={styles.fullWidth}>
+                  <Space
+                    direction="vertical"
+                    size={12}
+                    className={styles.fullWidth}
+                  >
                     {isGamificationPending ? (
                       <div className={styles.learningPathLoading}>
                         <Loader2 size={16} className={styles.spinIcon} />
@@ -899,11 +943,14 @@ const ProfilePage = () => {
                     </div>
 
                     <Progress
-                      percent={Math.round(gamificationSummary?.progressPercent ?? 0)}
+                      percent={Math.round(
+                        gamificationSummary?.progressPercent ?? 0,
+                      )}
                       showInfo={false}
                     />
                     <Typography.Text type="secondary">
-                      Next level at {gamificationSummary?.nextLevelPoints ?? 100} pts
+                      Next level at{" "}
+                      {gamificationSummary?.nextLevelPoints ?? 100} pts
                     </Typography.Text>
 
                     {gamificationSummary?.badges?.length ? (
@@ -916,7 +963,8 @@ const ProfilePage = () => {
                       </div>
                     ) : (
                       <Typography.Text type="secondary">
-                        Complete reviews, projects, and simulations to unlock badges.
+                        Complete reviews, projects, and simulations to unlock
+                        badges.
                       </Typography.Text>
                     )}
                   </Space>
@@ -925,10 +973,7 @@ const ProfilePage = () => {
             ) : null}
 
             {!isCompanyTenant ? (
-              <motion.div
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
                 <Card
                   title={
                     <Space>
@@ -937,7 +982,11 @@ const ProfilePage = () => {
                   }
                   data-ai-section="learning-path"
                 >
-                  <Space direction="vertical" size={12} className={styles.fullWidth}>
+                  <Space
+                    direction="vertical"
+                    size={12}
+                    className={styles.fullWidth}
+                  >
                     {isLearningPathPending ? (
                       <div className={styles.learningPathLoading}>
                         <Loader2 size={16} className={styles.spinIcon} />
@@ -951,65 +1000,74 @@ const ProfilePage = () => {
                       <Typography.Text>{learningPath.summary}</Typography.Text>
                     ) : (
                       <Typography.Text type="secondary">
-                        Save your profile with skills and goals to unlock recommendations.
+                        Save your profile with skills and goals to unlock
+                        recommendations.
                       </Typography.Text>
                     )}
 
                     {learningPath?.marketSignals?.length ? (
                       <div className={styles.marketSignals}>
-                        {learningPath.marketSignals.slice(0, 3).map((signal) => (
-                          <Tag key={signal} color="blue">
-                            {signal}
-                          </Tag>
-                        ))}
+                        {learningPath.marketSignals
+                          .slice(0, 3)
+                          .map((signal) => (
+                            <Tag key={signal} color="blue">
+                              {signal}
+                            </Tag>
+                          ))}
                       </div>
                     ) : null}
 
-                    {learningPath?.recommendations?.slice(0, 3).map((recommendation) => (
-                      <div
-                        key={`${recommendation.goal}-${recommendation.priority}`}
-                        className={styles.learningPathItem}
-                      >
-                        <div className={styles.learningPathHeader}>
-                          <Typography.Text strong>{recommendation.goal}</Typography.Text>
-                          <Tag color={recommendation.priority === "high" ? "red" : "gold"}>
-                            {recommendation.priority} - {recommendation.estimatedWeeks}w
-                          </Tag>
-                        </div>
-                        <Typography.Text type="secondary">
-                          {recommendation.gapSummary}
-                        </Typography.Text>
-                        {recommendation.recommendedSkills.length > 0 ? (
-                          <div className={styles.marketSignals}>
-                            {recommendation.recommendedSkills.map((skill) => (
-                              <Tag key={`${recommendation.goal}-${skill}`}>{skill}</Tag>
-                            ))}
+                    {learningPath?.recommendations
+                      ?.slice(0, 3)
+                      .map((recommendation) => (
+                        <div
+                          key={`${recommendation.goal}-${recommendation.priority}`}
+                          className={styles.learningPathItem}
+                        >
+                          <div className={styles.learningPathHeader}>
+                            <Typography.Text strong>
+                              {recommendation.goal}
+                            </Typography.Text>
+                            <Tag
+                              color={
+                                recommendation.priority === "high"
+                                  ? "red"
+                                  : "gold"
+                              }
+                            >
+                              {recommendation.priority} -{" "}
+                              {recommendation.estimatedWeeks}w
+                            </Tag>
                           </div>
-                        ) : null}
-                        {recommendation.suggestedActions.length > 0 ? (
-                          <ul className={styles.insights}>
-                            {recommendation.suggestedActions.slice(0, 3).map((action) => (
-                              <li key={`${recommendation.goal}-${action}`}>{action}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    ))}
+                          <Typography.Text type="secondary">
+                            {recommendation.gapSummary}
+                          </Typography.Text>
+                          {recommendation.recommendedSkills.length > 0 ? (
+                            <div className={styles.marketSignals}>
+                              {recommendation.recommendedSkills.map((skill) => (
+                                <Tag key={`${recommendation.goal}-${skill}`}>
+                                  {skill}
+                                </Tag>
+                              ))}
+                            </div>
+                          ) : null}
+                          {recommendation.suggestedActions.length > 0 ? (
+                            <ul className={styles.insights}>
+                              {recommendation.suggestedActions
+                                .slice(0, 3)
+                                .map((action) => (
+                                  <li key={`${recommendation.goal}-${action}`}>
+                                    {action}
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ))}
                   </Space>
                 </Card>
               </motion.div>
             ) : null}
-
-            <Button
-              type="primary"
-              onClick={handleSaveProfile}
-              loading={isSaving || isPending || isCompanyPending}
-              icon={<Save size={14} />}
-              block
-              data-ai-action="save-profile"
-            >
-              Save Profile
-            </Button>
           </Space>
         </Col>
       </Row>
@@ -1018,4 +1076,3 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-

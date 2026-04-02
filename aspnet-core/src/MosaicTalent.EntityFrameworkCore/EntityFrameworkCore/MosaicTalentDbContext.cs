@@ -32,6 +32,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<ProjectTask> ProjectTasks { get; set; }
     public DbSet<ProjectMeeting> ProjectMeetings { get; set; }
     public DbSet<ProjectMeetingReminderPreference> ProjectMeetingReminderPreferences { get; set; }
+    public DbSet<ProjectTeamInvite> ProjectTeamInvites { get; set; }
     public DbSet<PeerReview> PeerReviews { get; set; }
     public DbSet<AIReviewQuestion> AIReviewQuestions { get; set; }
     public DbSet<AIReviewFeedback> AIReviewFeedbacks { get; set; }
@@ -161,6 +162,13 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         {
             builder.HasIndex(x => new { x.MeetingId, x.DeveloperId }).IsUnique();
             builder.HasIndex(x => new { x.TenantId, x.DeveloperId });
+        });
+
+        modelBuilder.Entity<ProjectTeamInvite>(builder =>
+        {
+            builder.HasIndex(x => new { x.ProjectId, x.DeveloperId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.ProjectId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.Status });
         });
 
         modelBuilder.Entity<PeerReview>(builder =>

@@ -10,7 +10,6 @@ export const APP_ROUTE_REGISTRY: Record<string, IRouteDefinition> = {
   simulator: { key: "simulator", path: "/app/simulator", label: "AI Simulator", roles: ["developer"] },
   reviews: { key: "reviews", path: "/app/reviews", label: "Peer Reviews", roles: ["developer"] },
   jobs: { key: "jobs", path: "/app/jobs", label: "Job Postings", roles: ["company"] },
-  reports: { key: "reports", path: "/app/reports", label: "Reports", roles: ["company"] },
   settings: { key: "settings", path: "/app/settings", label: "Settings", roles: ["company"] },
   employeesSettings: {
     key: "employeesSettings",
@@ -46,7 +45,7 @@ const keywordToRouteKey: Array<{ keywords: string[]; key: keyof typeof APP_ROUTE
   { keywords: ["simulator"], key: "simulator" },
   { keywords: ["reviews"], key: "reviews" },
   { keywords: ["job postings", "jobs", "hiring"], key: "jobs" },
-  { keywords: ["reports", "analytics"], key: "reports" },
+  { keywords: ["reports", "analytics"], key: "dashboard" },
   { keywords: ["settings"], key: "settings" },
   { keywords: ["employees", "users"], key: "employeesSettings" },
   { keywords: ["company details"], key: "settingsCompanyDetails" },

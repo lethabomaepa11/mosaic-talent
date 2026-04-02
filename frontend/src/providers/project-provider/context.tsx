@@ -219,6 +219,19 @@ export interface IProjectMeeting {
   reminderEnabled: boolean;
 }
 
+export interface IProjectInvite {
+  id: string;
+  projectId: string;
+  developerId: string;
+  developerName: string;
+  developerUserName: string;
+  invitedByDeveloperId: string;
+  invitedByDeveloperName: string;
+  status: "pending" | "accepted" | "rejected";
+  invitedAtUtc: string;
+  respondedAtUtc?: string;
+}
+
 export interface IProjectStateContext {
   isPending: boolean;
   isSuccess: boolean;
@@ -252,6 +265,16 @@ export interface IProjectActionContext {
     confirmHighWorkload?: boolean,
   ) => Promise<IProject | undefined>;
   leaveProject: (projectId: string, reason: string) => Promise<IProject | undefined>;
+  deleteProject: (projectId: string) => Promise<void>;
+  removeProjectMember: (
+    projectId: string,
+    memberId: string,
+    reason: string,
+  ) => Promise<IProject | undefined>;
+  submitProjectComplaint: (
+    projectId: string,
+    complaint: string,
+  ) => Promise<void>;
   assignMemberRole: (
     projectId: string,
     memberId: string,
@@ -261,10 +284,16 @@ export interface IProjectActionContext {
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
   aiGenerateProjectTasks: (
     projectId: string,
+    repoAnalysisSummary?: string,
   ) => Promise<IProjectTask[]>;
   addProjectTask: (
     projectId: string,
     input: { title: string; description?: string; assignedMemberId?: string },
+  ) => Promise<IProjectTask | undefined>;
+  reassignProjectTask: (
+    projectId: string,
+    taskId: string,
+    assignedMemberId?: string,
   ) => Promise<IProjectTask | undefined>;
   updateProjectTaskStatus: (
     projectId: string,
@@ -276,6 +305,16 @@ export interface IProjectActionContext {
     skills: string[],
   ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
+  getProjectInvites: (projectId: string) => Promise<IProjectInvite[]>;
+  acceptProjectInvite: (
+    projectId: string,
+    inviteId: string,
+  ) => Promise<IProjectInvite | undefined>;
+  rejectProjectInvite: (
+    projectId: string,
+    inviteId: string,
+    reason?: string,
+  ) => Promise<IProjectInvite | undefined>;
   scanRepoSafety: (projectId: string) => Promise<IRepoSafetyScan | undefined>;
   scanRepoSafetyByGithubUrl: (
     githubUrl: string,
@@ -343,14 +382,21 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   getJoinProjectLoadWarning: async () => undefined,
   joinProject: async () => undefined,
   leaveProject: async () => undefined,
+  deleteProject: async () => undefined,
+  removeProjectMember: async () => undefined,
+  submitProjectComplaint: async () => undefined,
   assignMemberRole: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,
   aiGenerateProjectTasks: async () => [],
   addProjectTask: async () => undefined,
+  reassignProjectTask: async () => undefined,
   updateProjectTaskStatus: async () => undefined,
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
+  getProjectInvites: async () => [],
+  acceptProjectInvite: async () => undefined,
+  rejectProjectInvite: async () => undefined,
   scanRepoSafety: async () => undefined,
   scanRepoSafetyByGithubUrl: async () => undefined,
   scanRepoGuardian: async () => undefined,
