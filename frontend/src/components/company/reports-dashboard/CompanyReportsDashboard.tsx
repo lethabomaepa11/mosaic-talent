@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Empty,
+  message,
   Progress,
   Space,
   Spin,
@@ -16,9 +17,8 @@ import {
   Typography,
 } from "antd";
 import {
-  Calendar,
-  Download,
-  Filter,
+  FileSpreadsheet,
+  FileText,
   Target,
   TrendingDown,
   TrendingUp,
@@ -33,6 +33,9 @@ import {
 } from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./style";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 type TrendPoint = {
   monthLabel: string;
@@ -40,6 +43,8 @@ type TrendPoint = {
   progressed: number;
   hires: number;
 };
+
+type ExportRow = Record<string, string | number>;
 
 const asStatus = (value: string) => (value ?? "").trim().toLowerCase();
 
@@ -62,10 +67,32 @@ const toDays = (from: string, to: string) => {
   return (end - start) / (1000 * 60 * 60 * 24);
 };
 
+const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+
+const buildTimestampSuffix = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+};
+
+const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Could not read image"));
+    };
+    reader.onerror = () => reject(new Error("Could not read image"));
+    reader.readAsDataURL(blob);
+  });
+
 const CompanyReportsDashboard = () => {
   const { styles } = useStyles();
   const router = useRouter();
-  const { tenancyName } = useTenantResolutionState();
+  const { tenancyName, companyName, companyLogoUrl } = useTenantResolutionState();
   const isCompanyTenant = Boolean(tenancyName);
   const { jobs } = useJobState();
   const { fetchMyJobs, fetchJobApplications } = useJobAction();
@@ -321,6 +348,189 @@ const CompanyReportsDashboard = () => {
 
   const topSource = sources[0];
 
+  const overviewRows = useMemo<ExportRow[]>(
+    () => [
+      { Metric: "Total Applications", Value: totals.totalApplications },
+      { Metric: "Open Positions", Value: totals.openPositions },
+      {
+        Metric: "Assessment Completion",
+        Value: formatPercent(totals.assessmentCompletion),
+      },
+      {
+        Metric: "Avg Assessment Turnaround (days)",
+        Value: totals.avgAssessmentTurnaround.toFixed(1),
+      },
+      { Metric: "Offer Acceptance", Value: formatPercent(totals.offerAcceptance) },
+      { Metric: "Shortlisted", Value: totals.shortlisted },
+      { Metric: "Hired", Value: totals.approved },
+    ],
+    [totals],
+  );
+
+  const trendRows = useMemo<ExportRow[]>(
+    () =>
+      trends.map((point) => ({
+        Month: point.monthLabel,
+        Applications: point.applications,
+        Progressed: point.progressed,
+        Hires: point.hires,
+      })),
+    [trends],
+  );
+
+  const pipelineRows = useMemo<ExportRow[]>(
+    () =>
+      pipeline.map((item) => ({
+        Stage: item.label,
+        Applications: item.value,
+        Percentage: `${item.percentage}%`,
+      })),
+    [pipeline],
+  );
+
+  const qualityRows = useMemo<ExportRow[]>(
+    () => [
+      { Metric: "Avg Match Score", Value: formatPercent(quality.matchAvg) },
+      {
+        Metric: "Avg Assessment Score",
+        Value: formatPercent(quality.assessmentAvg),
+      },
+      { Metric: "Strong Verdict Rate", Value: formatPercent(quality.strongRate) },
+    ],
+    [quality],
+  );
+
+  const roleSpeedRows = useMemo<ExportRow[]>(
+    () =>
+      quality.roleSpeed.map((item) => ({
+        Role: item.role,
+        "Avg Days": item.days.toFixed(1),
+      })),
+    [quality.roleSpeed],
+  );
+
+  const sourceRows = useMemo<ExportRow[]>(
+    () =>
+      sources.map((item) => ({
+        Source: item.source,
+        Applications: item.count,
+        Percentage: `${item.percentage}%`,
+      })),
+    [sources],
+  );
+
+  const handleExportExcel = () => {
+    try {
+      const workbook = XLSX.utils.book_new();
+      const sheets: Array<{ name: string; rows: ExportRow[] }> = [
+        { name: "Overview", rows: overviewRows },
+        { name: "Trends", rows: trendRows },
+        { name: "Pipeline", rows: pipelineRows },
+        { name: "Quality", rows: qualityRows },
+        { name: "RoleSpeed", rows: roleSpeedRows },
+        { name: "Sources", rows: sourceRows },
+      ];
+
+      sheets.forEach((sheet) => {
+        const rows = sheet.rows.length > 0 ? sheet.rows : [{ Info: "No data" }];
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
+      });
+
+      const fileName = `company-reports-${buildTimestampSuffix()}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      message.success("Excel report exported.");
+    } catch {
+      message.error("Could not export Excel report.");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
+      const marginX = 40;
+      let cursorY = 40;
+
+      if (companyLogoUrl) {
+        try {
+          const response = await fetch(companyLogoUrl);
+          if (response.ok) {
+            const imageBlob = await response.blob();
+            const dataUrl = await toDataUrl(imageBlob);
+            const isPng = dataUrl.startsWith("data:image/png");
+            pdf.addImage(dataUrl, isPng ? "PNG" : "JPEG", marginX, cursorY, 64, 64);
+            cursorY += 76;
+          }
+        } catch {
+          // Keep export available even when logo retrieval fails.
+        }
+      }
+
+      const drawTitle = (text: string) => {
+        pdf.setFontSize(16);
+        pdf.text(text, marginX, cursorY);
+        cursorY += 20;
+      };
+
+      const drawTable = (title: string, rows: ExportRow[]) => {
+        if (cursorY > 700) {
+          pdf.addPage();
+          cursorY = 40;
+        }
+
+        pdf.setFontSize(12);
+        pdf.text(title, marginX, cursorY);
+        cursorY += 8;
+
+        const normalizedRows = rows.length > 0 ? rows : [{ Info: "No data" }];
+        const headers = Object.keys(normalizedRows[0]);
+        autoTable(pdf, {
+          startY: cursorY,
+          head: [headers],
+          body: normalizedRows.map((row) =>
+            headers.map((header) => String(row[header] ?? "")),
+          ),
+          margin: { left: marginX, right: marginX },
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [22, 119, 255] },
+        });
+
+        cursorY = ((pdf as unknown as { lastAutoTable?: { finalY?: number } })
+          .lastAutoTable?.finalY ?? cursorY) + 20;
+      };
+
+      drawTitle(`${companyName || "Company"} Reports`);
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, marginX, cursorY);
+      cursorY += 20;
+
+      drawTable("Overview", overviewRows);
+      drawTable("Hiring Trend", trendRows);
+      drawTable("Recruitment Pipeline", pipelineRows);
+      drawTable("Quality Metrics", qualityRows);
+      drawTable("Role Turnaround", roleSpeedRows);
+      drawTable("Application Sources", sourceRows);
+
+      if (topSource) {
+        if (cursorY > 760) {
+          pdf.addPage();
+          cursorY = 40;
+        }
+        pdf.setFontSize(11);
+        pdf.text(
+          `Top Source Insight: ${topSource.source} (${topSource.count} applications, ${topSource.percentage}%)`,
+          marginX,
+          cursorY,
+        );
+      }
+
+      pdf.save(`company-reports-${buildTimestampSuffix()}.pdf`);
+      message.success("PDF report exported.");
+    } catch {
+      message.error("Could not export PDF report.");
+    }
+  };
+
   if (!isCompanyTenant) {
     return null;
   }
@@ -355,16 +565,18 @@ const CompanyReportsDashboard = () => {
         </div>
         <div className={styles.headerActions}>
           <Button
-            icon={<Calendar size={14} />}
-            data-ai-action="set-report-range"
+            icon={<FileText size={14} />}
+            data-ai-action="export-reports-pdf"
+            onClick={handleExportPdf}
           >
-            Last 6 months
+            Export PDF
           </Button>
-          <Button icon={<Filter size={14} />} data-ai-action="filter-reports">
-            Filter
-          </Button>
-          <Button icon={<Download size={14} />} data-ai-action="export-reports">
-            Export
+          <Button
+            icon={<FileSpreadsheet size={14} />}
+            data-ai-action="export-reports-excel"
+            onClick={handleExportExcel}
+          >
+            Export Excel
           </Button>
         </div>
       </div>
