@@ -129,6 +129,16 @@ const ProjectDetailPage = () => {
   const [isLeaveOpen, setIsLeaveOpen] = useState(false);
   const [leaveReason, setLeaveReason] = useState("");
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [removeMemberReason, setRemoveMemberReason] = useState("");
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [isComplaintOpen, setIsComplaintOpen] = useState(false);
+  const [complaintInput, setComplaintInput] = useState("");
+  const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [roleUpdateMemberId, setRoleUpdateMemberId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [joinWarning, setJoinWarning] = useState<IProjectJoinLoadWarning | null>(null);
@@ -163,6 +173,9 @@ const ProjectDetailPage = () => {
     joinProject,
     getJoinProjectLoadWarning,
     leaveProject,
+    deleteProject,
+    removeProjectMember,
+    submitProjectComplaint,
     assignMemberRole,
     aiFillTeam,
     aiGenerateProjectTasks,
@@ -261,6 +274,16 @@ const ProjectDetailPage = () => {
   }, [project, currentUser?.userName]);
   const canManageMemberRoles = currentMember?.role === "lead";
   const canManageMeetings = canManageMemberRoles;
+  const canDeleteProject =
+    !!project &&
+    !!currentMember &&
+    project.ownerId === currentMember.id &&
+    project.members.length === 1;
+  const canLogComplaint =
+    !!project &&
+    !!currentMember &&
+    project.ownerId !== currentMember.id &&
+    currentMember.role !== "lead";
 
   const canComplete = useMemo(() => {
     if (!project) return false;
@@ -463,6 +486,86 @@ const ProjectDetailPage = () => {
       toast.error("Completion failed", message);
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectId || !project) {
+      return;
+    }
+
+    setIsDeletingProject(true);
+    try {
+      await deleteProject(projectId);
+      toast.success("Project deleted", "The project has been permanently deleted.");
+      router.push("/app/projects");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete project.";
+      toast.error("Delete failed", message);
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
+  const openRemoveMemberModal = (member: { id: string; name: string }) => {
+    setRemoveMemberTarget(member);
+    setRemoveMemberReason("");
+  };
+
+  const handleRemoveMember = async () => {
+    if (!projectId || !removeMemberTarget) {
+      return;
+    }
+
+    const reason = removeMemberReason.trim();
+    if (!reason) {
+      toast.error("Reason required", "Provide a reason for removing this member.");
+      return;
+    }
+
+    setIsRemovingMember(true);
+    try {
+      await removeProjectMember(projectId, removeMemberTarget.id, reason);
+      toast.success(
+        "Member removed",
+        `${removeMemberTarget.name} has been removed from this project.`,
+      );
+      setRemoveMemberTarget(null);
+      setRemoveMemberReason("");
+      await loadMeetings();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to remove member.";
+      toast.error("Remove failed", message);
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
+  const handleSubmitComplaint = async () => {
+    if (!projectId) {
+      return;
+    }
+
+    const complaint = complaintInput.trim();
+    if (!complaint) {
+      toast.error("Complaint required", "Please provide complaint details.");
+      return;
+    }
+
+    setIsSubmittingComplaint(true);
+    try {
+      await submitProjectComplaint(projectId, complaint);
+      toast.success("Complaint logged", "Project lead has received your complaint.");
+      setIsComplaintOpen(false);
+      setComplaintInput("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to submit complaint.";
+      toast.error("Complaint failed", message);
+    } finally {
+      setIsSubmittingComplaint(false);
     }
   };
 
@@ -821,7 +924,30 @@ const ProjectDetailPage = () => {
                 Leave Project
               </Button>
             ) : null}
+
+            {canLogComplaint ? (
+              <Button onClick={() => setIsComplaintOpen(true)}>
+                Log Complaint
+              </Button>
+            ) : null}
+
+            {currentMember?.id === project.ownerId ? (
+              <Button
+                danger
+                disabled={!canDeleteProject}
+                loading={isDeletingProject}
+                onClick={() => void handleDeleteProject()}
+                data-ai-action="delete-project"
+              >
+                Delete Project
+              </Button>
+            ) : null}
           </div>
+        ) : null}
+        {currentMember?.id === project.ownerId && project.members.length > 1 ? (
+          <Typography.Text type="secondary">
+            Remove other members first. You can only delete when you are the only member.
+          </Typography.Text>
         ) : null}
       </motion.div>
 
@@ -855,6 +981,7 @@ const ProjectDetailPage = () => {
               const isYou =
                 (member.userName ?? "").toLowerCase() ===
                 (currentUser?.userName ?? "").toLowerCase();
+              const isOwnerMember = member.id === project.ownerId;
               return (
                 <div className={styles.memberItem} key={member.id}>
                   <Avatar src={member.avatar || undefined}>
@@ -893,6 +1020,15 @@ const ProjectDetailPage = () => {
                       ]}
                       className={styles.memberRoleSelect}
                     />
+                  ) : null}
+                  {canManageMemberRoles && !isYou && !isOwnerMember ? (
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => openRemoveMemberModal({ id: member.id, name: member.name })}
+                    >
+                      Remove
+                    </Button>
                   ) : null}
                   {isYou ? <Badge color="gold" text="You" /> : null}
                 </div>
@@ -1506,6 +1642,55 @@ const ProjectDetailPage = () => {
             onChange={(event) => setLeaveReason(event.target.value)}
             placeholder="Example: Current workload changed and I can no longer commit enough time."
             data-ai-field="leave-project-reason"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        title="Remove Member"
+        open={Boolean(removeMemberTarget)}
+        confirmLoading={isRemovingMember}
+        onCancel={() => {
+          setRemoveMemberTarget(null);
+          setRemoveMemberReason("");
+        }}
+        onOk={() => void handleRemoveMember()}
+        okText="Remove Member"
+        okButtonProps={{ danger: true }}
+      >
+        <div className={styles.modalBody}>
+          <Typography.Text>
+            Why are you removing {removeMemberTarget?.name ?? "this member"} from the project?
+          </Typography.Text>
+          <Input.TextArea
+            rows={4}
+            value={removeMemberReason}
+            onChange={(event) => setRemoveMemberReason(event.target.value)}
+            placeholder="Provide clear project context for this decision."
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        title="Log Complaint To Lead"
+        open={isComplaintOpen}
+        confirmLoading={isSubmittingComplaint}
+        onCancel={() => {
+          setIsComplaintOpen(false);
+          setComplaintInput("");
+        }}
+        onOk={() => void handleSubmitComplaint()}
+        okText="Submit Complaint"
+      >
+        <div className={styles.modalBody}>
+          <Typography.Text>
+            Share your concern. This will be sent directly to project lead(s).
+          </Typography.Text>
+          <Input.TextArea
+            rows={5}
+            value={complaintInput}
+            onChange={(event) => setComplaintInput(event.target.value)}
+            placeholder="Describe what happened and what support you need."
           />
         </div>
       </Modal>

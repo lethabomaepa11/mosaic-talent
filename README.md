@@ -123,6 +123,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Project collaboration upgrade:
   - project details now use tabs (`Repo Safety + Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
   - project meetings support request/schedule/cancel, Jitsi joins, and per-member reminders
+  - leads can remove project members with a required reason
+  - non-lead members can log complaints to project lead(s)
   - project creation moved to `/app/projects/create` with a dedicated AI prompt section and realtime markdown editor/preview
   - `Generate Project` action in AI section updates title, markdown, and skills together
   - markdown and skills each include a focused `Use AI` action
@@ -157,6 +159,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
+- [Project Delete Restricted To Sole Member](docs/feature/project-delete-sole-member-only.md)
+- [Project Member Moderation And Complaints](docs/feature/project-member-moderation-and-complaints.md)
 - [AI Learning Path Recommendations](docs/feature/ai-learning-path-recommendations.md)
 - [Gamification: Badges, Points, and Levels](docs/feature/gamification-badges-points-levels.md)
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
@@ -233,6 +237,9 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/DeveloperProject/JoinProject`
 - `GET /api/services/app/DeveloperProject/GetJoinProjectLoadWarning`
 - `POST /api/services/app/DeveloperProject/LeaveProject`
+- `DELETE /api/services/app/DeveloperProject/DeleteProject`
+- `POST /api/services/app/DeveloperProject/RemoveProjectMember`
+- `POST /api/services/app/DeveloperProject/SubmitProjectComplaint`
 - `POST /api/services/app/DeveloperProject/AiMatchProject`
 - `POST /api/services/app/DeveloperProject/AiFillTeam`
 - `POST /api/services/app/DeveloperProject/AiGenerateProjectTasks`

@@ -19,6 +19,9 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<ProjectJoinLoadWarningDto> GetJoinProjectLoadWarning(GetDeveloperProjectInput input);
     Task<DeveloperProjectDto> JoinProject(JoinDeveloperProjectInput input);
     Task<DeveloperProjectDto> LeaveProject(LeaveProjectInput input);
+    Task DeleteProject(GetDeveloperProjectInput input);
+    Task<DeveloperProjectDto> RemoveProjectMember(RemoveProjectMemberInput input);
+    Task SubmitProjectComplaint(SubmitProjectComplaintInput input);
     Task<DeveloperProjectDto> AssignMemberRole(AssignProjectMemberRoleInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafety(ScanRepoSafetyInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input);

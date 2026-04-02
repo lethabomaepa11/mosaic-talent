@@ -426,6 +426,210 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         return mapped.First();
     }
 
+    public async Task DeleteProject(GetDeveloperProjectInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
+            ?? throw new UserFriendlyException("Project not found.");
+
+        var membership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("You are not a member of this project.");
+
+        if (project.OwnerDeveloperId != developer.Id)
+        {
+            throw new UserFriendlyException("Only the project owner can delete this project.");
+        }
+
+        var memberCount = await _projectMemberRepository.GetAll()
+            .CountAsync(x => x.ProjectId == project.Id);
+        if (memberCount != 1 || membership.Role != MemberRole.Lead)
+        {
+            throw new UserFriendlyException(
+                "You can only delete a project when you are the only member.");
+        }
+
+        await _projectRepository.DeleteAsync(project);
+        await CurrentUnitOfWork.SaveChangesAsync();
+    }
+
+    [HttpPost]
+    public async Task<DeveloperProjectDto> RemoveProjectMember(RemoveProjectMemberInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.MemberId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project member is required.");
+        }
+
+        var reason = (input.Reason ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new UserFriendlyException("Provide a reason for removing the member.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+
+        var actorMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+
+        if (project.OwnerDeveloperId != developer.Id && actorMembership.Role != MemberRole.Lead)
+        {
+            throw new UserFriendlyException("Only project leads can remove members.");
+        }
+
+        var targetMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.MemberId)
+            ?? throw new UserFriendlyException("Selected member is not part of this project.");
+
+        if (targetMembership.DeveloperId == developer.Id)
+        {
+            throw new UserFriendlyException("Use leave project to remove yourself.");
+        }
+
+        if (targetMembership.DeveloperId == project.OwnerDeveloperId)
+        {
+            throw new UserFriendlyException("Project owner cannot be removed.");
+        }
+
+        if (targetMembership.Role == MemberRole.Lead)
+        {
+            var leadCount = await _projectMemberRepository.GetAll()
+                .CountAsync(x => x.ProjectId == project.Id && x.Role == MemberRole.Lead);
+            if (leadCount <= 1)
+            {
+                throw new UserFriendlyException("Project must have at least one lead.");
+            }
+        }
+
+        var removedDeveloper = await _developerRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == targetMembership.DeveloperId);
+        var actorUser = await _userRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == developer.UserId);
+        var removedUser = removedDeveloper == null
+            ? null
+            : await _userRepository.GetAll().FirstOrDefaultAsync(x => x.Id == removedDeveloper.UserId);
+
+        await _projectMemberRepository.DeleteAsync(targetMembership);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            var clippedReason = reason.Length <= 280 ? reason : reason.Substring(0, 280) + "...";
+            var actorDisplayName = $"{actorUser?.Name} {actorUser?.Surname}".Trim();
+            if (string.IsNullOrWhiteSpace(actorDisplayName))
+            {
+                actorDisplayName = actorUser?.UserName ?? developer.GithubUsername ?? "Project lead";
+            }
+
+            var removedDisplayName = $"{removedUser?.Name} {removedUser?.Surname}".Trim();
+            if (string.IsNullOrWhiteSpace(removedDisplayName))
+            {
+                removedDisplayName = removedUser?.UserName ?? removedDeveloper?.GithubUsername ?? "A member";
+            }
+
+            if (removedDeveloper?.UserId > 0)
+            {
+                var removedMessage =
+                    $"You were removed from \"{project.Title}\". Reason: {clippedReason}";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    new[] { removedDeveloper.UserId },
+                    "MosaicTalent.ProjectMemberRemoved",
+                    removedMessage,
+                    NotificationSeverity.Warn,
+                    "/app/projects",
+                    "Removed from project",
+                    removedMessage);
+            }
+
+            var leadRecipients = await ResolveProjectLeadUserIds(project.Id, developer.UserId);
+            if (leadRecipients.Count > 0)
+            {
+                var leadMessage =
+                    $"{removedDisplayName} was removed from \"{project.Title}\" by {actorDisplayName}. Reason: {clippedReason}";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    leadRecipients,
+                    "MosaicTalent.ProjectMemberRemovedByLead",
+                    leadMessage,
+                    NotificationSeverity.Info,
+                    $"/app/projects/{project.Id}",
+                    "Project member removed",
+                    leadMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch project member removal notifications.", ex);
+        }
+
+        var mapped = await MapProjects(new List<Project> { project });
+        return mapped.First();
+    }
+
+    [HttpPost]
+    public async Task SubmitProjectComplaint(SubmitProjectComplaintInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project is required.");
+        }
+
+        var complaint = (input.Complaint ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(complaint))
+        {
+            throw new UserFriendlyException("Complaint details are required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        var membership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+
+        if (membership.Role == MemberRole.Lead || project.OwnerDeveloperId == developer.Id)
+        {
+            throw new UserFriendlyException("Only non-lead members can log complaints to project leads.");
+        }
+
+        var leadRecipients = await ResolveProjectLeadUserIds(project.Id, developer.UserId);
+        if (leadRecipients.Count == 0)
+        {
+            throw new UserFriendlyException("No lead is available to receive this complaint.");
+        }
+
+        var reporterUser = await _userRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == developer.UserId);
+        var reporterName = $"{reporterUser?.Name} {reporterUser?.Surname}".Trim();
+        if (string.IsNullOrWhiteSpace(reporterName))
+        {
+            reporterName = reporterUser?.UserName ?? developer.GithubUsername ?? "A member";
+        }
+
+        var clippedComplaint = complaint.Length <= 360
+            ? complaint
+            : complaint.Substring(0, 360) + "...";
+        var message =
+            $"Complaint from {reporterName} in \"{project.Title}\": {clippedComplaint}";
+
+        await _notificationEventDispatcher.NotifyUsersAsync(
+            project.TenantId,
+            leadRecipients,
+            "MosaicTalent.ProjectComplaintLogged",
+            message,
+            NotificationSeverity.Warn,
+            $"/app/projects/{project.Id}",
+            "Project complaint logged",
+            message);
+    }
+
     [HttpPut]
     public async Task<DeveloperProjectDto> AssignMemberRole(AssignProjectMemberRoleInput input)
     {

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),
+  delete: vi.fn(),
 }));
 
 vi.mock("@/utils/axiosInstance", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/utils/axiosInstance", () => ({
     get: mocks.get,
     post: mocks.post,
     put: mocks.put,
+    delete: mocks.delete,
   }),
 }));
 
@@ -22,6 +24,9 @@ const Consumer = () => {
     getMyGithubRepositories,
     createGithubRepository,
     leaveProject,
+    deleteProject,
+    removeProjectMember,
+    submitProjectComplaint,
     assignMemberRole,
     scanRepoSafety,
     scanRepoSafetyByGithubUrl,
@@ -71,6 +76,40 @@ const Consumer = () => {
       </button>
       <button
         onClick={async () => {
+          await deleteProject("project-1");
+          window.__TEST_DELETE_PROJECT__ = "done";
+        }}
+        type="button"
+      >
+        Delete Project
+      </button>
+      <button
+        onClick={async () => {
+          const result = await removeProjectMember(
+            "project-1",
+            "member-2",
+            "Repeated unresolved blocking behavior",
+          );
+          window.__TEST_REMOVE_MEMBER__ = result;
+        }}
+        type="button"
+      >
+        Remove Member
+      </button>
+      <button
+        onClick={async () => {
+          await submitProjectComplaint(
+            "project-1",
+            "The collaboration agreement is not being followed.",
+          );
+          window.__TEST_SUBMIT_COMPLAINT__ = "done";
+        }}
+        type="button"
+      >
+        Submit Complaint
+      </button>
+      <button
+        onClick={async () => {
           const result = await assignMemberRole("project-1", "member-2", "lead");
           window.__TEST_ASSIGN_ROLE__ = result;
         }}
@@ -108,6 +147,9 @@ declare global {
     __TEST_REPOS__?: unknown;
     __TEST_CREATED_REPO__?: unknown;
     __TEST_LEAVE_PROJECT__?: unknown;
+    __TEST_DELETE_PROJECT__?: unknown;
+    __TEST_REMOVE_MEMBER__?: unknown;
+    __TEST_SUBMIT_COMPLAINT__?: unknown;
     __TEST_ASSIGN_ROLE__?: unknown;
     __TEST_SCAN__?: unknown;
     __TEST_SCAN_BY_URL__?: unknown;
@@ -119,10 +161,14 @@ describe("ProjectProvider GitHub integration", () => {
     mocks.get.mockReset();
     mocks.post.mockReset();
     mocks.put.mockReset();
+    mocks.delete.mockReset();
     window.__TEST_CONNECTION__ = undefined;
     window.__TEST_REPOS__ = undefined;
     window.__TEST_CREATED_REPO__ = undefined;
     window.__TEST_LEAVE_PROJECT__ = undefined;
+    window.__TEST_DELETE_PROJECT__ = undefined;
+    window.__TEST_REMOVE_MEMBER__ = undefined;
+    window.__TEST_SUBMIT_COMPLAINT__ = undefined;
     window.__TEST_ASSIGN_ROLE__ = undefined;
     window.__TEST_SCAN__ = undefined;
     window.__TEST_SCAN_BY_URL__ = undefined;
@@ -397,6 +443,114 @@ describe("ProjectProvider GitHub integration", () => {
         memberId: "member-2",
         role: "lead",
       },
+    );
+  });
+
+  it("removes a project member with a reason", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "project-1",
+          title: "Alpha",
+          description: "Desc",
+          maxMembers: 4,
+          githubRepo: "",
+          skills: [],
+          type: "group",
+          status: "open",
+          ownerId: "owner-1",
+          createdAt: "2026-04-01T00:00:00Z",
+          members: [
+            {
+              id: "owner-1",
+              name: "Owner",
+              role: "lead",
+              avatar: "",
+            },
+          ],
+          tasks: [],
+        },
+      },
+    });
+    mocks.get.mockResolvedValue({
+      data: { result: [] },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Member" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_REMOVE_MEMBER__).toMatchObject({
+        id: "project-1",
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/RemoveProjectMember",
+      {
+        projectId: "project-1",
+        memberId: "member-2",
+        reason: "Repeated unresolved blocking behavior",
+      },
+    );
+  });
+
+  it("submits a complaint to project leads", async () => {
+    mocks.post.mockResolvedValueOnce({ data: {} });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit Complaint" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_SUBMIT_COMPLAINT__).toBe("done");
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/SubmitProjectComplaint",
+      {
+        projectId: "project-1",
+        complaint: "The collaboration agreement is not being followed.",
+      },
+    );
+  });
+
+  it("deletes a project and refreshes project lists", async () => {
+    mocks.delete.mockResolvedValueOnce({ data: {} });
+    mocks.get.mockResolvedValue({ data: { result: [] } });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_DELETE_PROJECT__).toBe("done");
+    });
+
+    expect(mocks.delete).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/DeleteProject",
+      {
+        params: { projectId: "project-1" },
+      },
+    );
+    expect(mocks.get).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/GetMyProjects",
+    );
+    expect(mocks.get).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/GetOpenProjects",
     );
   });
 
