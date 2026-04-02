@@ -14,5 +14,6 @@ public interface IDeveloperOnboardingAppService : IApplicationService
     Task<DeveloperOnboardingDto> UpsertMyProfile(UpsertDeveloperOnboardingInput input);
     Task<List<StudyLevelOptionDto>> GetStudyLevels();
     Task<DeveloperLearningPathResultDto> GetMyLearningPathRecommendations();
+    Task<ProfileFieldSuggestionsDto> GetProfileFieldSuggestions(GetProfileFieldSuggestionsInput input);
     Task<DeveloperGamificationSummaryDto> GetMyGamificationSummary();
 }

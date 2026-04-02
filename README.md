@@ -66,6 +66,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - profile-based skill-gap analysis against market role tracks
   - personalized next-step actions for career progression goals
   - resilient fallback recommendations when AI response is unavailable
+  - profile skills and learning goals now receive AI suggestion chips and typing suggestions
 - Gamification layer:
   - developer points and levels for collaboration/growth actions
   - badge unlocks for review participation, project completion, and simulation consistency
@@ -186,6 +187,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Company Email Template Types](docs/feature/company-email-template-types.md)
 - [Company Job Social Share + Copy Link](docs/feature/company-job-social-share.md)
 - [Peer Reviews Project Flow + Anonymous Reviews](docs/feature/peer-reviews-project-flow-anonymous.md)
+- [Profile AI Skill and Goal Suggestions](docs/feature/profile-ai-skill-goal-suggestions.md)
 
 ## Tenant Resolution Rules
 
@@ -238,6 +240,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
 - `GET /api/services/app/DeveloperOnboarding/GetMyLearningPathRecommendations`
 - `GET /api/services/app/DeveloperOnboarding/GetMyGamificationSummary`
+- `POST /api/services/app/DeveloperOnboarding/GetProfileFieldSuggestions`
 - `POST /api/services/app/DeveloperOnboarding/UpsertMyProfile`
 
 ### Developer projects
