@@ -67,6 +67,10 @@ public class DeveloperGamificationService : IDeveloperGamificationService, ITran
         profile.LastRewardedAt = DateTime.UtcNow;
         await _profileRepository.UpdateAsync(profile);
 
+        // Keep badge threshold checks deterministic by evaluating against persisted history
+        // and explicitly adding the in-flight event type inside UnlockBadgesAsync.
+        var unlocked = await UnlockBadgesAsync(tenantId, developerId, normalizedType, profile);
+
         await _eventRepository.InsertAsync(new DeveloperEngagementEvent
         {
             TenantId = tenantId,
@@ -77,8 +81,6 @@ public class DeveloperGamificationService : IDeveloperGamificationService, ITran
             MetadataJson = string.IsNullOrWhiteSpace(metadata) ? null : metadata.Trim(),
             OccurredAt = DateTime.UtcNow,
         });
-
-        var unlocked = await UnlockBadgesAsync(tenantId, developerId, normalizedType, profile);
 
         return new GamificationRewardDto
         {
