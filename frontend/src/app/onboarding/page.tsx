@@ -64,8 +64,8 @@ const OnboardingPage = () => {
 
     if (!githubUsername) {
       toast.error(
-        "Missing GitHub username",
-        "Please provide a GitHub username.",
+        "GitHub connection required",
+        "Sign in with GitHub to continue onboarding.",
       );
       return;
     }
@@ -130,10 +130,14 @@ const OnboardingPage = () => {
                 <Input
                   id="githubUsername"
                   value={githubUsername}
-                  onChange={(e) => setGithubUsername(e.target.value)}
+                  disabled
+                  readOnly
                   className={styles.input}
                   required
                 />
+                <span className={styles.fieldHint}>
+                  This is synced from your connected GitHub account and cannot be edited.
+                </span>
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>

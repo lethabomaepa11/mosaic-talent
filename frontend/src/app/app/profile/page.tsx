@@ -4,12 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
-  CheckCircle,
   Code,
   Loader2,
   Plus,
   Save,
-  Sparkles,
   TrendingUp,
   User,
   X,
@@ -82,7 +80,6 @@ const ProfilePage = () => {
   const [isSkillSuggestionLoading, setIsSkillSuggestionLoading] = useState(false);
   const [isGoalSuggestionLoading, setIsGoalSuggestionLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [companyDraft, setCompanyDraft] = useState({
     name: "",
@@ -95,7 +92,6 @@ const ProfilePage = () => {
   const isCompanyTenant = Boolean(tenancyName);
   const {
     profile,
-    scanResult,
     learningPath,
     gamificationSummary,
     currentUser,
@@ -113,7 +109,6 @@ const ProfilePage = () => {
     fetchLearningPathRecommendations,
     fetchMyGamificationSummary,
     getProfileFieldSuggestions,
-    scanMyGithubProfile,
     upsertMyProfile,
   } = useDeveloperAction();
   const { fetchMyEmployeeProfile, updateMyEmployeeProfile } =
@@ -343,8 +338,8 @@ const ProfilePage = () => {
 
     if (!draft.githubUsername.trim()) {
       toast.error(
-        "GitHub username required",
-        "Please provide a GitHub username before saving.",
+        "GitHub connection required",
+        "Sign in with GitHub to sync your username before saving.",
       );
       return;
     }
@@ -427,32 +422,6 @@ const ProfilePage = () => {
       toast.error("Upload failed", message);
     } finally {
       setIsUploadingAvatar(false);
-    }
-  };
-
-  const handleScanGithub = async () => {
-    if (!draft.githubUsername) {
-      toast.error(
-        "GitHub username required",
-        "Add your GitHub username first.",
-      );
-      return;
-    }
-
-    setIsScanning(true);
-
-    try {
-      const result = await scanMyGithubProfile();
-      if (result) {
-        toast.success(
-          "Scan complete",
-          "GitHub profile insights were refreshed.",
-        );
-      } else {
-        toast.error("Scan failed", "Unable to scan GitHub profile right now.");
-      }
-    } finally {
-      setIsScanning(false);
     }
   };
 
@@ -880,54 +849,17 @@ const ProfilePage = () => {
                   {!isCompanyTenant ? (
                     <Input
                       value={draft.githubUsername}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          githubUsername: event.target.value,
-                        }))
-                      }
-                      placeholder="GitHub username"
+                      disabled
+                      readOnly
+                      placeholder="Connected GitHub username"
                       data-ai-field="profile-github-username"
                     />
                   ) : null}
                   {!isCompanyTenant ? (
-                    <Button
-                      type="primary"
-                      onClick={handleScanGithub}
-                      disabled={
-                        !draft.githubUsername || isScanning || isPending
-                      }
-                      icon={
-                        isScanning ? (
-                          <Loader2 size={14} className={styles.spinIcon} />
-                        ) : (
-                          <Sparkles size={14} />
-                        )
-                      }
-                      block
-                      data-ai-action="scan-github-profile"
-                    >
-                      {isScanning ? "Scanning..." : "Scan GitHub"}
-                    </Button>
-                  ) : null}
-                  {!isCompanyTenant && scanResult ? (
-                    <div className={styles.scanCard}>
-                      <Space>
-                        <CheckCircle size={16} />
-                        <Typography.Text strong>Scan Complete</Typography.Text>
-                      </Space>
-                      <Typography.Title
-                        level={3}
-                        className={styles.noMarginTitle}
-                      >
-                        {scanResult.score}%
-                      </Typography.Title>
-                      <ul className={styles.insights}>
-                        {scanResult.insights.slice(0, 3).map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <Typography.Text type="secondary">
+                      GitHub username is sourced from your connected GitHub
+                      account and cannot be edited manually.
+                    </Typography.Text>
                   ) : null}
                 </Space>
               </Card>
@@ -964,16 +896,13 @@ const ProfilePage = () => {
                     <div>
                       <div className={styles.statRow}>
                         <Typography.Text type="secondary">
-                          Code Quality
+                          Skills
                         </Typography.Text>
                         <Typography.Text strong>
-                          {scanResult?.score ?? 0}%
+                          {currentSkills.length}
                         </Typography.Text>
                       </div>
-                      <Progress
-                        percent={scanResult?.score ?? 0}
-                        showInfo={false}
-                      />
+                      <Progress percent={Math.min(currentSkills.length * 10, 100)} showInfo={false} />
                     </div>
                   </Space>
                 </Card>

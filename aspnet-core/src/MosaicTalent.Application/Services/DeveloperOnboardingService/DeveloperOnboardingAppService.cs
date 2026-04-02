@@ -362,6 +362,7 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         var userId = AbpSession.UserId ?? throw new UserFriendlyException("User must be logged in.");
         var user = await _userRepository.FirstOrDefaultAsync(userId)
             ?? throw new UserFriendlyException("User must be logged in.");
+        var normalizedGithubUsername = (input.GithubUsername ?? string.Empty).Trim();
 
         if (input.YearOfStudy.HasValue && input.YearOfStudy.Value >= 10)
         {
@@ -373,10 +374,15 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
 
         if (developer == null)
         {
+            if (string.IsNullOrWhiteSpace(normalizedGithubUsername))
+            {
+                throw new UserFriendlyException("GitHub username is required.");
+            }
+
             developer = new Developer
             {
                 UserId = userId,
-                GithubUsername = input.GithubUsername,
+                GithubUsername = normalizedGithubUsername,
                 YearsOfExperience = input.YearsOfExperience,
                 YearOfStudy = input.YearOfStudy,
                 StudyLevel = input.StudyLevel,
@@ -387,7 +393,16 @@ public partial class DeveloperOnboardingAppService : MosaicTalentAppServiceBase,
         }
         else
         {
-            developer.GithubUsername = input.GithubUsername;
+            // GitHub username is identity-linked and cannot be edited manually once set.
+            if (string.IsNullOrWhiteSpace(developer.GithubUsername))
+            {
+                if (string.IsNullOrWhiteSpace(normalizedGithubUsername))
+                {
+                    throw new UserFriendlyException("GitHub username is required.");
+                }
+
+                developer.GithubUsername = normalizedGithubUsername;
+            }
             developer.YearsOfExperience = input.YearsOfExperience;
             developer.YearOfStudy = input.YearOfStudy;
             developer.StudyLevel = input.StudyLevel;

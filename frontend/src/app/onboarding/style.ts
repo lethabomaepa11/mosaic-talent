@@ -61,6 +61,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     font-weight: ${token.fontWeightStrong};
   `,
+  fieldHint: css`
+    font-size: ${token.fontSizeSM}px;
+    color: ${token.colorTextSecondary};
+    line-height: 1.5;
+  `,
   input: css`
     background: color-mix(in srgb, ${token.colorText} 7%, transparent);
     border-color: ${token.colorBorder};
