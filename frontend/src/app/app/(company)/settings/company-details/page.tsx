@@ -153,15 +153,7 @@ const CompanyDetailsPage = () => {
           </div>
 
           <div>
-            <Typography.Text type="secondary">Logo URL</Typography.Text>
-            <Input
-              value={draft.logoStoredFileId}
-              onChange={(event) =>
-                setDraft((prev) => ({ ...prev, logoStoredFileId: event.target.value }))
-              }
-              placeholder="https://..."
-              data-ai-field="company-logo-url"
-            />
+            <Typography.Text type="secondary">Logo</Typography.Text>
             <div className={styles.logoActions}>
               <Upload
                 accept="image/*"

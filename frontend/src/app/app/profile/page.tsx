@@ -749,18 +749,6 @@ const ProfilePage = () => {
                         Upload Avatar
                       </Button>
                     </Upload>
-                    {!isCompanyTenant ? (
-                      <Input
-                        value={draft.avatarUrl}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            avatarUrl: event.target.value,
-                          }))
-                        }
-                        placeholder="Or paste avatar URL"
-                      />
-                    ) : null}
                   </div>
                   {!isCompanyTenant ? (
                     <Input
