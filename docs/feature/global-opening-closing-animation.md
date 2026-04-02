@@ -28,3 +28,4 @@ Added a global transition layer that introduces:
 
 - Browser unload timing differs by platform; closing animation is best-effort.
 - Opening animation on hard reload is deterministic and consistent.
+- For test environments (Vitest/`NODE_ENV=test`), the progress provider is skipped in `frontend/src/components/providers/index.tsx` to avoid browser-only runtime calls during CI tests.

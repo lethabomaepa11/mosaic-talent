@@ -28,7 +28,7 @@ import { ProgressProvider } from "@bprogress/next/app";
 export { toast } from "./antd-toast";
 
 const AppProgressProvider = ({ children }: PropsWithChildren) => {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
     return <>{children}</>;
   }
 
