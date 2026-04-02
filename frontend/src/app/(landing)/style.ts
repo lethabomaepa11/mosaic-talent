@@ -10,6 +10,12 @@ export const useStyles = createStyles(({ token, css }) => ({
       overflow: visible;
     }
   `,
+  resolvingState: css`
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: ${token.colorBgLayout};
+  `,
   nav: css`
     position: fixed;
     top: 0;

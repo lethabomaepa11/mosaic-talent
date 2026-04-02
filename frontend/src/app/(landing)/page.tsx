@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -18,11 +18,13 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { Button, Tabs } from "antd";
+import { Button, Spin, Tabs } from "antd";
 import { InsightReportDemo } from "@/components/landing/insight-report-demo";
 import { useAppearanceState } from "@/providers/appearance-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { designTokens } from "@/theme/antdTheme";
 import { useStyles } from "./style";
+import { shouldRestrictLandingOnTenantSubdomain } from "./landingAccess";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -112,10 +114,32 @@ const simulatorFeatures = [
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("developers");
   const { mode } = useAppearanceState();
+  const { isResolved, tenancyName, source } = useTenantResolutionState();
   const { styles } = useStyles();
   const logoSrc = mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
+  const shouldRestrictLanding = shouldRestrictLandingOnTenantSubdomain({
+    isResolved,
+    tenancyName,
+    source,
+  });
 
   const tabItems = activeTab === "developers" ? devItems : companyItems;
+
+  useEffect(() => {
+    if (!shouldRestrictLanding) {
+      return;
+    }
+
+    window.location.replace("/app");
+  }, [shouldRestrictLanding]);
+
+  if (!isResolved || shouldRestrictLanding) {
+    return (
+      <div className={styles.resolvingState}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>

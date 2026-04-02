@@ -35,3 +35,4 @@ Project documentation index.
 - [Exclude Joined Projects From Open List And AI Match](feature/open-ai-match-exclude-joined.md)
 - [Project Detail Loading And 404 Fallback](feature/project-detail-loading-and-404.md)
 - [Auth Route Group Guard](feature/auth-route-group-guard.md)
+- [Restrict Landing On Subdomain](feature/restrict-landing-on-subdomain.md)
