@@ -112,9 +112,14 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         var developer = await GetCurrentDeveloper();
         var developerSkills = await GetDeveloperSkills(developer.Id);
         var developerGoals = await GetDeveloperGoals(developer.Id);
+        var myProjectIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.DeveloperId == developer.Id)
+            .Select(x => x.ProjectId)
+            .Distinct()
+            .ToListAsync();
 
         var projects = await _projectRepository.GetAll()
-            .Where(x => x.Status == ProjectStatus.Open)
+            .Where(x => x.Status == ProjectStatus.Open && !myProjectIds.Contains(x.Id))
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 

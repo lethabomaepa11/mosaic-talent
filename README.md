@@ -60,6 +60,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - AI project matching:
   - open projects sorted by match score
   - AI Match redirect to best-fit project
+  - excludes projects where developer is already a member
   - match insight + likely learning outcomes on project details
 - AI learning path recommendations:
   - profile-based skill-gap analysis against market role tracks
@@ -178,6 +179,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Task Reassignment And Task Notifications](docs/feature/task-reassignment-notifications.md)
 - [Join Loader And Discover Project Navigation](docs/feature/join-loader-and-discover-project-navigation.md)
 - [AI Fill Team Invite Workflow](docs/feature/ai-fill-team-invite-workflow.md)
+- [Exclude Joined Projects From Open List And AI Match](docs/feature/open-ai-match-exclude-joined.md)
 
 ## Tenant Resolution Rules
 
