@@ -37,3 +37,4 @@ Project documentation index.
 - [Auth Route Group Guard](feature/auth-route-group-guard.md)
 - [Restrict Landing On Subdomain](feature/restrict-landing-on-subdomain.md)
 - [Company Email Template Types](feature/company-email-template-types.md)
+- [Company Job Social Share + Copy Link](feature/company-job-social-share.md)

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Button,
   Card,
+  Dropdown,
   Empty,
   Form,
   Input,
@@ -17,10 +18,11 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Copy, Plus, Share2 } from "lucide-react";
 import { toast } from "@/components/providers";
 import { ICreateJobInput, IJob, IUpdateJobInput, useJobAction, useJobState } from "@/providers/job-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { buildSocialShareUrl, buildTenantJobsUrl, SharePlatform } from "@/utils/jobShare";
 import { useStyles } from "./style";
 
 const employmentTypeOptions = [
@@ -122,6 +124,50 @@ const JobsPage = () => {
     }
   };
 
+  const getPublicJobsUrl = () => {
+    if (!tenancyName || typeof window === "undefined") {
+      return "";
+    }
+
+    return buildTenantJobsUrl({
+      tenancyName,
+      protocol: window.location.protocol,
+      hostname: window.location.hostname,
+      port: window.location.port,
+    });
+  };
+
+  const handleCopyPublicJobsLink = async () => {
+    const publicJobsUrl = getPublicJobsUrl();
+    if (!publicJobsUrl) {
+      toast.error("Copy failed", "Unable to resolve public jobs URL.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(publicJobsUrl);
+      toast.success("Link copied", "Public jobs link copied to clipboard.");
+    } catch {
+      toast.error("Copy failed", "Unable to copy link to clipboard.");
+    }
+  };
+
+  const handleShareJob = (job: IJob, platform: SharePlatform) => {
+    const publicJobsUrl = getPublicJobsUrl();
+    if (!publicJobsUrl) {
+      toast.error("Share failed", "Unable to resolve public jobs URL.");
+      return;
+    }
+
+    const shareUrl = buildSocialShareUrl({
+      platform,
+      publicJobsUrl,
+      jobTitle: job.title,
+      companyLabel: tenancyName,
+    });
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  };
+
   if (!isCompanyTenant) {
     return null;
   }
@@ -179,6 +225,23 @@ const JobsPage = () => {
               <Button onClick={() => void handleToggleOpenStatus(job)}>
                 {job.isOpen ? "Close Job" : "Reopen Job"}
               </Button>
+              <Button icon={<Copy size={14} />} onClick={() => void handleCopyPublicJobsLink()}>
+                Copy Public Link
+              </Button>
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: "linkedin", label: "Share on LinkedIn" },
+                    { key: "x", label: "Share on X" },
+                    { key: "facebook", label: "Share on Facebook" },
+                    { key: "whatsapp", label: "Share on WhatsApp" },
+                  ],
+                  onClick: ({ key }) => handleShareJob(job, key as SharePlatform),
+                }}
+                trigger={["click"]}
+              >
+                <Button icon={<Share2 size={14} />}>Share</Button>
+              </Dropdown>
               <Link href={`/app/jobs/${job.id}`}>
                 <Button type="primary" icon={<ArrowRight size={14} />}>View Applications</Button>
               </Link>
