@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Alert,
   Badge,
   Button,
   Card,
   Empty,
+  Input,
   message,
   Progress,
   Space,
@@ -16,9 +18,11 @@ import {
   Tag,
   Typography,
 } from "antd";
+import dynamic from "next/dynamic";
 import {
   FileSpreadsheet,
   FileText,
+  Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
@@ -27,6 +31,7 @@ import {
   Clock,
 } from "lucide-react";
 import {
+  IAIReportVisualizationResult,
   useJobAction,
   useJobState,
   IJobApplication,
@@ -36,6 +41,7 @@ import { useStyles } from "./style";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { buildReportSnapshotJson, parseOptionJson } from "./aiViz";
 
 type TrendPoint = {
   monthLabel: string;
@@ -45,6 +51,17 @@ type TrendPoint = {
 };
 
 type ExportRow = Record<string, string | number>;
+
+type ParsedChart = {
+  id: string;
+  title: string;
+  description: string;
+  option: Record<string, unknown>;
+};
+
+const ReactECharts = dynamic(() => import("echarts-for-react"), {
+  ssr: false,
+});
 
 const asStatus = (value: string) => (value ?? "").trim().toLowerCase();
 
@@ -95,11 +112,22 @@ const CompanyReportsDashboard = () => {
   const { tenancyName, companyName, companyLogoUrl } = useTenantResolutionState();
   const isCompanyTenant = Boolean(tenancyName);
   const { jobs } = useJobState();
-  const { fetchMyJobs, fetchJobApplications } = useJobAction();
+  const {
+    fetchMyJobs,
+    fetchJobApplications,
+    generateReportVisualizationWithAi,
+  } = useJobAction();
 
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<IJobApplication[]>([]);
   const [loadedSignature, setLoadedSignature] = useState("");
+  const [aiPrompt, setAiPrompt] = useState(
+    "Show unconventional patterns and hidden hiring bottlenecks using this data.",
+  );
+  const [aiVizLoading, setAiVizLoading] = useState(false);
+  const [aiVizError, setAiVizError] = useState("");
+  const [aiVizResult, setAiVizResult] =
+    useState<IAIReportVisualizationResult | null>(null);
 
   useEffect(() => {
     if (!isCompanyTenant) {
@@ -125,7 +153,6 @@ const CompanyReportsDashboard = () => {
     }
 
     if (!jobSignature) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setApplications([]);
       setLoading(false);
       return;
@@ -418,6 +445,66 @@ const CompanyReportsDashboard = () => {
       })),
     [sources],
   );
+
+  const reportSnapshotJson = useMemo(
+    () =>
+      buildReportSnapshotJson({
+        totals,
+        trends,
+        pipeline,
+        quality,
+        sources,
+      }),
+    [pipeline, quality, sources, totals, trends],
+  );
+
+  const aiCharts = useMemo<ParsedChart[]>(
+    () =>
+      (aiVizResult?.charts ?? [])
+        .map((chart, index) => {
+          const option = parseOptionJson(chart.optionJson);
+          if (!option) {
+            return null;
+          }
+
+          return {
+            id: chart.id || `chart-${index + 1}`,
+            title: chart.title || "AI chart",
+            description: chart.description || "",
+            option,
+          } as ParsedChart;
+        })
+        .filter((chart): chart is ParsedChart => Boolean(chart)),
+    [aiVizResult],
+  );
+
+  const handleGenerateAiVisualization = async () => {
+    const trimmed = aiPrompt.trim();
+    if (!trimmed) {
+      message.error("Add a prompt for AI visualisation.");
+      return;
+    }
+
+    setAiVizLoading(true);
+    setAiVizError("");
+    try {
+      const result = await generateReportVisualizationWithAi({
+        prompt: trimmed,
+        reportSnapshotJson,
+      });
+      setAiVizResult(result);
+      message.success("AI visualisation generated.");
+    } catch (error) {
+      const details =
+        error instanceof Error
+          ? error.message
+          : "Could not generate visualisation.";
+      setAiVizError(details);
+      message.error("AI visualisation failed.");
+    } finally {
+      setAiVizLoading(false);
+    }
+  };
 
   const handleExportExcel = () => {
     try {
@@ -844,6 +931,82 @@ const CompanyReportsDashboard = () => {
                     <Empty description="No source insight available yet." />
                   )}
                 </Card>
+              </div>
+            ),
+          },
+          {
+            key: "ai-viz-lab",
+            label: "AI Viz Lab",
+            children: (
+              <div className={styles.aiTabWrap}>
+                <Card
+                  title="Experimental Data Visualisation"
+                  className={styles.chartCard}
+                >
+                  <div className={styles.aiPromptRow}>
+                    <Input.TextArea
+                      value={aiPrompt}
+                      onChange={(event) => setAiPrompt(event.target.value)}
+                      autoSize={{ minRows: 3, maxRows: 5 }}
+                      placeholder="Ask AI for any visual story, for example: reveal hidden quality-risk clusters by source and role."
+                    />
+                    <Button
+                      type="primary"
+                      icon={<Sparkles size={14} />}
+                      loading={aiVizLoading}
+                      onClick={handleGenerateAiVisualization}
+                    >
+                      Generate Visualisation
+                    </Button>
+                  </div>
+                  {aiVizError ? (
+                    <Alert
+                      className={styles.aiError}
+                      type="error"
+                      showIcon
+                      message={aiVizError}
+                    />
+                  ) : null}
+                  {aiVizResult?.summary ? (
+                    <Typography.Paragraph className={styles.aiSummary}>
+                      {aiVizResult.summary}
+                    </Typography.Paragraph>
+                  ) : null}
+                </Card>
+
+                {aiVizLoading ? (
+                  <div className={styles.aiLoadingWrap}>
+                    <Spin size="large" />
+                  </div>
+                ) : aiCharts.length === 0 ? (
+                  <Card className={styles.chartCard}>
+                    <Empty description="Generate AI visualisations to explore experimental chart views." />
+                  </Card>
+                ) : (
+                  <div className={styles.aiChartsGrid}>
+                    {aiCharts.map((chart) => (
+                      <Card
+                        key={chart.id}
+                        title={chart.title}
+                        className={styles.chartCard}
+                      >
+                        {chart.description ? (
+                          <Typography.Paragraph className={styles.aiChartDescription}>
+                            {chart.description}
+                          </Typography.Paragraph>
+                        ) : null}
+                        <div className={styles.aiChartCanvas}>
+                          <ReactECharts
+                            option={chart.option}
+                            style={{ height: "100%", width: "100%" }}
+                            notMerge
+                            lazyUpdate
+                          />
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             ),
           },

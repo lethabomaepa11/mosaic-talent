@@ -19,6 +19,7 @@ public interface ICompanyJobAppService : IApplicationService
     Task<PublicJobsPageDto> GetMyJobsPageSettings();
     Task<PublicJobsPageDto> UpdateMyJobsPageSettings(UpdateMyJobsPageSettingsInput input);
     Task<PublicJobsPageDto> GenerateMyJobsPageSettingsWithAi(GenerateJobsPageWithAiInput input);
+    Task<GenerateReportVisualizationWithAiDto> GenerateReportVisualizationWithAi(GenerateReportVisualizationWithAiInput input);
     Task<JobApplicationDto> ApplyToPublicJob(ApplyToPublicJobInput input);
     Task<JobApplicationDto> ApplyToJob(ApplyToJobInput input);
     Task<JobAssessmentDto> GetAssessment(GetAssessmentInput input);
