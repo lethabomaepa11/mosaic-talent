@@ -139,7 +139,7 @@ const OnboardingPage = () => {
                 />
               </div>
               <div className={styles.field}>
-                <label htmlFor="avatarUrl" className={styles.label}>
+                <label className={styles.label}>
                   Avatar
                 </label>
                 <div className={styles.uploadActions}>
@@ -158,13 +158,6 @@ const OnboardingPage = () => {
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar preview" className={styles.avatarPreview} />
                   ) : null}
-                  <Input
-                    id="avatarUrl"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className={styles.input}
-                    placeholder="Or paste avatar URL"
-                  />
                 </div>
               </div>
             </div>

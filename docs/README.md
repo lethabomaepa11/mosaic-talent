@@ -12,6 +12,7 @@ Project documentation index.
 - [Custom 404 Page](feature/custom-404-page.md)
 - [Mobile Tabs and Header Responsiveness](feature/mobile-tabs-and-header-responsiveness.md)
 - [Discover Mobile Swipe Layout](feature/discover-mobile-swipe-layout.md)
+- [Remove Image URL Inputs Except Page Builder](feature/remove-image-url-inputs-except-page-builder.md)
 - [Notifications, PWA, Mobile, and Desktop](feature/notifications-pwa-mobile-desktop.md)
 - [GitHub Repo Picker for Project Creation](feature/github-repo-picker-project-create.md)
 - [Dark Mode Logo Asset Switching](feature/darkmode-logo-asset-switching.md)
