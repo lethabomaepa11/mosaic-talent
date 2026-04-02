@@ -28,6 +28,7 @@ import {
   Modal,
   Popover,
   Progress,
+  Skeleton,
   Select,
   Space,
   Spin,
@@ -38,6 +39,7 @@ import {
 } from "antd";
 import type { Dayjs } from "dayjs";
 import MDEditor from "@uiw/react-md-editor";
+import NotFound from "@/app/not-found";
 import { toast } from "@/components/providers";
 import {
   useDeveloperAction,
@@ -58,6 +60,7 @@ import {
 } from "@/providers/project-provider/context";
 import { isRepoSafetyUnsafe } from "@/utils/repoSafety";
 import { useStyles } from "./style";
+import { resolveProjectDetailViewState } from "./projectLoadState";
 import {
   BarChartOutlined,
   CheckSquareOutlined,
@@ -176,10 +179,11 @@ const ProjectDetailPage = () => {
   const [projectInvites, setProjectInvites] = useState<IProjectInvite[]>([]);
   const [isInvitesLoading, setIsInvitesLoading] = useState(false);
   const [inviteActionTargetId, setInviteActionTargetId] = useState<string | null>(null);
+  const [isProjectLoading, setIsProjectLoading] = useState(true);
 
   const { styles } = useStyles();
   const { mode } = useAppearanceState();
-  const { currentUser, isPending } = useDeveloperState();
+  const { currentUser } = useDeveloperState();
   const { selectedProject: project, myProjects, lastMatch } = useProjectState();
   const { fetchCurrentUser } = useDeveloperAction();
   const {
@@ -212,14 +216,30 @@ const ProjectDetailPage = () => {
   } = useProjectAction();
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      setIsProjectLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    setIsProjectLoading(true);
     fetchCurrentUser();
     void fetchMyProjects();
-    void fetchProjectById(projectId);
+    fetchProjectById(projectId)
+      .catch(() => undefined)
+      .finally(() => {
+        if (isActive) {
+          setIsProjectLoading(false);
+        }
+      });
     setRepoSafetyScan(undefined);
     setRepoSafetyError(null);
     setRepoGuardianScan(undefined);
     setRepoGuardianError(null);
+
+    return () => {
+      isActive = false;
+    };
   }, [projectId]);
 
   useEffect(() => {
@@ -970,23 +990,29 @@ const ProjectDetailPage = () => {
     }
   };
 
-  if (isPending && !project) {
+  const projectViewState = resolveProjectDetailViewState({
+    isProjectLoading,
+    projectId,
+    project,
+  });
+
+  if (projectViewState === "loading") {
     return (
-      <div className={styles.notFound}>
-        <Spin />
+      <div className={styles.projectLoading}>
+        <Card className={styles.projectLoadingCard}>
+          <Skeleton active title paragraph={{ rows: 3 }} />
+          <Skeleton active title={false} paragraph={{ rows: 5 }} />
+        </Card>
       </div>
     );
   }
 
+  if (projectViewState === "not-found") {
+    return <NotFound />;
+  }
+
   if (!project || project.id !== projectId) {
-    return (
-      <div className={styles.notFound}>
-        <Typography.Title level={4}>Project not found</Typography.Title>
-        <Link href="/app/projects">
-          <Button type="primary">Back to Projects</Button>
-        </Link>
-      </div>
-    );
+    return <NotFound />;
   }
 
   const tabLabel = (icon: ReactNode, fullLabel: string, shortLabel: string) => (

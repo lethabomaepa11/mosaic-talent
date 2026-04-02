@@ -180,6 +180,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Join Loader And Discover Project Navigation](docs/feature/join-loader-and-discover-project-navigation.md)
 - [AI Fill Team Invite Workflow](docs/feature/ai-fill-team-invite-workflow.md)
 - [Exclude Joined Projects From Open List And AI Match](docs/feature/open-ai-match-exclude-joined.md)
+- [Project Detail Loading And 404 Fallback](docs/feature/project-detail-loading-and-404.md)
 
 ## Tenant Resolution Rules
 

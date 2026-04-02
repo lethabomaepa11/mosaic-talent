@@ -515,6 +515,12 @@ export const useStyles = createStyles(({ token, css }) => ({
     text-align: center;
     padding: ${token.paddingXL}px 0;
   `,
+  projectLoading: css`
+    width: 100%;
+  `,
+  projectLoadingCard: css`
+    border-radius: ${token.borderRadiusLG}px;
+  `,
   addFirstTaskRow: css`
     margin-top: ${token.marginSM}px;
   `,
