@@ -174,6 +174,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Project Detail Team Tab Split](docs/feature/project-detail-team-tab-split.md)
 - [AI Task Generation From Spec + Repo Analysis](docs/feature/ai-task-generation-spec-repo-analysis.md)
 - [Task Reassignment And Task Notifications](docs/feature/task-reassignment-notifications.md)
+- [Join Loader And Discover Project Navigation](docs/feature/join-loader-and-discover-project-navigation.md)
 
 ## Tenant Resolution Rules
 

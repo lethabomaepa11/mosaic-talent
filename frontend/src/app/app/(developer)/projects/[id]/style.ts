@@ -501,4 +501,14 @@ export const useStyles = createStyles(({ token, css }) => ({
   addFirstTaskRow: css`
     margin-top: ${token.marginSM}px;
   `,
+  joiningModalBody: css`
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px 0;
+  `,
+  joiningTitle: css`
+    margin: 0 !important;
+  `,
 }));

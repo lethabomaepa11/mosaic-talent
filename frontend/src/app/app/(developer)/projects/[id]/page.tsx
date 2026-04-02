@@ -151,6 +151,7 @@ const ProjectDetailPage = () => {
   const [roleUpdateMemberId, setRoleUpdateMemberId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("repo-safety");
   const [joinWarning, setJoinWarning] = useState<IProjectJoinLoadWarning | null>(null);
+  const [isJoiningProject, setIsJoiningProject] = useState(false);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
   const [reassigningTaskId, setReassigningTaskId] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<IProjectMeeting[]>([]);
@@ -407,6 +408,22 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     void loadMeetings();
   }, [projectId, isMember]);
+  useEffect(() => {
+    if (!isJoiningProject) {
+      return;
+    }
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "Joining project";
+      return "Joining project";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [isJoiningProject]);
 
   const handleFillTeam = async () => {
     if (!projectId) return;
@@ -640,6 +657,7 @@ const ProjectDetailPage = () => {
   const executeJoinProject = async (confirmHighWorkload = false) => {
     if (!projectId) return;
 
+    setIsJoiningProject(true);
     try {
       await joinProject(projectId, confirmHighWorkload);
       await Promise.all([fetchMyProjects(), fetchProjectById(projectId)]);
@@ -649,21 +667,26 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to join project.";
       toast.error("Join failed", message);
+    } finally {
+      setIsJoiningProject(false);
     }
   };
 
   const handleJoinProject = async () => {
     if (!projectId) return;
 
+    setIsJoiningProject(true);
     try {
       const warning = await getJoinProjectLoadWarning(projectId);
       if (warning?.shouldWarn) {
+        setIsJoiningProject(false);
         setJoinWarning(warning);
         return;
       }
 
       await executeJoinProject(false);
     } catch (error) {
+      setIsJoiningProject(false);
       const message =
         error instanceof Error ? error.message : "Failed to evaluate workload.";
       toast.error("Join blocked", message);
@@ -1004,6 +1027,8 @@ const ProjectDetailPage = () => {
                 <Button
                   type="primary"
                   onClick={handleJoinProject}
+                  loading={isJoiningProject}
+                  disabled={isJoiningProject}
                   data-ai-action="join-project"
                 >
                   Join Project
@@ -1851,6 +1876,18 @@ const ProjectDetailPage = () => {
           Workload score if you join: {joinWarning?.proposedWorkloadScore ?? 0} /{" "}
           {joinWarning?.recommendedWorkloadLimit ?? 0}
         </Typography.Text>
+      </Modal>
+
+      <Modal open={isJoiningProject} footer={null} closable={false} maskClosable={false} keyboard={false}>
+        <div className={styles.joiningModalBody}>
+          <Spin size="large" />
+          <Typography.Title level={4} className={styles.joiningTitle}>
+            Joining project
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Please wait while we secure your project membership.
+          </Typography.Text>
+        </div>
       </Modal>
 
       <Modal
