@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -26,7 +26,9 @@ import {
   Dropdown,
   Input,
   Modal,
+  Popover,
   Progress,
+  Skeleton,
   Select,
   Space,
   Spin,
@@ -37,6 +39,7 @@ import {
 } from "antd";
 import type { Dayjs } from "dayjs";
 import MDEditor from "@uiw/react-md-editor";
+import NotFound from "@/app/not-found";
 import { toast } from "@/components/providers";
 import {
   useDeveloperAction,
@@ -49,6 +52,7 @@ import {
 import { useAppearanceState } from "@/providers/appearance-provider";
 import {
   IProjectJoinLoadWarning,
+  IProjectInvite,
   IProjectMeeting,
   IProjectTask,
   IRepoGuardianScan,
@@ -56,7 +60,16 @@ import {
 } from "@/providers/project-provider/context";
 import { isRepoSafetyUnsafe } from "@/utils/repoSafety";
 import { useStyles } from "./style";
-import { GithubOutlined } from "@ant-design/icons";
+import { resolveProjectDetailViewState } from "./projectLoadState";
+import {
+  BarChartOutlined,
+  CheckSquareOutlined,
+  FileTextOutlined,
+  GithubOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  VideoCameraOutlined,
+} from "@ant-design/icons";
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -140,9 +153,11 @@ const ProjectDetailPage = () => {
   const [complaintInput, setComplaintInput] = useState("");
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [roleUpdateMemberId, setRoleUpdateMemberId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("repo-safety");
   const [joinWarning, setJoinWarning] = useState<IProjectJoinLoadWarning | null>(null);
+  const [isJoiningProject, setIsJoiningProject] = useState(false);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [reassigningTaskId, setReassigningTaskId] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<IProjectMeeting[]>([]);
   const [isMeetingsLoading, setIsMeetingsLoading] = useState(false);
   const [meetingReminderDraft, setMeetingReminderDraft] = useState<
@@ -161,10 +176,14 @@ const ProjectDetailPage = () => {
   const [scheduleMeetingStart, setScheduleMeetingStart] = useState("");
   const [scheduleMeetingEnd, setScheduleMeetingEnd] = useState("");
   const [scheduleMeetingRoom, setScheduleMeetingRoom] = useState("");
+  const [projectInvites, setProjectInvites] = useState<IProjectInvite[]>([]);
+  const [isInvitesLoading, setIsInvitesLoading] = useState(false);
+  const [inviteActionTargetId, setInviteActionTargetId] = useState<string | null>(null);
+  const [isProjectLoading, setIsProjectLoading] = useState(true);
 
   const { styles } = useStyles();
   const { mode } = useAppearanceState();
-  const { currentUser, isPending } = useDeveloperState();
+  const { currentUser } = useDeveloperState();
   const { selectedProject: project, myProjects, lastMatch } = useProjectState();
   const { fetchCurrentUser } = useDeveloperAction();
   const {
@@ -180,9 +199,13 @@ const ProjectDetailPage = () => {
     aiFillTeam,
     aiGenerateProjectTasks,
     addProjectTask,
+    reassignProjectTask,
     updateProjectTaskStatus,
     updateProjectSkills,
     completeProject,
+    getProjectInvites,
+    acceptProjectInvite,
+    rejectProjectInvite,
     scanRepoSafety,
     scanRepoGuardian,
     getProjectMeetings,
@@ -193,14 +216,30 @@ const ProjectDetailPage = () => {
   } = useProjectAction();
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      setIsProjectLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    setIsProjectLoading(true);
     fetchCurrentUser();
     void fetchMyProjects();
-    void fetchProjectById(projectId);
+    fetchProjectById(projectId)
+      .catch(() => undefined)
+      .finally(() => {
+        if (isActive) {
+          setIsProjectLoading(false);
+        }
+      });
     setRepoSafetyScan(undefined);
     setRepoSafetyError(null);
     setRepoGuardianScan(undefined);
     setRepoGuardianError(null);
+
+    return () => {
+      isActive = false;
+    };
   }, [projectId]);
 
   useEffect(() => {
@@ -284,6 +323,20 @@ const ProjectDetailPage = () => {
     !!currentMember &&
     project.ownerId !== currentMember.id &&
     currentMember.role !== "lead";
+  const pendingInvites = useMemo(
+    () => projectInvites.filter((invite) => invite.status === "pending"),
+    [projectInvites],
+  );
+  const currentUserInvite = useMemo(() => {
+    const normalizedUserName = (currentUser?.userName ?? "").toLowerCase();
+    if (!normalizedUserName) {
+      return undefined;
+    }
+
+    return pendingInvites.find(
+      (invite) => (invite.developerUserName ?? "").toLowerCase() === normalizedUserName,
+    );
+  }, [pendingInvites, currentUser?.userName]);
 
   const canComplete = useMemo(() => {
     if (!project) return false;
@@ -293,6 +346,16 @@ const ProjectDetailPage = () => {
       project.tasks.every((task) => task.status === "done")
     );
   }, [project]);
+  const availableMemberSpots = useMemo(() => {
+    if (!project) {
+      return 0;
+    }
+
+    return Math.max(
+      (project.maxMembers ?? 4) - (project.members.length + pendingInvites.length),
+      0,
+    );
+  }, [project, pendingInvites.length]);
 
   const shouldShowMatchInsight = useMemo(() => {
     return (
@@ -322,6 +385,62 @@ const ProjectDetailPage = () => {
     : "Unknown";
   const riskScore = repoSafetyResult?.riskScore ?? 0;
   const repoSafetyUnsafe = isRepoSafetyUnsafe(repoSafetyResult);
+  const repoAnalysisSummary = useMemo(() => {
+    const lines: string[] = [];
+
+    if (repoSafetyResult) {
+      lines.push("Repository safety scan:");
+      lines.push(
+        `- Risk level: ${repoSafetyResult.riskLevel || "unknown"} (score ${repoSafetyResult.riskScore})`,
+      );
+      if (repoSafetyResult.findings.length > 0) {
+        lines.push("- Key findings:");
+        repoSafetyResult.findings.slice(0, 5).forEach((finding) => {
+          lines.push(
+            `  - [${finding.severity || "info"}] ${finding.title}${finding.filePath ? ` (${finding.filePath})` : ""}`,
+          );
+        });
+      }
+    }
+
+    if (repoGuardianScan?.result) {
+      lines.push("Repository analysis scan:");
+      lines.push(
+        `- Overall score: ${repoGuardianScan.result.overallScore}, status: ${repoGuardianScan.result.status}`,
+      );
+      if (repoGuardianScan.result.categoryScores.length > 0) {
+        lines.push("- Category scores:");
+        repoGuardianScan.result.categoryScores.forEach((item) => {
+          lines.push(`  - ${item.category}: ${item.score}`);
+        });
+      }
+      if (repoGuardianScan.result.recommendations.length > 0) {
+        lines.push("- Priority recommendations:");
+        repoGuardianScan.result.recommendations.slice(0, 5).forEach((item) => {
+          lines.push(`  - ${item.issueDescription}: ${item.suggestedFix}`);
+        });
+      }
+    }
+
+    return lines.join("\n").trim();
+  }, [repoSafetyResult, repoGuardianScan?.result]);
+
+  const loadProjectInvites = async () => {
+    if (!projectId) {
+      setProjectInvites([]);
+      return;
+    }
+
+    setIsInvitesLoading(true);
+    try {
+      const invites = await getProjectInvites(projectId);
+      setProjectInvites(invites);
+    } catch {
+      setProjectInvites([]);
+    } finally {
+      setIsInvitesLoading(false);
+    }
+  };
 
   const loadMeetings = async () => {
     if (!projectId || !isMember) {
@@ -357,14 +476,34 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     void loadMeetings();
   }, [projectId, isMember]);
+  useEffect(() => {
+    void loadProjectInvites();
+  }, [projectId, currentUser?.userName]);
+  useEffect(() => {
+    if (!isJoiningProject) {
+      return;
+    }
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "Joining project";
+      return "Joining project";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [isJoiningProject]);
 
   const handleFillTeam = async () => {
     if (!projectId) return;
     setIsFillingTeam(true);
     try {
       await aiFillTeam(projectId);
-      toast.success("Team updated", "AI added available team members.");
+      toast.success("Invites sent", "AI sent project invites to suggested members.");
       await loadMeetings();
+      await loadProjectInvites();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to fill team.";
@@ -381,7 +520,7 @@ const ProjectDetailPage = () => {
 
     setIsGeneratingTasks(true);
     try {
-      const tasks = await aiGenerateProjectTasks(projectId);
+      const tasks = await aiGenerateProjectTasks(projectId, repoAnalysisSummary);
       toast.success("Tasks generated", `${tasks.length} task(s) created by AI.`);
     } catch (error) {
       const message =
@@ -428,6 +567,24 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to update task.";
       toast.error("Task update failed", message);
+    }
+  };
+
+  const handleReassignTask = async (taskId: string, assignedMemberId?: string) => {
+    if (!projectId || !isMember || project?.status === "completed") {
+      return;
+    }
+
+    setReassigningTaskId(taskId);
+    try {
+      await reassignProjectTask(projectId, taskId, assignedMemberId);
+      toast.success("Task updated", "Task assignee has been updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reassign task.";
+      toast.error("Task update failed", message);
+    } finally {
+      setReassigningTaskId(null);
     }
   };
 
@@ -572,6 +729,7 @@ const ProjectDetailPage = () => {
   const executeJoinProject = async (confirmHighWorkload = false) => {
     if (!projectId) return;
 
+    setIsJoiningProject(true);
     try {
       await joinProject(projectId, confirmHighWorkload);
       await Promise.all([fetchMyProjects(), fetchProjectById(projectId)]);
@@ -581,24 +739,68 @@ const ProjectDetailPage = () => {
       const message =
         error instanceof Error ? error.message : "Failed to join project.";
       toast.error("Join failed", message);
+    } finally {
+      setIsJoiningProject(false);
     }
   };
 
   const handleJoinProject = async () => {
     if (!projectId) return;
 
+    setIsJoiningProject(true);
     try {
       const warning = await getJoinProjectLoadWarning(projectId);
       if (warning?.shouldWarn) {
+        setIsJoiningProject(false);
         setJoinWarning(warning);
         return;
       }
 
       await executeJoinProject(false);
     } catch (error) {
+      setIsJoiningProject(false);
       const message =
         error instanceof Error ? error.message : "Failed to evaluate workload.";
       toast.error("Join blocked", message);
+    }
+  };
+
+  const handleAcceptInvite = async (inviteId: string) => {
+    if (!projectId) {
+      return;
+    }
+
+    setInviteActionTargetId(inviteId);
+    try {
+      await acceptProjectInvite(projectId, inviteId);
+      await Promise.all([fetchMyProjects(), fetchProjectById(projectId)]);
+      await loadProjectInvites();
+      toast.success("Invite accepted", "You have joined the project.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to accept invite.";
+      toast.error("Accept invite failed", message);
+    } finally {
+      setInviteActionTargetId(null);
+    }
+  };
+
+  const handleRejectInvite = async (inviteId: string) => {
+    if (!projectId) {
+      return;
+    }
+
+    setInviteActionTargetId(inviteId);
+    try {
+      await rejectProjectInvite(projectId, inviteId);
+      await loadProjectInvites();
+      toast.success("Invite declined", "You declined the project invite.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reject invite.";
+      toast.error("Reject invite failed", message);
+    } finally {
+      setInviteActionTargetId(null);
     }
   };
 
@@ -788,24 +990,38 @@ const ProjectDetailPage = () => {
     }
   };
 
-  if (isPending && !project) {
+  const projectViewState = resolveProjectDetailViewState({
+    isProjectLoading,
+    projectId,
+    project,
+  });
+
+  if (projectViewState === "loading") {
     return (
-      <div className={styles.notFound}>
-        <Spin />
+      <div className={styles.projectLoading}>
+        <Card className={styles.projectLoadingCard}>
+          <Skeleton active title paragraph={{ rows: 3 }} />
+          <Skeleton active title={false} paragraph={{ rows: 5 }} />
+        </Card>
       </div>
     );
   }
 
-  if (!project || project.id !== projectId) {
-    return (
-      <div className={styles.notFound}>
-        <Typography.Title level={4}>Project not found</Typography.Title>
-        <Link href="/app/projects">
-          <Button type="primary">Back to Projects</Button>
-        </Link>
-      </div>
-    );
+  if (projectViewState === "not-found") {
+    return <NotFound />;
   }
+
+  if (!project || project.id !== projectId) {
+    return <NotFound />;
+  }
+
+  const tabLabel = (icon: ReactNode, fullLabel: string, shortLabel: string) => (
+    <span className={styles.tabLabel}>
+      <span className={styles.tabIcon}>{icon}</span>
+      <span className={styles.tabLabelFull}>{fullLabel}</span>
+      <span className={styles.tabLabelShort}>{shortLabel}</span>
+    </span>
+  );
 
   return (
     <div className={styles.page} data-ai-page="project-detail">
@@ -818,7 +1034,46 @@ const ProjectDetailPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className={styles.header}
       >
-        <div>
+        <div className={styles.headerContent}>
+          {project.status !== "completed" ? (
+            <div className={styles.headerPrimaryActions}>
+              <Space wrap>
+                {isMember && canComplete ? (
+                  <Button
+                    type="primary"
+                    onClick={handleCompleteProject}
+                    loading={isCompleting}
+                    icon={<CheckCircle size={14} />}
+                    data-ai-action="complete-project"
+                  >
+                    Complete Project
+                  </Button>
+                ) : null}
+                {currentMember?.id === project.ownerId ? (
+                  <Popover
+                    trigger="hover"
+                    content={
+                      !canDeleteProject
+                        ? "Remove other members first. You can only delete when you are the only member."
+                        : null
+                    }
+                  >
+                    <span>
+                      <Button
+                        danger
+                        disabled={!canDeleteProject}
+                        loading={isDeletingProject}
+                        onClick={() => void handleDeleteProject()}
+                        data-ai-action="delete-project"
+                      >
+                        Delete Project
+                      </Button>
+                    </span>
+                  </Popover>
+                ) : null}
+              </Space>
+            </div>
+          ) : null}
           <div className={styles.titleRow}>
             <Typography.Title level={2} style={{ margin: 0 }}>
               {project.title}
@@ -884,165 +1139,65 @@ const ProjectDetailPage = () => {
 
         {project.status !== "completed" ? (
           <div className={styles.actionRow}>
-            {!isMember && project.status === "open" ? (
-              <Button type="primary" onClick={handleJoinProject} data-ai-action="join-project">
-                Join Project
-              </Button>
-            ) : null}
+              <Space wrap>
+                {!isMember && project.status === "open" ? (
+                  currentUserInvite ? (
+                    <Space wrap>
+                      <Button
+                        type="primary"
+                        loading={inviteActionTargetId === currentUserInvite.id}
+                        onClick={() => void handleAcceptInvite(currentUserInvite.id)}
+                      >
+                        Accept Invite
+                      </Button>
+                      <Button
+                        danger
+                        loading={inviteActionTargetId === currentUserInvite.id}
+                        onClick={() => void handleRejectInvite(currentUserInvite.id)}
+                      >
+                        Reject Invite
+                      </Button>
+                    </Space>
+                  ) : (
+                    <Button
+                      type="primary"
+                      onClick={handleJoinProject}
+                      loading={isJoiningProject}
+                      disabled={isJoiningProject}
+                      data-ai-action="join-project"
+                    >
+                      Join Project
+                    </Button>
+                  )
+                ) : null}
 
-            {isMember && project.members.length < project.maxMembers ? (
-              <Button
-                onClick={handleFillTeam}
-                loading={isFillingTeam}
-                icon={
-                  isFillingTeam ? <Loader2 size={14} /> : <Sparkles size={14} />
-                }
-                data-ai-action="ai-fill-team"
-              >
-                AI Fill Team
-              </Button>
-            ) : null}
-
-            {isMember && canComplete ? (
-              <Button
-                type="primary"
-                onClick={handleCompleteProject}
-                loading={isCompleting}
-                icon={<CheckCircle size={14} />}
-                data-ai-action="complete-project"
-              >
-                Complete Project
-              </Button>
-            ) : null}
-
-            {isMember ? (
-              <Button
-                danger
-                onClick={() => setIsLeaveOpen(true)}
-                data-ai-action="open-leave-project"
-              >
-                Leave Project
-              </Button>
-            ) : null}
-
-            {canLogComplaint ? (
-              <Button onClick={() => setIsComplaintOpen(true)}>
-                Log Complaint
-              </Button>
-            ) : null}
-
-            {currentMember?.id === project.ownerId ? (
-              <Button
-                danger
-                disabled={!canDeleteProject}
-                loading={isDeletingProject}
-                onClick={() => void handleDeleteProject()}
-                data-ai-action="delete-project"
-              >
-                Delete Project
-              </Button>
-            ) : null}
+              {canLogComplaint ? (
+                <Button onClick={() => setIsComplaintOpen(true)}>
+                  Log Complaint
+                </Button>
+              ) : null}
+            </Space>
           </div>
-        ) : null}
-        {currentMember?.id === project.ownerId && project.members.length > 1 ? (
-          <Typography.Text type="secondary">
-            Remove other members first. You can only delete when you are the only member.
-          </Typography.Text>
         ) : null}
       </motion.div>
 
       <Tabs
+        type="card"
         className={styles.tabs}
         activeKey={activeTab}
         onChange={setActiveTab}
         tabBarGutter={6}
         items={[
-          { key: "overview", label: "Repo Safety + Team" },
-          { key: "spec", label: "Project Spec" },
-          { key: "analysis", label: "Repo Analysis" },
-          { key: "tasks", label: "Tasks" },
-          { key: "meetings", label: "Meetings (Jitsi)" },
+          { key: "repo-safety", label: tabLabel(<SafetyOutlined />, "Repo Safety", "Safety") },
+          { key: "team", label: tabLabel(<TeamOutlined />, "Team", "Team") },
+          { key: "spec", label: tabLabel(<FileTextOutlined />, "Project Spec", "Spec") },
+          { key: "analysis", label: tabLabel(<BarChartOutlined />, "Repo Analysis", "Analysis") },
+          { key: "tasks", label: tabLabel(<CheckSquareOutlined />, "Tasks", "Tasks") },
+          { key: "meetings", label: tabLabel(<VideoCameraOutlined />, "Meetings (Jitsi)", "Meetings") },
         ]}
       />
 
-      {activeTab === "overview" ? (
-        <div className={styles.contentGrid}>
-        <Card
-          title={
-            <Space>
-              <Users size={16} />
-              Team ({project.members.length}/{project.maxMembers})
-            </Space>
-          }
-          className={styles.membersCard}
-        >
-          <Space direction="vertical" size="small" className={styles.fullWidth}>
-            {project.members.map((member) => {
-              const isYou =
-                (member.userName ?? "").toLowerCase() ===
-                (currentUser?.userName ?? "").toLowerCase();
-              const isOwnerMember = member.id === project.ownerId;
-              return (
-                <div className={styles.memberItem} key={member.id}>
-                  <Avatar src={member.avatar || undefined}>
-                    {member.name.slice(0, 1).toUpperCase()}
-                  </Avatar>
-                  <div className={styles.memberMeta}>
-                    {member.userName ? (
-                      <Link
-                        href={`/developers/${encodeURIComponent(member.userName)}`}
-                        className={styles.memberLink}
-                      >
-                        <Typography.Text ellipsis>{member.name}</Typography.Text>
-                      </Link>
-                    ) : (
-                      <Typography.Text ellipsis>{member.name}</Typography.Text>
-                    )}
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: "block" }}
-                    >
-                      {member.role}
-                    </Typography.Text>
-                  </div>
-                  {canManageMemberRoles ? (
-                    <Select<"lead" | "member">
-                      size="small"
-                      value={member.role}
-                      loading={roleUpdateMemberId === member.id}
-                      disabled={roleUpdateMemberId !== null}
-                      onChange={(nextRole) => {
-                        void handleAssignMemberRole(member.id, nextRole);
-                      }}
-                      options={[
-                        { label: "Lead", value: "lead" },
-                        { label: "Member", value: "member" },
-                      ]}
-                      className={styles.memberRoleSelect}
-                    />
-                  ) : null}
-                  {canManageMemberRoles && !isYou && !isOwnerMember ? (
-                    <Button
-                      size="small"
-                      danger
-                      onClick={() => openRemoveMemberModal({ id: member.id, name: member.name })}
-                    >
-                      Remove
-                    </Button>
-                  ) : null}
-                  {isYou ? <Badge color="gold" text="You" /> : null}
-                </div>
-              );
-            })}
-
-            {project.members.length < project.maxMembers ? (
-              <div className={styles.openSpots}>
-                {project.maxMembers - project.members.length} spots available
-              </div>
-            ) : null}
-          </Space>
-        </Card>
-
+      {activeTab === "repo-safety" ? (
         <Card
           title={
             <Space>
@@ -1158,7 +1313,168 @@ const ProjectDetailPage = () => {
             </div>
           )}
         </Card>
-        </div>
+      ) : null}
+
+      {activeTab === "team" ? (
+        <Card
+          title={
+            <div className={styles.teamHeader}>
+              <Space>
+                <Users size={16} />
+                Team ({project.members.length}/{project.maxMembers})
+              </Space>
+              {project.status !== "completed" ? (
+                <Space wrap>
+                  {isMember && availableMemberSpots > 0 ? (
+                    <Button
+                      onClick={handleFillTeam}
+                      loading={isFillingTeam}
+                      icon={
+                        isFillingTeam ? <Loader2 size={14} /> : <Sparkles size={14} />
+                      }
+                      data-ai-action="ai-fill-team"
+                    >
+                      AI Fill Team (Invite)
+                    </Button>
+                  ) : null}
+                  {isMember ? (
+                    <Button
+                      danger
+                      onClick={() => setIsLeaveOpen(true)}
+                      data-ai-action="open-leave-project"
+                    >
+                      Leave Project
+                    </Button>
+                  ) : null}
+                </Space>
+              ) : null}
+            </div>
+          }
+          className={styles.membersCard}
+        >
+          <Space direction="vertical" size="small" className={styles.fullWidth}>
+            {project.members.map((member) => {
+              const isYou =
+                (member.userName ?? "").toLowerCase() ===
+                (currentUser?.userName ?? "").toLowerCase();
+              const isOwnerMember = member.id === project.ownerId;
+              return (
+                <div className={styles.memberItem} key={member.id}>
+                  <Avatar src={member.avatar || undefined}>
+                    {member.name.slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <div className={styles.memberMeta}>
+                    {member.userName ? (
+                      <Link
+                        href={`/developers/${encodeURIComponent(member.userName)}`}
+                        className={styles.memberLink}
+                      >
+                        <Typography.Text ellipsis>{member.name}</Typography.Text>
+                      </Link>
+                    ) : (
+                      <Typography.Text ellipsis>{member.name}</Typography.Text>
+                    )}
+                    <Typography.Text
+                      type="secondary"
+                      style={{ display: "block" }}
+                    >
+                      {member.role}
+                    </Typography.Text>
+                  </div>
+                  {canManageMemberRoles ? (
+                    <Select<"lead" | "member">
+                      size="small"
+                      value={member.role}
+                      loading={roleUpdateMemberId === member.id}
+                      disabled={roleUpdateMemberId !== null}
+                      onChange={(nextRole) => {
+                        void handleAssignMemberRole(member.id, nextRole);
+                      }}
+                      options={[
+                        { label: "Lead", value: "lead" },
+                        { label: "Member", value: "member" },
+                      ]}
+                      className={styles.memberRoleSelect}
+                    />
+                  ) : null}
+                  {canManageMemberRoles && !isYou && !isOwnerMember ? (
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() =>
+                        openRemoveMemberModal({ id: member.id, name: member.name })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                  {isYou ? <Badge color="gold" text="You" /> : null}
+                </div>
+              );
+            })}
+
+            {pendingInvites.length > 0 ? (
+              <div className={styles.invitesSection}>
+                <Typography.Text strong>
+                  Invited ({pendingInvites.length})
+                </Typography.Text>
+                {isInvitesLoading ? (
+                  <Spin size="small" />
+                ) : (
+                  <Space direction="vertical" size="small" className={styles.fullWidth}>
+                    {pendingInvites.map((invite) => {
+                      const isCurrentUserInvite =
+                        (invite.developerUserName ?? "").toLowerCase() ===
+                        (currentUser?.userName ?? "").toLowerCase();
+                      return (
+                        <div className={styles.inviteItem} key={invite.id}>
+                          <div className={styles.memberMeta}>
+                            <Typography.Text ellipsis>
+                              {invite.developerName}
+                            </Typography.Text>
+                            <Typography.Text
+                              type="secondary"
+                              style={{ display: "block" }}
+                            >
+                              Invited by {invite.invitedByDeveloperName}
+                            </Typography.Text>
+                          </div>
+                          <Tag color="gold">Pending</Tag>
+                          {isCurrentUserInvite ? (
+                            <Space size="small" wrap>
+                              <Button
+                                size="small"
+                                type="primary"
+                                loading={inviteActionTargetId === invite.id}
+                                onClick={() => void handleAcceptInvite(invite.id)}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="small"
+                                danger
+                                loading={inviteActionTargetId === invite.id}
+                                onClick={() => void handleRejectInvite(invite.id)}
+                              >
+                                Reject
+                              </Button>
+                            </Space>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </Space>
+                )}
+              </div>
+            ) : null}
+
+            {availableMemberSpots > 0 ? (
+              <div className={styles.openSpots}>
+                {availableMemberSpots} spots available
+              </div>
+            ) : null}
+          </Space>
+        </Card>
       ) : null}
 
       {activeTab === "spec" ? (
@@ -1291,15 +1607,13 @@ const ProjectDetailPage = () => {
                   >
                     Add Task
                   </Button>
-                  {canManageMemberRoles ? (
-                    <Button
-                      icon={<Sparkles size={14} />}
-                      loading={isGeneratingTasks}
-                      onClick={() => void handleGenerateTasks()}
-                    >
-                      AI Generate Tasks
-                    </Button>
-                  ) : null}
+                  <Button
+                    icon={<Sparkles size={14} />}
+                    loading={isGeneratingTasks}
+                    onClick={() => void handleGenerateTasks()}
+                  >
+                    AI Generate Tasks
+                  </Button>
                   <Button size="small" onClick={handleOpenSkillsEditor}>
                     Update Skills
                   </Button>
@@ -1407,6 +1721,35 @@ const ProjectDetailPage = () => {
                                   ) : (
                                     <Tag>Unassigned</Tag>
                                   )}
+                                  {isMember && project.status !== "completed" ? (
+                                    <Select
+                                      size="small"
+                                      className={styles.taskAssigneeSelect}
+                                      value={task.assignedMemberId || "__unassigned__"}
+                                      loading={reassigningTaskId === task.id}
+                                      onChange={(value) => {
+                                        const nextAssigneeId =
+                                          value === "__unassigned__"
+                                            ? undefined
+                                            : String(value);
+                                        if (
+                                          (task.assignedMemberId || undefined) ===
+                                          nextAssigneeId
+                                        ) {
+                                          return;
+                                        }
+
+                                        void handleReassignTask(task.id, nextAssigneeId);
+                                      }}
+                                      options={[
+                                        { value: "__unassigned__", label: "Unassigned" },
+                                        ...project.members.map((member) => ({
+                                          value: member.id,
+                                          label: member.name,
+                                        })),
+                                      ]}
+                                    />
+                                  ) : null}
                                 </div>
                               </Space>
 
@@ -1724,6 +2067,18 @@ const ProjectDetailPage = () => {
           Workload score if you join: {joinWarning?.proposedWorkloadScore ?? 0} /{" "}
           {joinWarning?.recommendedWorkloadLimit ?? 0}
         </Typography.Text>
+      </Modal>
+
+      <Modal open={isJoiningProject} footer={null} closable={false} maskClosable={false} keyboard={false}>
+        <div className={styles.joiningModalBody}>
+          <Spin size="large" />
+          <Typography.Title level={4} className={styles.joiningTitle}>
+            Joining project
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Please wait while we secure your project membership.
+          </Typography.Text>
+        </div>
       </Modal>
 
       <Modal

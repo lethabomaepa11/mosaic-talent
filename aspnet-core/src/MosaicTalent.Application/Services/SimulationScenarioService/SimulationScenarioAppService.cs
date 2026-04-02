@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Simulations;
 using MosaicTalent.Services.AiService;
+using MosaicTalent.Services.DeveloperOnboardingService;
 using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.SimulationScenarioService.DTO;
 using System;
@@ -29,6 +30,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
     private readonly IRepository<AssessorDimensionScore, Guid> _dimensionScoreRepository;
     private readonly IGroqChatService _groqChatService;
     private readonly IDeveloperGamificationService _developerGamificationService;
+    private readonly ITeamworkRatingService _teamworkRatingService;
 
     public SimulationScenarioAppService(
         IRepository<Developer, Guid> developerRepository,
@@ -41,7 +43,8 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         IRepository<AssessorObservation, Guid> observationRepository,
         IRepository<AssessorDimensionScore, Guid> dimensionScoreRepository,
         IGroqChatService groqChatService,
-        IDeveloperGamificationService developerGamificationService)
+        IDeveloperGamificationService developerGamificationService,
+        ITeamworkRatingService teamworkRatingService)
     {
         _developerRepository = developerRepository;
         _scenarioRepository = scenarioRepository;
@@ -54,6 +57,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         _dimensionScoreRepository = dimensionScoreRepository;
         _groqChatService = groqChatService;
         _developerGamificationService = developerGamificationService;
+        _teamworkRatingService = teamworkRatingService;
     }
 
     public async Task<List<SimulationScenarioDto>> GetScenarios()
@@ -235,6 +239,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
 
         await GenerateAndPersistBotTurn(tenantId, session, scenario, content);
         await CurrentUnitOfWork.SaveChangesAsync();
+        await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, user.Id);
 
         return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });
     }
@@ -242,7 +247,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
     public async Task<SimulationSessionDto> AdvanceSession(GetSimulationSessionInput input)
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
-        await EnsureCurrentDeveloper();
+        var developer = await EnsureCurrentDeveloper();
 
         var session = await _sessionRepository.GetAll()
             .FirstOrDefaultAsync(x => x.Id == input.SessionId && x.TenantId == tenantId)
@@ -267,6 +272,7 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
             {
                 await GenerateAndPersistBotTurn(tenantId, session, scenario, "Meeting progression");
                 await CurrentUnitOfWork.SaveChangesAsync();
+                await _teamworkRatingService.RecalculateForDeveloperAsync(tenantId, developer.Id);
             }
         }
 

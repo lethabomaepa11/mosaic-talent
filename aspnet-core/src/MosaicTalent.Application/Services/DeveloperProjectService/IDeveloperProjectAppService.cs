@@ -27,8 +27,12 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input);
     Task<DeveloperProjectDto> AiMatchProject();
     Task<DeveloperProjectDto> AiFillTeam(GetDeveloperProjectInput input);
+    Task<List<ProjectTeamInviteDto>> GetProjectInvites(GetDeveloperProjectInput input);
+    Task<ProjectTeamInviteDto> AcceptProjectInvite(AcceptProjectInviteInput input);
+    Task<ProjectTeamInviteDto> RejectProjectInvite(RejectProjectInviteInput input);
     Task<List<DeveloperProjectTaskDto>> AiGenerateProjectTasks(AiGenerateProjectTasksInput input);
     Task<DeveloperProjectTaskDto> AddProjectTask(AddProjectTaskInput input);
+    Task<DeveloperProjectTaskDto> ReassignProjectTask(ReassignProjectTaskInput input);
     Task<DeveloperProjectTaskDto> UpdateProjectTaskStatus(UpdateProjectTaskStatusInput input);
     Task<DeveloperProjectDto> UpdateProjectSkills(UpdateProjectSkillsInput input);
     Task<DeveloperProjectDto> CompleteProject(GetDeveloperProjectInput input);

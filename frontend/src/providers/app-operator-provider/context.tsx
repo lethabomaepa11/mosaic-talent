@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext } from "react";
-import { IAppOperatorIntent } from "@/lib/app-operator/types";
+import { AppOperatorUserRole, IAppOperatorIntent } from "@/lib/app-operator/types";
 import { IAppOperatorPlanStep, IAppOperatorPlanningResult } from "@/lib/app-operator/planner";
 
 export interface IOperatorHistoryItem {
@@ -35,6 +35,7 @@ export interface IAppOperatorActionContext {
   planCommand: (
     command: string,
     currentPath: string,
+    role?: AppOperatorUserRole,
   ) => Promise<IAppOperatorPlanningResult>;
 }
 

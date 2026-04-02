@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { Button, Input, InputNumber, Select, Slider, Upload } from "antd";
+import { Button, Input, InputNumber, Select, Upload } from "antd";
 import { toast } from "@/components/providers";
 import {
   useDeveloperAction,
@@ -23,7 +23,6 @@ const OnboardingPage = () => {
   const [studyLevel, setStudyLevel] = useState(0);
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
-  const [teamworkRating, setTeamworkRating] = useState(0);
   const [skills, setSkills] = useState<string[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,7 +55,6 @@ const OnboardingPage = () => {
     setStudyLevel(profile.studyLevel ?? 0);
     setBio(profile.bio ?? "");
     setLocation(profile.location ?? "");
-    setTeamworkRating(profile.teamworkRating ?? 0);
     setSkills(profile.skills ?? []);
     setGoals(profile.goals ?? []);
   }, [profile]);
@@ -66,8 +64,8 @@ const OnboardingPage = () => {
 
     if (!githubUsername) {
       toast.error(
-        "Missing GitHub username",
-        "Please provide a GitHub username.",
+        "GitHub connection required",
+        "Sign in with GitHub to continue onboarding.",
       );
       return;
     }
@@ -88,7 +86,6 @@ const OnboardingPage = () => {
         studyLevel,
         bio,
         location,
-        teamworkRating,
         skills,
         goals,
       });
@@ -133,10 +130,14 @@ const OnboardingPage = () => {
                 <Input
                   id="githubUsername"
                   value={githubUsername}
-                  onChange={(e) => setGithubUsername(e.target.value)}
+                  disabled
+                  readOnly
                   className={styles.input}
                   required
                 />
+                <span className={styles.fieldHint}>
+                  This is synced from your connected GitHub account and cannot be edited.
+                </span>
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>
@@ -232,19 +233,9 @@ const OnboardingPage = () => {
               />
             </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>
-                Teamwork Rating ({teamworkRating.toFixed(1)})
-              </label>
-              <div className={styles.sliderWrap}>
-                <Slider
-                  min={0}
-                  max={10}
-                  step={0.1}
-                  value={teamworkRating}
-                  onChange={setTeamworkRating}
-                />
-              </div>
+            <div className={styles.systemRatingNotice}>
+              Teamwork rating is system-calculated from AI simulation performance and peer reviews.
+              You can view it in your profile stats after onboarding.
             </div>
 
             <div className={styles.field}>

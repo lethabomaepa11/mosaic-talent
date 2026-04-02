@@ -28,8 +28,13 @@ const Consumer = () => {
     removeProjectMember,
     submitProjectComplaint,
     assignMemberRole,
+    aiGenerateProjectTasks,
     scanRepoSafety,
     scanRepoSafetyByGithubUrl,
+    reassignProjectTask,
+    getProjectInvites,
+    acceptProjectInvite,
+    rejectProjectInvite,
   } = useProjectAction();
 
   return (
@@ -119,6 +124,58 @@ const Consumer = () => {
       </button>
       <button
         onClick={async () => {
+          const result = await aiGenerateProjectTasks(
+            "project-1",
+            "Repository analysis summary text",
+          );
+          window.__TEST_AI_TASKS__ = result;
+        }}
+        type="button"
+      >
+        AI Generate Tasks
+      </button>
+      <button
+        onClick={async () => {
+          const result = await reassignProjectTask("project-1", "task-1", "member-3");
+          window.__TEST_REASSIGN_TASK__ = result;
+        }}
+        type="button"
+      >
+        Reassign Task
+      </button>
+      <button
+        onClick={async () => {
+          const result = await getProjectInvites("project-1");
+          window.__TEST_PROJECT_INVITES__ = result;
+        }}
+        type="button"
+      >
+        Get Project Invites
+      </button>
+      <button
+        onClick={async () => {
+          const result = await acceptProjectInvite("project-1", "invite-1");
+          window.__TEST_ACCEPT_INVITE__ = result;
+        }}
+        type="button"
+      >
+        Accept Project Invite
+      </button>
+      <button
+        onClick={async () => {
+          const result = await rejectProjectInvite(
+            "project-1",
+            "invite-2",
+            "Project timing does not fit my schedule.",
+          );
+          window.__TEST_REJECT_INVITE__ = result;
+        }}
+        type="button"
+      >
+        Reject Project Invite
+      </button>
+      <button
+        onClick={async () => {
           const result = await scanRepoSafety("project-1");
           window.__TEST_SCAN__ = result;
         }}
@@ -151,6 +208,11 @@ declare global {
     __TEST_REMOVE_MEMBER__?: unknown;
     __TEST_SUBMIT_COMPLAINT__?: unknown;
     __TEST_ASSIGN_ROLE__?: unknown;
+    __TEST_AI_TASKS__?: unknown;
+    __TEST_REASSIGN_TASK__?: unknown;
+    __TEST_PROJECT_INVITES__?: unknown;
+    __TEST_ACCEPT_INVITE__?: unknown;
+    __TEST_REJECT_INVITE__?: unknown;
     __TEST_SCAN__?: unknown;
     __TEST_SCAN_BY_URL__?: unknown;
   }
@@ -170,6 +232,11 @@ describe("ProjectProvider GitHub integration", () => {
     window.__TEST_REMOVE_MEMBER__ = undefined;
     window.__TEST_SUBMIT_COMPLAINT__ = undefined;
     window.__TEST_ASSIGN_ROLE__ = undefined;
+    window.__TEST_AI_TASKS__ = undefined;
+    window.__TEST_REASSIGN_TASK__ = undefined;
+    window.__TEST_PROJECT_INVITES__ = undefined;
+    window.__TEST_ACCEPT_INVITE__ = undefined;
+    window.__TEST_REJECT_INVITE__ = undefined;
     window.__TEST_SCAN__ = undefined;
     window.__TEST_SCAN_BY_URL__ = undefined;
   });
@@ -341,6 +408,286 @@ describe("ProjectProvider GitHub integration", () => {
       "/api/services/app/DeveloperProject/ScanRepoSafety",
       {
         projectId: "project-1",
+      },
+    );
+  });
+
+  it("generates AI tasks with repository analysis summary", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: [
+          {
+            id: "task-1",
+            title: "Implement secure auth flow",
+            description: "Add token refresh and route guards.",
+            status: "todo",
+            assignedMemberId: "member-2",
+            assignedMemberName: "Member Two",
+          },
+        ],
+      },
+    });
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "project-1",
+          title: "Alpha",
+          description: "Project spec",
+          maxMembers: 4,
+          githubRepo: "https://github.com/octocat/alpha",
+          skills: ["React"],
+          type: "group",
+          status: "open",
+          ownerId: "owner-1",
+          createdAt: "2026-04-01T00:00:00Z",
+          members: [],
+          tasks: [],
+        },
+      },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "AI Generate Tasks" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_AI_TASKS__).toEqual([
+        {
+          id: "task-1",
+          title: "Implement secure auth flow",
+          description: "Add token refresh and route guards.",
+          status: "todo",
+          assignedMemberId: "member-2",
+          assignedMemberName: "Member Two",
+        },
+      ]);
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/AiGenerateProjectTasks",
+      {
+        projectId: "project-1",
+        repoAnalysisSummary: "Repository analysis summary text",
+      },
+    );
+  });
+
+  it("reassigns a project task", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "task-1",
+          title: "Setup CI",
+          description: "Configure frontend workflow checks",
+          status: "todo",
+          assignedMemberId: "member-3",
+          assignedMemberName: "Member Three",
+        },
+      },
+    });
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "project-1",
+          title: "Alpha",
+          description: "Project spec",
+          maxMembers: 4,
+          githubRepo: "https://github.com/octocat/alpha",
+          skills: ["React"],
+          type: "group",
+          status: "open",
+          ownerId: "owner-1",
+          createdAt: "2026-04-01T00:00:00Z",
+          members: [],
+          tasks: [],
+        },
+      },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reassign Task" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_REASSIGN_TASK__).toEqual({
+        id: "task-1",
+        title: "Setup CI",
+        description: "Configure frontend workflow checks",
+        status: "todo",
+        assignedMemberId: "member-3",
+        assignedMemberName: "Member Three",
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/ReassignProjectTask",
+      {
+        projectId: "project-1",
+        taskId: "task-1",
+        assignedMemberId: "member-3",
+      },
+    );
+  });
+
+  it("loads project invites", async () => {
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        result: [
+          {
+            id: "invite-1",
+            projectId: "project-1",
+            developerId: "member-3",
+            developerName: "Member Three",
+            developerUserName: "member3",
+            invitedByDeveloperId: "owner-1",
+            invitedByDeveloperName: "Owner One",
+            status: "pending",
+            invitedAtUtc: "2026-04-02T10:00:00Z",
+          },
+        ],
+      },
+    });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Get Project Invites" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_PROJECT_INVITES__).toEqual([
+        {
+          id: "invite-1",
+          projectId: "project-1",
+          developerId: "member-3",
+          developerName: "Member Three",
+          developerUserName: "member3",
+          invitedByDeveloperId: "owner-1",
+          invitedByDeveloperName: "Owner One",
+          status: "pending",
+          invitedAtUtc: "2026-04-02T10:00:00Z",
+          respondedAtUtc: "",
+        },
+      ]);
+    });
+
+    expect(mocks.get).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/GetProjectInvites",
+      {
+        params: { projectId: "project-1" },
+      },
+    );
+  });
+
+  it("accepts a project invite", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "invite-1",
+          projectId: "project-1",
+          developerId: "member-3",
+          developerName: "Member Three",
+          developerUserName: "member3",
+          invitedByDeveloperId: "owner-1",
+          invitedByDeveloperName: "Owner One",
+          status: "accepted",
+          invitedAtUtc: "2026-04-02T10:00:00Z",
+          respondedAtUtc: "2026-04-02T10:10:00Z",
+        },
+      },
+    });
+    mocks.get.mockResolvedValue({ data: { result: [] } });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept Project Invite" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_ACCEPT_INVITE__).toEqual({
+        id: "invite-1",
+        projectId: "project-1",
+        developerId: "member-3",
+        developerName: "Member Three",
+        developerUserName: "member3",
+        invitedByDeveloperId: "owner-1",
+        invitedByDeveloperName: "Owner One",
+        status: "accepted",
+        invitedAtUtc: "2026-04-02T10:00:00Z",
+        respondedAtUtc: "2026-04-02T10:10:00Z",
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/AcceptProjectInvite",
+      {
+        projectId: "project-1",
+        inviteId: "invite-1",
+      },
+    );
+  });
+
+  it("rejects a project invite", async () => {
+    mocks.post.mockResolvedValueOnce({
+      data: {
+        result: {
+          id: "invite-2",
+          projectId: "project-1",
+          developerId: "member-4",
+          developerName: "Member Four",
+          developerUserName: "member4",
+          invitedByDeveloperId: "owner-1",
+          invitedByDeveloperName: "Owner One",
+          status: "rejected",
+          invitedAtUtc: "2026-04-02T10:00:00Z",
+          respondedAtUtc: "2026-04-02T10:12:00Z",
+        },
+      },
+    });
+    mocks.get.mockResolvedValue({ data: { result: [] } });
+
+    render(
+      <ProjectProvider>
+        <Consumer />
+      </ProjectProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject Project Invite" }));
+
+    await waitFor(() => {
+      expect(window.__TEST_REJECT_INVITE__).toEqual({
+        id: "invite-2",
+        projectId: "project-1",
+        developerId: "member-4",
+        developerName: "Member Four",
+        developerUserName: "member4",
+        invitedByDeveloperId: "owner-1",
+        invitedByDeveloperName: "Owner One",
+        status: "rejected",
+        invitedAtUtc: "2026-04-02T10:00:00Z",
+        respondedAtUtc: "2026-04-02T10:12:00Z",
+      });
+    });
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      "/api/services/app/DeveloperProject/RejectProjectInvite",
+      {
+        projectId: "project-1",
+        inviteId: "invite-2",
+        reason: "Project timing does not fit my schedule.",
       },
     );
   });

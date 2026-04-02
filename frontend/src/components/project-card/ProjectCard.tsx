@@ -179,6 +179,11 @@ export const ProjectCard = ({
               {new Date(project.createdAt).toLocaleDateString()}
             </span>
           </Space>
+          <Link href={`/app/projects/${project.id}`}>
+            <Button type="default">
+              View Project <ChevronRight size={14} />
+            </Button>
+          </Link>
         </div>
       ) : (
         <div className={styles.footerRow}>

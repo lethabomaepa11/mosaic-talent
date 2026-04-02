@@ -21,6 +21,12 @@ vi.mock("@/utils/axiosInstance", () => ({
   }),
 }));
 
+vi.mock("@/providers/tenant-provider", () => ({
+  useTenantResolutionState: () => ({
+    tenancyName: "acme",
+  }),
+}));
+
 describe("AppOperatorPanel", () => {
   beforeEach(() => {
     mocks.push.mockReset();

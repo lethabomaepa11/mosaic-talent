@@ -219,6 +219,19 @@ export interface IProjectMeeting {
   reminderEnabled: boolean;
 }
 
+export interface IProjectInvite {
+  id: string;
+  projectId: string;
+  developerId: string;
+  developerName: string;
+  developerUserName: string;
+  invitedByDeveloperId: string;
+  invitedByDeveloperName: string;
+  status: "pending" | "accepted" | "rejected";
+  invitedAtUtc: string;
+  respondedAtUtc?: string;
+}
+
 export interface IProjectStateContext {
   isPending: boolean;
   isSuccess: boolean;
@@ -271,10 +284,16 @@ export interface IProjectActionContext {
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
   aiGenerateProjectTasks: (
     projectId: string,
+    repoAnalysisSummary?: string,
   ) => Promise<IProjectTask[]>;
   addProjectTask: (
     projectId: string,
     input: { title: string; description?: string; assignedMemberId?: string },
+  ) => Promise<IProjectTask | undefined>;
+  reassignProjectTask: (
+    projectId: string,
+    taskId: string,
+    assignedMemberId?: string,
   ) => Promise<IProjectTask | undefined>;
   updateProjectTaskStatus: (
     projectId: string,
@@ -286,6 +305,16 @@ export interface IProjectActionContext {
     skills: string[],
   ) => Promise<IProject | undefined>;
   completeProject: (projectId: string) => Promise<IProject | undefined>;
+  getProjectInvites: (projectId: string) => Promise<IProjectInvite[]>;
+  acceptProjectInvite: (
+    projectId: string,
+    inviteId: string,
+  ) => Promise<IProjectInvite | undefined>;
+  rejectProjectInvite: (
+    projectId: string,
+    inviteId: string,
+    reason?: string,
+  ) => Promise<IProjectInvite | undefined>;
   scanRepoSafety: (projectId: string) => Promise<IRepoSafetyScan | undefined>;
   scanRepoSafetyByGithubUrl: (
     githubUrl: string,
@@ -361,9 +390,13 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   aiFillTeam: async () => undefined,
   aiGenerateProjectTasks: async () => [],
   addProjectTask: async () => undefined,
+  reassignProjectTask: async () => undefined,
   updateProjectTaskStatus: async () => undefined,
   updateProjectSkills: async () => undefined,
   completeProject: async () => undefined,
+  getProjectInvites: async () => [],
+  acceptProjectInvite: async () => undefined,
+  rejectProjectInvite: async () => undefined,
   scanRepoSafety: async () => undefined,
   scanRepoSafetyByGithubUrl: async () => undefined,
   scanRepoGuardian: async () => undefined,

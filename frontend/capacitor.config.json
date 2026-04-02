@@ -3,7 +3,7 @@
   "appName": "Mosaic Talent",
   "webDir": "out",
   "server": {
-    "url": "https://mosaictalent.co.za",
+    "url": "https://mosaictalent.co.za/app",
     "cleartext": true
   },
   "plugins": {

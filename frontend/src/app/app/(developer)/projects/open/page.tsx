@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Button, Empty, Modal, Typography } from "antd";
+import { Button, Empty, Modal, Spin, Typography } from "antd";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { useDeveloperAction } from "@/providers/developer-provider";
@@ -20,6 +20,7 @@ const OpenProjectsPage = () => {
     projectId: string;
     warning: IProjectJoinLoadWarning;
   } | null>(null);
+  const [isJoiningProject, setIsJoiningProject] = useState(false);
   const { styles } = useStyles();
 
   const { fetchCurrentUser } = useDeveloperAction();
@@ -37,6 +38,22 @@ const OpenProjectsPage = () => {
   useEffect(() => {
     setDragOffsetX(0);
   }, [swipeIndex]);
+  useEffect(() => {
+    if (!isJoiningProject) {
+      return;
+    }
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "Joining project";
+      return "Joining project";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [isJoiningProject]);
 
   const swipeProjects = useMemo(() => {
     return openProjects.slice(swipeIndex, swipeIndex + 3);
@@ -44,6 +61,7 @@ const OpenProjectsPage = () => {
   const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(" ");
 
   const executeJoin = async (projectId: string, confirmHighWorkload = false) => {
+    setIsJoiningProject(true);
     try {
       await joinProject(projectId, confirmHighWorkload);
       toast.success("Joined project", "You successfully joined this project.");
@@ -52,19 +70,23 @@ const OpenProjectsPage = () => {
       toast.error("Join failed", message);
     } finally {
       setSwipeIndex((prev) => prev + 1);
+      setIsJoiningProject(false);
     }
   };
 
   const handleSwipeJoin = async (projectId: string) => {
+    setIsJoiningProject(true);
     try {
       const warning = await getJoinProjectLoadWarning(projectId);
       if (warning?.shouldWarn) {
+        setIsJoiningProject(false);
         setJoinWarning({ projectId, warning });
         return;
       }
 
       await executeJoin(projectId);
     } catch (error) {
+      setIsJoiningProject(false);
       const message =
         error instanceof Error ? error.message : "Failed to evaluate workload.";
       toast.error("Join blocked", message);
@@ -122,7 +144,7 @@ const OpenProjectsPage = () => {
                           scale: 1 - visualOffset * 0.01,
                         }}
                         exit={{ opacity: 0, x: 260, rotate: 12 }}
-                        drag={isTop ? "x" : false}
+                        drag={isTop && !isJoiningProject ? "x" : false}
                         dragElastic={0.18}
                         dragConstraints={{ left: 0, right: 0 }}
                         onDrag={(_, info) => {
@@ -131,6 +153,11 @@ const OpenProjectsPage = () => {
                           }
                         }}
                         onDragEnd={(_, info) => {
+                          if (isJoiningProject) {
+                            setDragOffsetX(0);
+                            return;
+                          }
+
                           if (info.offset.x > SWIPE_THRESHOLD) {
                             setDragOffsetX(0);
                             void handleSwipeJoin(project.id);
@@ -170,7 +197,11 @@ const OpenProjectsPage = () => {
                         ) : null}
                         <ProjectCard
                           project={project}
-                          onJoin={() => void handleSwipeJoin(project.id)}
+                          onJoin={() => {
+                            if (!isJoiningProject) {
+                              void handleSwipeJoin(project.id);
+                            }
+                          }}
                           variant="swipe"
                           hideActions
                         />
@@ -219,6 +250,17 @@ const OpenProjectsPage = () => {
           Workload score if you join: {joinWarning?.warning.proposedWorkloadScore ?? 0} /{" "}
           {joinWarning?.warning.recommendedWorkloadLimit ?? 0}
         </Typography.Text>
+      </Modal>
+      <Modal open={isJoiningProject} footer={null} closable={false} maskClosable={false} keyboard={false}>
+        <div className={styles.joiningModalBody}>
+          <Spin size="large" />
+          <Typography.Title level={4} className={styles.joiningTitle}>
+            Joining project
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Please wait while we secure your project membership.
+          </Typography.Text>
+        </div>
       </Modal>
     </div>
   );

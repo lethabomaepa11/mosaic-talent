@@ -38,6 +38,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
     private readonly IRepository<ProjectTask, Guid> _projectTaskRepository;
     private readonly IRepository<ProjectMeeting, Guid> _projectMeetingRepository;
     private readonly IRepository<ProjectMeetingReminderPreference, Guid> _projectMeetingReminderPreferenceRepository;
+    private readonly IRepository<ProjectTeamInvite, Guid> _projectTeamInviteRepository;
     private readonly IRepository<DeveloperProfile, Guid> _developerProfileRepository;
     private readonly IRepository<DeveloperProfileSkill, Guid> _developerProfileSkillRepository;
     private readonly IRepository<DeveloperProfileGoal, Guid> _developerProfileGoalRepository;
@@ -57,6 +58,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         IRepository<ProjectTask, Guid> projectTaskRepository,
         IRepository<ProjectMeeting, Guid> projectMeetingRepository,
         IRepository<ProjectMeetingReminderPreference, Guid> projectMeetingReminderPreferenceRepository,
+        IRepository<ProjectTeamInvite, Guid> projectTeamInviteRepository,
         IRepository<DeveloperProfile, Guid> developerProfileRepository,
         IRepository<DeveloperProfileSkill, Guid> developerProfileSkillRepository,
         IRepository<DeveloperProfileGoal, Guid> developerProfileGoalRepository,
@@ -75,6 +77,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         _projectTaskRepository = projectTaskRepository;
         _projectMeetingRepository = projectMeetingRepository;
         _projectMeetingReminderPreferenceRepository = projectMeetingReminderPreferenceRepository;
+        _projectTeamInviteRepository = projectTeamInviteRepository;
         _developerProfileRepository = developerProfileRepository;
         _developerProfileSkillRepository = developerProfileSkillRepository;
         _developerProfileGoalRepository = developerProfileGoalRepository;
@@ -109,9 +112,14 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         var developer = await GetCurrentDeveloper();
         var developerSkills = await GetDeveloperSkills(developer.Id);
         var developerGoals = await GetDeveloperGoals(developer.Id);
+        var myProjectIds = await _projectMemberRepository.GetAll()
+            .Where(x => x.DeveloperId == developer.Id)
+            .Select(x => x.ProjectId)
+            .Distinct()
+            .ToListAsync();
 
         var projects = await _projectRepository.GetAll()
-            .Where(x => x.Status == ProjectStatus.Open)
+            .Where(x => x.Status == ProjectStatus.Open && !myProjectIds.Contains(x.Id))
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 
@@ -336,6 +344,22 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             Role = MemberRole.Member,
         });
         await CurrentUnitOfWork.SaveChangesAsync();
+
+        var pendingInvites = await _projectTeamInviteRepository.GetAll()
+            .Where(x =>
+                x.ProjectId == project.Id &&
+                x.DeveloperId == developer.Id &&
+                x.Status == ProjectTeamInviteStatus.Pending)
+            .ToListAsync();
+        foreach (var invite in pendingInvites)
+        {
+            invite.Status = ProjectTeamInviteStatus.Accepted;
+            invite.RespondedAtUtc = DateTime.UtcNow;
+            invite.ResponseReason = "Accepted by joining project directly.";
+            await _projectTeamInviteRepository.UpdateAsync(invite);
+        }
+        await CurrentUnitOfWork.SaveChangesAsync();
+
         var existingMeetingIds = await _projectMeetingRepository.GetAll()
             .Where(x => x.ProjectId == project.Id)
             .Select(x => x.Id)
@@ -807,12 +831,18 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             .ToListAsync();
 
         var currentMemberIds = currentMembers.Select(x => x.DeveloperId).ToHashSet();
-        var availableSlots = Math.Max(maxMembers - currentMembers.Count, 0);
+        var pendingInvites = await _projectTeamInviteRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id && x.Status == ProjectTeamInviteStatus.Pending)
+            .ToListAsync();
+        var pendingInviteDeveloperIds = pendingInvites
+            .Select(x => x.DeveloperId)
+            .ToHashSet();
+        var availableSlots = Math.Max(maxMembers - (currentMembers.Count + pendingInvites.Count), 0);
 
         if (availableSlots > 0)
         {
             var candidates = await _developerRepository.GetAll()
-                .Where(x => !currentMemberIds.Contains(x.Id))
+                .Where(x => !currentMemberIds.Contains(x.Id) && !pendingInviteDeveloperIds.Contains(x.Id))
                 .OrderBy(x => x.CreationTime)
                 .Take(40)
                 .ToListAsync();
@@ -832,46 +862,276 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
 
             foreach (var candidate in selectedCandidates)
             {
-                await _projectMemberRepository.InsertAsync(new ProjectMember
+                await _projectTeamInviteRepository.InsertAsync(new ProjectTeamInvite
                 {
                     TenantId = tenantId,
                     ProjectId = project.Id,
                     DeveloperId = candidate.Id,
-                    Role = MemberRole.Member,
+                    InvitedByDeveloperId = developer.Id,
+                    Status = ProjectTeamInviteStatus.Pending,
                 });
             }
 
             await CurrentUnitOfWork.SaveChangesAsync();
-            var meetingIds = await _projectMeetingRepository.GetAll()
-                .Where(x => x.ProjectId == project.Id)
-                .Select(x => x.Id)
-                .ToListAsync();
-            await EnsureReminderPreferenceRows(project.Id, meetingIds);
 
             if (selectedCandidates.Count > 0)
             {
                 try
                 {
-                    var message = $"You were added to \"{project.Title}\".";
-                    await _notificationEventDispatcher.NotifyUsersAsync(
-                        tenantId,
-                        selectedCandidates.Select(x => x.UserId),
-                        "MosaicTalent.ProjectMemberAdded",
-                        message,
-                        NotificationSeverity.Info,
-                        $"/app/projects/{project.Id}",
-                        "Added to project",
-                        message);
+                    foreach (var candidate in selectedCandidates)
+                    {
+                        await _projectJoinNotificationDispatcher.NotifyDeveloperAboutInviteAsync(
+                            project,
+                            candidate,
+                            developer,
+                            tenantId);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn("Failed to dispatch project member added notifications.", ex);
+                    Logger.Warn("Failed to dispatch project invite notifications.", ex);
                 }
             }
         }
 
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
+    }
+
+    [HttpGet]
+    public async Task<List<ProjectTeamInviteDto>> GetProjectInvites(GetDeveloperProjectInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
+            ?? throw new UserFriendlyException("Project not found.");
+
+        var isMember = await _projectMemberRepository.GetAll()
+            .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id);
+        var hasInvite = await _projectTeamInviteRepository.GetAll()
+            .AnyAsync(x =>
+                x.ProjectId == project.Id &&
+                x.DeveloperId == developer.Id &&
+                x.Status == ProjectTeamInviteStatus.Pending);
+        if (!isMember && !hasInvite)
+        {
+            throw new UserFriendlyException("You do not have access to this project invite list.");
+        }
+
+        var invites = await _projectTeamInviteRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .OrderByDescending(x => x.CreationTime)
+            .ToListAsync();
+        if (invites.Count == 0)
+        {
+            return new List<ProjectTeamInviteDto>();
+        }
+
+        var developerIds = invites
+            .Select(x => x.DeveloperId)
+            .Concat(invites.Select(x => x.InvitedByDeveloperId))
+            .Distinct()
+            .ToList();
+        var nameMap = await BuildMemberNameMap(developerIds);
+        var developers = await _developerRepository.GetAll()
+            .Where(x => developerIds.Contains(x.Id))
+            .ToListAsync();
+        var userIds = developers.Select(x => x.UserId).Distinct().ToList();
+        var users = await _userRepository.GetAll()
+            .Where(x => userIds.Contains(x.Id))
+            .ToListAsync();
+        var userNameByDeveloperId = developers.ToDictionary(
+            x => x.Id,
+            x => users.FirstOrDefault(user => user.Id == x.UserId)?.UserName ?? string.Empty);
+
+        return invites.Select(invite => new ProjectTeamInviteDto
+        {
+            Id = invite.Id.ToString(),
+            ProjectId = invite.ProjectId.ToString(),
+            DeveloperId = invite.DeveloperId.ToString(),
+            DeveloperName = nameMap.TryGetValue(invite.DeveloperId, out var developerName)
+                ? developerName
+                : "Developer",
+            DeveloperUserName = userNameByDeveloperId.TryGetValue(invite.DeveloperId, out var userName)
+                ? userName
+                : string.Empty,
+            InvitedByDeveloperId = invite.InvitedByDeveloperId.ToString(),
+            InvitedByDeveloperName = nameMap.TryGetValue(invite.InvitedByDeveloperId, out var invitedByName)
+                ? invitedByName
+                : "Project lead",
+            Status = ToProjectInviteStatusLabel(invite.Status),
+            InvitedAtUtc = invite.CreationTime,
+            RespondedAtUtc = invite.RespondedAtUtc,
+        }).ToList();
+    }
+
+    [HttpPost]
+    public async Task<ProjectTeamInviteDto> AcceptProjectInvite(AcceptProjectInviteInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.InviteId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Invite is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
+            ?? throw new UserFriendlyException("Project not found.");
+        if (project.Status != ProjectStatus.Open)
+        {
+            throw new UserFriendlyException("Only open projects can accept invites.");
+        }
+
+        var invite = await _projectTeamInviteRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == input.InviteId && x.ProjectId == input.ProjectId)
+            ?? throw new UserFriendlyException("Invite not found.");
+        if (invite.DeveloperId != developer.Id)
+        {
+            throw new UserFriendlyException("You are not allowed to accept this invite.");
+        }
+        if (invite.Status != ProjectTeamInviteStatus.Pending)
+        {
+            throw new UserFriendlyException("Invite has already been processed.");
+        }
+
+        var isMember = await _projectMemberRepository.GetAll()
+            .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id);
+        if (!isMember)
+        {
+            var memberCount = await _projectMemberRepository.GetAll()
+                .CountAsync(x => x.ProjectId == project.Id);
+            if (memberCount >= (project.MaxMembers ?? 4))
+            {
+                throw new UserFriendlyException("Project is already full.");
+            }
+
+            await _projectMemberRepository.InsertAsync(new ProjectMember
+            {
+                TenantId = tenantId,
+                ProjectId = project.Id,
+                DeveloperId = developer.Id,
+                Role = MemberRole.Member,
+            });
+        }
+
+        invite.Status = ProjectTeamInviteStatus.Accepted;
+        invite.RespondedAtUtc = DateTime.UtcNow;
+        invite.ResponseReason = "Accepted";
+        await _projectTeamInviteRepository.UpdateAsync(invite);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        var meetingIds = await _projectMeetingRepository.GetAll()
+            .Where(x => x.ProjectId == project.Id)
+            .Select(x => x.Id)
+            .ToListAsync();
+        await EnsureReminderPreferenceRows(project.Id, meetingIds);
+
+        try
+        {
+            await _projectJoinNotificationDispatcher.NotifyOwnerAboutJoinAsync(project, developer, tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Project invite accept notifications failed.", ex);
+        }
+
+        return await MapProjectInviteDto(invite);
+    }
+
+    [HttpPost]
+    public async Task<ProjectTeamInviteDto> RejectProjectInvite(RejectProjectInviteInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.InviteId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Invite is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
+            ?? throw new UserFriendlyException("Project not found.");
+        var invite = await _projectTeamInviteRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == input.InviteId && x.ProjectId == input.ProjectId)
+            ?? throw new UserFriendlyException("Invite not found.");
+        if (invite.DeveloperId != developer.Id)
+        {
+            throw new UserFriendlyException("You are not allowed to reject this invite.");
+        }
+        if (invite.Status != ProjectTeamInviteStatus.Pending)
+        {
+            throw new UserFriendlyException("Invite has already been processed.");
+        }
+
+        var reason = (input.Reason ?? string.Empty).Trim();
+        invite.Status = ProjectTeamInviteStatus.Rejected;
+        invite.RespondedAtUtc = DateTime.UtcNow;
+        invite.ResponseReason = string.IsNullOrWhiteSpace(reason) ? "Rejected" : reason;
+        await _projectTeamInviteRepository.UpdateAsync(invite);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        try
+        {
+            var leadRecipients = await ResolveProjectLeadUserIds(project.Id, developer.UserId);
+            if (leadRecipients.Count > 0)
+            {
+                var rejectingName = await ResolveDeveloperDisplayName(developer.Id);
+                var clippedReason = string.IsNullOrWhiteSpace(reason)
+                    ? "No reason provided."
+                    : (reason.Length <= 280 ? reason : reason.Substring(0, 280) + "...");
+                var message =
+                    $"{rejectingName} declined project invite for \"{project.Title}\". Reason: {clippedReason}";
+                await _notificationEventDispatcher.NotifyUsersAsync(
+                    project.TenantId,
+                    leadRecipients,
+                    "MosaicTalent.ProjectInviteRejected",
+                    message,
+                    NotificationSeverity.Warn,
+                    $"/app/projects/{project.Id}",
+                    "Project invite rejected",
+                    message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Project invite rejection notifications failed.", ex);
+        }
+
+        return await MapProjectInviteDto(invite);
+    }
+
+    private async Task<ProjectTeamInviteDto> MapProjectInviteDto(ProjectTeamInvite invite)
+    {
+        var nameMap = await BuildMemberNameMap(new List<Guid> { invite.DeveloperId, invite.InvitedByDeveloperId });
+        var developers = await _developerRepository.GetAll()
+            .Where(x => x.Id == invite.DeveloperId || x.Id == invite.InvitedByDeveloperId)
+            .ToListAsync();
+        var userIds = developers.Select(x => x.UserId).Distinct().ToList();
+        var users = await _userRepository.GetAll()
+            .Where(x => userIds.Contains(x.Id))
+            .ToListAsync();
+        var developer = developers.FirstOrDefault(x => x.Id == invite.DeveloperId);
+        var developerUserName = users.FirstOrDefault(x => x.Id == (developer?.UserId ?? 0))?.UserName ?? string.Empty;
+
+        return new ProjectTeamInviteDto
+        {
+            Id = invite.Id.ToString(),
+            ProjectId = invite.ProjectId.ToString(),
+            DeveloperId = invite.DeveloperId.ToString(),
+            DeveloperName = nameMap.TryGetValue(invite.DeveloperId, out var developerName)
+                ? developerName
+                : "Developer",
+            DeveloperUserName = developerUserName,
+            InvitedByDeveloperId = invite.InvitedByDeveloperId.ToString(),
+            InvitedByDeveloperName = nameMap.TryGetValue(invite.InvitedByDeveloperId, out var invitedByName)
+                ? invitedByName
+                : "Project lead",
+            Status = ToProjectInviteStatusLabel(invite.Status),
+            InvitedAtUtc = invite.CreationTime,
+            RespondedAtUtc = invite.RespondedAtUtc,
+        };
     }
 
     public async Task<DeveloperProjectTaskDto> AddProjectTask(AddProjectTaskInput input)
@@ -911,19 +1171,57 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         await _projectTaskRepository.InsertAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
 
-        var assignedMemberName = assignedDeveloperId.HasValue
-            ? await ResolveDeveloperDisplayName(assignedDeveloperId.Value)
-            : string.Empty;
-
-        return new DeveloperProjectTaskDto
+        if (assignedDeveloperId.HasValue)
         {
-            Id = task.Id.ToString(),
-            Title = task.Title,
-            Description = task.Description,
-            Status = ToTaskStatusLabel(task.Status),
-            AssignedMemberId = assignedDeveloperId?.ToString() ?? string.Empty,
-            AssignedMemberName = assignedMemberName,
-        };
+            await NotifyTaskAssigned(project, task, assignedDeveloperId.Value);
+        }
+
+        return await MapTaskDto(task);
+    }
+
+    public async Task<DeveloperProjectTaskDto> ReassignProjectTask(ReassignProjectTaskInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.TaskId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project task is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        if (project.Status == ProjectStatus.Complete)
+        {
+            throw new UserFriendlyException("Completed projects cannot be updated.");
+        }
+
+        var task = await _projectTaskRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.Id == input.TaskId && x.ProjectId == input.ProjectId)
+            ?? throw new UserFriendlyException("Task not found.");
+
+        Guid? assignedDeveloperId = null;
+        if (input.AssignedMemberId.HasValue && input.AssignedMemberId.Value != Guid.Empty)
+        {
+            var isAssignedMemberInProject = await _projectMemberRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.AssignedMemberId.Value);
+            if (!isAssignedMemberInProject)
+            {
+                throw new UserFriendlyException("Assigned member must belong to the selected project.");
+            }
+
+            assignedDeveloperId = input.AssignedMemberId.Value;
+        }
+
+        var previousAssignedDeveloperId = task.AssignedDeveloperId;
+        task.AssignedDeveloperId = assignedDeveloperId;
+        await _projectTaskRepository.UpdateAsync(task);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        if (assignedDeveloperId.HasValue &&
+            (!previousAssignedDeveloperId.HasValue || previousAssignedDeveloperId.Value != assignedDeveloperId.Value))
+        {
+            await NotifyTaskAssigned(project, task, assignedDeveloperId.Value);
+        }
+
+        return await MapTaskDto(task);
     }
 
     public async Task<DeveloperProjectTaskDto> UpdateProjectTaskStatus(UpdateProjectTaskStatusInput input)
@@ -940,10 +1238,21 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             .FirstOrDefaultAsync(x => x.Id == input.TaskId && x.ProjectId == input.ProjectId)
             ?? throw new UserFriendlyException("Task not found.");
 
+        var previousStatus = task.Status;
         task.Status = ParseTaskStatus(input.Status);
         await _projectTaskRepository.UpdateAsync(task);
         await CurrentUnitOfWork.SaveChangesAsync();
 
+        if (task.Status == ProjectTaskStatus.Done && previousStatus != ProjectTaskStatus.Done)
+        {
+            await NotifyTaskMovedToDone(project, task);
+        }
+
+        return await MapTaskDto(task);
+    }
+
+    private async Task<DeveloperProjectTaskDto> MapTaskDto(ProjectTask task)
+    {
         var assignedMemberName = task.AssignedDeveloperId.HasValue
             ? await ResolveDeveloperDisplayName(task.AssignedDeveloperId.Value)
             : string.Empty;
@@ -957,6 +1266,63 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             AssignedMemberId = task.AssignedDeveloperId?.ToString() ?? string.Empty,
             AssignedMemberName = assignedMemberName,
         };
+    }
+
+    private async Task NotifyTaskAssigned(Project project, ProjectTask task, Guid assignedDeveloperId)
+    {
+        try
+        {
+            var assignedUserId = await _developerRepository.GetAll()
+                .Where(x => x.Id == assignedDeveloperId)
+                .Select(x => x.UserId)
+                .FirstOrDefaultAsync();
+            if (assignedUserId <= 0)
+            {
+                return;
+            }
+
+            var message = $"You were assigned task \"{task.Title}\" in \"{project.Title}\".";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                project.TenantId,
+                new[] { assignedUserId },
+                "MosaicTalent.ProjectTaskAssigned",
+                message,
+                NotificationSeverity.Info,
+                $"/app/projects/{project.Id}",
+                "Task assigned",
+                message);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch task assignment notification.", ex);
+        }
+    }
+
+    private async Task NotifyTaskMovedToDone(Project project, ProjectTask task)
+    {
+        try
+        {
+            var memberUserIds = await ResolveProjectMemberUserIds(project.Id);
+            if (memberUserIds.Count == 0)
+            {
+                return;
+            }
+
+            var message = $"Task \"{task.Title}\" in \"{project.Title}\" was moved to Done.";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                project.TenantId,
+                memberUserIds,
+                "MosaicTalent.ProjectTaskCompleted",
+                message,
+                NotificationSeverity.Success,
+                $"/app/projects/{project.Id}",
+                "Task completed",
+                message);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to dispatch task completion notification.", ex);
+        }
     }
 
     public async Task<DeveloperProjectDto> UpdateProjectSkills(UpdateProjectSkillsInput input)
@@ -2219,6 +2585,16 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             ProjectTaskStatus.InProgress => "in-progress",
             ProjectTaskStatus.Done => "done",
             _ => "todo",
+        };
+    }
+
+    private static string ToProjectInviteStatusLabel(ProjectTeamInviteStatus status)
+    {
+        return status switch
+        {
+            ProjectTeamInviteStatus.Accepted => "accepted",
+            ProjectTeamInviteStatus.Rejected => "rejected",
+            _ => "pending",
         };
     }
 

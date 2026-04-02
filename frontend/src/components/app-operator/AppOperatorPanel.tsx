@@ -15,6 +15,7 @@ import {
   useAppOperatorAction,
   useAppOperatorState,
 } from "@/providers/app-operator-provider";
+import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { useStyles } from "./styles";
 
 interface ISpeechRecognitionResultEvent extends Event {
@@ -99,6 +100,8 @@ export const AppOperatorPanel = () => {
   const { styles } = useStyles();
   const state = useAppOperatorState();
   const actions = useAppOperatorAction();
+  const { tenancyName } = useTenantResolutionState();
+  const isCompanyTenant = Boolean(tenancyName);
 
   const recognitionRef = useRef<ISpeechRecognitionEventTarget | null>(null);
   const cursorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -265,7 +268,11 @@ export const AppOperatorPanel = () => {
       }
 
       actions.setPending(true);
-      const planning = await actions.planCommand(trimmed, pathname);
+      const planning = await actions.planCommand(
+        trimmed,
+        pathname,
+        isCompanyTenant ? "company" : "developer",
+      );
       actions.setPending(false);
 
       setLastPlanMode(planning.mode);
@@ -406,7 +413,6 @@ export const AppOperatorPanel = () => {
       stopVoiceListening();
       clearCursorTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -575,9 +581,9 @@ export const AppOperatorPanel = () => {
           <div className={styles.history}>
             {history.length === 0 ? (
               <Typography.Text type="secondary">
-                Try: &quot;How do I create a frontend engineer job?&quot; or
-                &nbsp;&quot;Create a frontend engineer job with React and
-                TypeScript.&quot;
+                {isCompanyTenant
+                  ? 'Try: "How do I create a frontend engineer job?" or "Shortlist React candidates with teamwork above 8."'
+                  : 'Try: "How do I create a project?" or "Join an open project for React and TypeScript."'}
               </Typography.Text>
             ) : null}
             {history.map((item) => (

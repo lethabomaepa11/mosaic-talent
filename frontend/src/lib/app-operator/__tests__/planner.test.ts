@@ -39,6 +39,7 @@ describe("planOperatorIntent", () => {
       makeInstance(post),
       "Create a new user called Simon Manga",
       "/app/settings/employees",
+      "company",
     );
 
     expect(result.source).toBe("fallback");
@@ -66,6 +67,7 @@ describe("planOperatorIntent", () => {
       makeInstance(post),
       "create user Simon Manga",
       "/app/settings/employees",
+      "company",
     );
 
     expect(result.source).toBe("groq");
@@ -79,13 +81,61 @@ describe("planOperatorIntent", () => {
 
     const result = await planOperatorIntent(
       makeInstance(post),
-      "How do I create a frontend engineer job?",
-      "/app/jobs",
+      "How do I create a project with React?",
+      "/app/projects/my",
+      "developer",
     );
 
     expect(result.source).toBe("fallback");
     expect(result.mode).toBe("chat");
     expect(result.shouldOfferExecution).toBe(true);
     expect(result.steps.length).toBeGreaterThan(0);
+  });
+
+  it("blocks role-restricted fallback actions", async () => {
+    const post = vi.fn().mockRejectedValue(new Error("network"));
+
+    const result = await planOperatorIntent(
+      makeInstance(post),
+      "How do I create a frontend engineer job?",
+      "/app/projects/my",
+      "developer",
+    );
+
+    expect(result.mode).toBe("chat");
+    expect(result.shouldOfferExecution).toBe(false);
+    expect(result.steps).toEqual([]);
+    expect(result.assistantReply).toContain("not available for your account type");
+  });
+
+  it("blocks role-restricted plans returned by Groq", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: {
+        result: {
+          mode: "guided",
+          type: "create_job",
+          assistantReply: "Use Jobs page and create a role.",
+          shouldOfferExecution: true,
+          steps: ["Open Jobs"],
+          params: {
+            title: "Frontend Engineer",
+            location: "Remote",
+            description: "Role summary",
+          },
+        },
+      },
+    });
+
+    const result = await planOperatorIntent(
+      makeInstance(post),
+      "How do I create a frontend engineer job?",
+      "/app/projects/my",
+      "developer",
+    );
+
+    expect(result.mode).toBe("chat");
+    expect(result.shouldOfferExecution).toBe(false);
+    expect(result.steps).toEqual([]);
+    expect(result.assistantReply).toContain("not available for your account type");
   });
 });

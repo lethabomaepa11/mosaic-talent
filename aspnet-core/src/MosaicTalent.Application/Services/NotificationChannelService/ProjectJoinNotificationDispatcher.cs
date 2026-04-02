@@ -77,6 +77,36 @@ public class ProjectJoinNotificationDispatcher : MosaicTalentAppServiceBase, IPr
         await SendOwnerPushAsync(tenantId, ownerUser.Id, joinedName, projectTitle, projectUrl);
     }
 
+    public async Task NotifyDeveloperAboutInviteAsync(
+        Project project,
+        Developer invitedDeveloper,
+        Developer invitedByDeveloper,
+        int tenantId)
+    {
+        if (project == null || invitedDeveloper == null || invitedByDeveloper == null)
+        {
+            return;
+        }
+
+        var invitedUser = await _userRepository.FirstOrDefaultAsync(invitedDeveloper.UserId);
+        if (invitedUser == null)
+        {
+            return;
+        }
+
+        var inviterUser = await _userRepository.FirstOrDefaultAsync(invitedByDeveloper.UserId);
+        var invitedName = BuildDisplayName(invitedUser, invitedUser.UserName ?? "Developer");
+        var inviterName = BuildDisplayName(inviterUser, "A project lead");
+        var projectTitle = string.IsNullOrWhiteSpace(project.Title) ? "a project" : project.Title.Trim();
+        var message = $"You were invited to join \"{projectTitle}\" by {inviterName}.";
+        var projectUrl = BuildProjectUrl(project.Id);
+        var absoluteProjectUrl = BuildAbsoluteProjectUrl(project.Id);
+
+        await PublishInviteInAppNotificationAsync(tenantId, invitedUser.Id, message, projectUrl);
+        await SendInviteEmailAsync(invitedUser, invitedName, inviterName, projectTitle, absoluteProjectUrl);
+        await SendInvitePushAsync(tenantId, invitedUser.Id, inviterName, projectTitle, projectUrl);
+    }
+
     private async Task PublishInAppNotificationAsync(int tenantId, long ownerUserId, string message, string projectUrl)
     {
         try
@@ -96,6 +126,28 @@ public class ProjectJoinNotificationDispatcher : MosaicTalentAppServiceBase, IPr
         catch (Exception ex)
         {
             Logger.Warn("Failed to publish project join in-app notification.", ex);
+        }
+    }
+
+    private async Task PublishInviteInAppNotificationAsync(int tenantId, long userId, string message, string projectUrl)
+    {
+        try
+        {
+            var data = new MessageNotificationData(message);
+            if (!string.IsNullOrWhiteSpace(projectUrl))
+            {
+                data["url"] = projectUrl;
+            }
+
+            await _notificationPublisher.PublishAsync(
+                "MosaicTalent.ProjectInviteReceived",
+                data,
+                severity: NotificationSeverity.Info,
+                userIds: new[] { new UserIdentifier(tenantId, userId) });
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to publish project invite in-app notification.", ex);
         }
     }
 
@@ -189,6 +241,102 @@ public class ProjectJoinNotificationDispatcher : MosaicTalentAppServiceBase, IPr
             catch (Exception ex)
             {
                 Logger.Warn($"Failed to send web push for subscription {subscription.Id}.", ex);
+            }
+        }
+
+        await CurrentUnitOfWork.SaveChangesAsync();
+    }
+
+    private async Task SendInviteEmailAsync(
+        User invitedUser,
+        string invitedName,
+        string inviterName,
+        string projectTitle,
+        string absoluteProjectUrl)
+    {
+        if (string.IsNullOrWhiteSpace(invitedUser?.EmailAddress))
+        {
+            return;
+        }
+
+        var recipient = invitedUser.EmailAddress.Trim();
+        var subject = $"You are invited to join {projectTitle}";
+        var body =
+            $"Hi {WebUtility.HtmlEncode(invitedName)},<br/><br/>" +
+            $"{WebUtility.HtmlEncode(inviterName)} invited you to join <strong>{WebUtility.HtmlEncode(projectTitle)}</strong>.<br/><br/>" +
+            $"Open project: <a href=\"{WebUtility.HtmlEncode(absoluteProjectUrl)}\">{WebUtility.HtmlEncode(absoluteProjectUrl)}</a><br/><br/>" +
+            "MosaicTalent";
+
+        try
+        {
+            await SendEmailWithBrevoAsync(recipient, invitedName, subject, body);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Failed to send project invite email notification.", ex);
+        }
+    }
+
+    private async Task SendInvitePushAsync(
+        int tenantId,
+        long invitedUserId,
+        string inviterName,
+        string projectTitle,
+        string projectUrl)
+    {
+        var publicKey = (_configuration["WebPush:PublicKey"] ?? _configuration["WebPush__PublicKey"] ?? string.Empty).Trim();
+        var privateKey = (_configuration["WebPush:PrivateKey"] ?? _configuration["WebPush__PrivateKey"] ?? string.Empty).Trim();
+        var subject = (_configuration["WebPush:Subject"] ?? _configuration["WebPush__Subject"] ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(publicKey) || string.IsNullOrWhiteSpace(privateKey) || string.IsNullOrWhiteSpace(subject))
+        {
+            return;
+        }
+
+        var subscriptions = await _pushSubscriptionRepository.GetAll()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.UserId == invitedUserId &&
+                x.IsActive)
+            .ToListAsync();
+        if (subscriptions.Count == 0)
+        {
+            return;
+        }
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            title = "Project invite",
+            body = $"{inviterName} invited you to {projectTitle}.",
+            url = projectUrl,
+            icon = "/logo.svg",
+            badge = "/logo.svg",
+        });
+
+        var client = new WebPushClient();
+        var vapid = new VapidDetails(subject, publicKey, privateKey);
+        foreach (var subscription in subscriptions)
+        {
+            try
+            {
+                var endpoint = new WebPush.PushSubscription(
+                    subscription.Endpoint,
+                    subscription.P256DH,
+                    subscription.Auth);
+                await client.SendNotificationAsync(endpoint, payload, vapid);
+                subscription.LastSeenAt = DateTime.UtcNow;
+                await _pushSubscriptionRepository.UpdateAsync(subscription);
+            }
+            catch (WebPushException ex) when (
+                ex.StatusCode == HttpStatusCode.NotFound ||
+                ex.StatusCode == HttpStatusCode.Gone)
+            {
+                subscription.IsActive = false;
+                subscription.LastSeenAt = DateTime.UtcNow;
+                await _pushSubscriptionRepository.UpdateAsync(subscription);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to send project invite web push for subscription {subscription.Id}.", ex);
             }
         }
 

@@ -15,7 +15,7 @@ export interface IDeveloperProfile {
   studyLevel: number;
   bio?: string;
   location?: string;
-  teamworkRating: number;
+  teamworkRating?: number;
   skills: string[];
   goals: string[];
 }
@@ -76,6 +76,20 @@ export interface ILearningPathResult {
   recommendations: ILearningPathRecommendation[];
 }
 
+export interface IProfileFieldSuggestionsInput {
+  field: "skill" | "goal";
+  query?: string;
+  existingValues?: string[];
+  maxResults?: number;
+}
+
+export interface IProfileFieldSuggestionsResult {
+  field: "skill" | "goal";
+  query: string;
+  source: "ai" | "fallback";
+  suggestions: string[];
+}
+
 export interface IGamificationBadge {
   code: string;
   name: string;
@@ -129,6 +143,9 @@ export interface IDeveloperActionContext {
   searchPublicDevelopers: (query: string) => Promise<IDeveloperSearchResult[]>;
   scanMyGithubProfile: () => Promise<IGithubScanResult | undefined>;
   fetchLearningPathRecommendations: () => Promise<ILearningPathResult | undefined>;
+  getProfileFieldSuggestions: (
+    input: IProfileFieldSuggestionsInput,
+  ) => Promise<IProfileFieldSuggestionsResult>;
   fetchMyGamificationSummary: () => Promise<IGamificationSummary | undefined>;
 }
 
@@ -171,5 +188,11 @@ export const DeveloperActionContext = createContext<IDeveloperActionContext>({
   searchPublicDevelopers: async () => [],
   scanMyGithubProfile: async () => undefined,
   fetchLearningPathRecommendations: async () => undefined,
+  getProfileFieldSuggestions: async (input) => ({
+    field: input.field,
+    query: input.query ?? "",
+    source: "fallback",
+    suggestions: [],
+  }),
   fetchMyGamificationSummary: async () => undefined,
 });
