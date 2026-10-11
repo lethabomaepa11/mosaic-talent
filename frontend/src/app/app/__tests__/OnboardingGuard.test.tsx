@@ -21,6 +21,7 @@ describe("developer onboarding guard", () => {
     mocks.state.profile.hasCompletedOnboarding = true;
     render(<OnboardingGuard>Private page</OnboardingGuard>);
     expect(screen.getByText("Private page")).toBeVisible();
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
   it("does not use another account's cached completion", () => {
     mocks.state.profile = { userId: 100, hasCompletedOnboarding: true };

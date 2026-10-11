@@ -1,6 +1,6 @@
 "use client";
 
-import { PropsWithChildren, useEffect } from "react";
+import { PropsWithChildren, useEffect, useRef } from "react";
 import { Alert, Button } from "antd";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/providers/auth-provider";
@@ -15,12 +15,17 @@ export const OnboardingGuard = ({ children }: PropsWithChildren) => {
   const { tenancyName } = useTenantResolutionState();
   const { profile, profileStatus } = useDeveloperState();
   const { fetchMyProfile } = useDeveloperAction();
+  const fetchProfileRef = useRef(fetchMyProfile);
   const isCompany = Boolean(tenancyName);
   const isCurrentProfile = profileStatus === "ready" && profile.userId === user?.userId;
 
   useEffect(() => {
-    if (isAuthenticated && !isCompany) void fetchMyProfile();
-  }, [isAuthenticated, isCompany, user?.userId]);
+    fetchProfileRef.current = fetchMyProfile;
+  }, [fetchMyProfile]);
+
+  useEffect(() => {
+    if (isAuthenticated && !isCompany && profileStatus === "idle") void fetchProfileRef.current();
+  }, [isAuthenticated, isCompany, profileStatus, user?.userId]);
 
   useEffect(() => {
     if (!isCompany && isCurrentProfile && !profile.hasCompletedOnboarding) router.replace("/onboarding");

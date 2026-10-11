@@ -42,10 +42,10 @@ test("rejects weak passwords and failed registration without a success redirect"
   await page.getByLabel("Email", { exact: true }).fill("jane@example.com");
   await page.getByLabel("Password", { exact: true }).fill("weak");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("alert")).toContainText("strong password");
+  await expect(page.getByRole("alert").filter({ hasText: "strong password" })).toBeVisible();
   await page.getByLabel("Password", { exact: true }).fill("Strong123!");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("alert")).toContainText("already registered");
+  await expect(page.getByRole("alert").filter({ hasText: /already registered/i })).toBeVisible();
   await expect(page).toHaveURL(/\/signup$/);
 });
 
@@ -71,7 +71,7 @@ test("protects direct app navigation and resumes a saved draft after refresh", a
 test("connects using the authenticated action and lets users edit imported skills", async ({ page }) => {
   const api = await setupOnboarding(page, { authenticated: true, step: 1 });
   await page.goto("/onboarding");
-  await page.getByRole("button", { name: "Connect GitHub", exact: true }).click();
+  await page.getByRole("button", { name: /Connect GitHub/ }).click();
   await expect(page.getByRole("heading", { name: "Choose your skills" })).toBeVisible();
   await expect(page.getByText("Python", { exact: true })).toBeVisible();
   expect(api.connectionStarted()).toBe(true);
@@ -96,16 +96,18 @@ test("allows manual skills when GitHub import is unavailable", async ({ page }) 
 
 test("retains skills after a failed save and supports retry", async ({ page }) => {
   const api = await setupOnboarding(page, { authenticated: true, step: 2 });
-  await page.route("**/UpsertMyProfile", (route) => route.fulfill({ status: 500,
-    contentType: "application/json", body: JSON.stringify({ error: { message: "Please retry this save." } }) }));
+  let failSave = true;
+  await page.route("**/UpsertMyProfile", (route) => failSave
+    ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { message: "Please retry this save." } }) })
+    : route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ result: api.getProfile() }) }));
   await page.goto("/onboarding");
   await page.getByRole("combobox", { name: "Current skills" }).fill("Java");
   await page.getByRole("combobox", { name: "Current skills" }).press("Enter");
   await page.getByRole("combobox", { name: "Current skills" }).press("Escape");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Please retry this save.");
-  await expect(page.getByText("Java", { exact: true })).toBeVisible();
-  await page.unroute("**/UpsertMyProfile");
+  await expect(page.getByRole("alert").filter({ hasText: "Please retry this save." })).toBeVisible();
+  await expect(page.locator(".ant-select-selection-item").filter({ hasText: "Java" })).toBeVisible();
+  failSave = false;
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Set your goals" })).toBeVisible();
   expect(api.getProfile().skills).toEqual(["Java"]);

@@ -1,8 +1,8 @@
-# Unfiled Issue: OAuth logout retains the server session cookie
+# Issue #102: OAuth logout retains the server session cookie
 
-Status: not filed; GitHub CLI authentication is unavailable. The open and closed issue list was checked on 2026-10-11; #43 concerns production login cookie domains, rather than logout. Recheck for duplicates before filing. Use the following title and bug-template body.
+Filed as [#102](https://github.com/lethabomaepa11/mosaic-talent/issues/102) on 2026-10-12 after checking open and closed issues; the related #43 concerns production login cookie domains rather than logout. The title and body below match the filed report. No assignee or milestone was changed.
 
-Title: Clear backend OAuth session cookies when logging out
+Filed title: Clear OAuth session cookies on logout
 
 **Describe the bug**
 

@@ -41,7 +41,7 @@ Deployment continues to require the existing GitHub OAuth configuration, callbac
 
 ## Required manual database migration
 
-The agent has not generated or executed any migration. Before running the updated backend against an existing database, the user must generate, inspect, and apply an EF migration for:
+The EF migration `20261011231642_DeveloperOnboardingV1` was generated and reviewed. It changes only the nullable GitHub username, the two onboarding columns, and the filtered GitHub identity index. It also safely converts blank legacy usernames to null and stops with a clear error if active duplicate usernames differ only by case. It has not been applied. The local migrator configuration points at a SQL Server style connection while this DbContext uses Npgsql, the Web.Host default connection is empty, and no PostgreSQL service is running on localhost. Before running the updated backend against an existing database, configure a known PostgreSQL target, audit its existing data, and apply this migration.
 
 - Nullable `Developers.GithubUsername`.
 - `DeveloperProfiles.HasCompletedOnboarding` (boolean, default false).
@@ -52,7 +52,7 @@ Before applying the unique index, audit existing active GitHub identities case-i
 
 Choose an explicit policy for existing profiles: leave completion false and require the short onboarding flow, or backfill completion only for active accounts with valid account details and at least one active nonblank skill. If backfilling, set their step to 3. A developer/profile row or GitHub link alone must not count as completed onboarding.
 
-Use the repository's established startup/project and connection configuration when generating/applying migrations. Restart the backend only after schema and data preparation are complete.
+Use the repository's established startup/project and verified PostgreSQL connection configuration when applying this migration. Do not use the staging address as a workaround for the missing local development database. Restart the backend only after schema and data preparation are complete.
 
 ## Validation and user review
 
@@ -68,4 +68,4 @@ After the manual migration, test against the real backend:
 6. Check a 360px phone and desktop, including primary buttons, tagged inputs, and no horizontal page overflow.
 7. Visit onboarding as a completed user and verify company navigation still works.
 
-The existing OAuth logout cookie issue is documented separately in the [unfiled issue draft](oauth-logout-issue-draft.md). It is a release concern that needs its own approved fix.
+The related OAuth logout cookie issue is tracked separately as [#102](oauth-logout-issue-draft.md). It is being fixed on its own issue branch.
