@@ -174,6 +174,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Company Signup Tenant Redirect Fix](docs/feature/company-signup-tenant-redirect-fix.md)
 - [Agent Issue Template Workflow](docs/feature/agent-issue-template-workflow.md)
+- [Issue-Driven V1 Workflow](docs/feature/issue-driven-v1-workflow.md)
 - [GitHub OAuth Production Cookie Domain Fix](docs/feature/github-oauth-prod-cookie-domain-fix.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
