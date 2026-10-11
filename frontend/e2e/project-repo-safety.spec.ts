@@ -29,6 +29,7 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
+        userId: 99, hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
