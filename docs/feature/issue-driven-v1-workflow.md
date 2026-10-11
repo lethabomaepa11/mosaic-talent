@@ -30,7 +30,7 @@ Snapshot: 2026-10-11. All 11 open issues were in [MVP 1: Real user onboarding an
 
 | Proposed order | Issue | Reason and dependencies | Snapshot state |
 | --- | --- | --- | --- |
-| 1 | [#94 Developer onboarding](https://github.com/lethabomaepa11/mosaic-talent/issues/94) | Required for the first user journey; basic profile completion must be enforced, GitHub and goals optional. | Open; investigate and present implementation plan next. |
+| 1 | [#94 Developer onboarding](https://github.com/lethabomaepa11/mosaic-talent/issues/94) | Required for the first user journey; basic profile completion must be enforced, GitHub and goals optional. | Implemented locally on `feature/94-developer-onboarding`; validation and user review recorded below. Issue remains open. |
 | 2 | [#98 Project creation](https://github.com/lethabomaepa11/mosaic-talent/issues/98) | Align project creation with optional GitHub onboarding; resolve the repo requirement in its approved plan. | Open. |
 | 3 | [#97 Open project browsing](https://github.com/lethabomaepa11/mosaic-talent/issues/97) | Users need searchable, filterable, sortable opportunities; coordinate overlap with #91. | Open. |
 | 4 | [#95 My projects list](https://github.com/lethabomaepa11/mosaic-talent/issues/95), [#96 AI matching entry](https://github.com/lethabomaepa11/mosaic-talent/issues/96) | Improve the post-login starting page; share entry-point decisions but retain separate issue acceptance criteria. | Open. |
@@ -44,7 +44,11 @@ This is a proposed order, not a change to GitHub labels, assignments, or milesto
 
 ## Next Implementation Plan: #94
 
-Status: investigation complete; implementation awaits separate plan approval. Issue #94 had no comments and the repository had no open PRs when checked on 2026-10-11. Proposed branch: `feature/94-developer-onboarding`, from `dev`, separate from the workflow setup changes.
+Status: plan approved by the user's `go`; implemented on `feature/94-developer-onboarding`, from `origin/dev`. The approved workflow setup commit is included so this branch carries the new skill. Issue #94 had no comments and the repository had no open PRs when checked on 2026-10-11. The user subsequently requested immediate push, overriding the skill's user-testing gate for this delivery. See [implementation and migration instructions](developer-onboarding-v1.md).
+
+Validation at the immediate-push request: backend suite passed all 37 tests; frontend production build passed; frontend unit suite previously passed all 180 tests, and focused tests passed after adding draft-storage and route-guard coverage. Final unit/type/lint checks were in progress. Browser tests could not launch because the required Playwright Chromium executable was missing; browser installation was in progress. Browser assertions and live OAuth have not been validated. No database migration was generated or executed.
+
+Discovered release concern: [OAuth logout issue draft](oauth-logout-issue-draft.md), not filed because GitHub CLI is unauthenticated. #98 remains the next proposed product issue, after resolving or scheduling confirmed release blockers and approving its plan.
 
 Observed in current code:
 

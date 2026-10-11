@@ -29,6 +29,7 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
+        userId: 99, hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
@@ -118,7 +119,8 @@ test("creates project using selected GitHub repository", async ({ page }) => {
       await route.fulfill(
         jsonOk({
           isConnected: true,
-          githubUsername: "octocat",
+          userId: 99, hasCompletedOnboarding: true,
+        githubUsername: "octocat",
         }),
       );
     },
@@ -193,7 +195,8 @@ test("creates a new GitHub repository and auto-selects it for project creation",
       await route.fulfill(
         jsonOk({
           isConnected: true,
-          githubUsername: "octocat",
+          userId: 99, hasCompletedOnboarding: true,
+        githubUsername: "octocat",
         }),
       );
     },

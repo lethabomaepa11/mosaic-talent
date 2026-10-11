@@ -47,7 +47,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Shared `/login` page with tenant branding:
   - company logo + company name shown when tenant is resolved.
   - self-signup link hidden on company tenant login.
-- User signup + developer onboarding flow.
+- Full-name signup and required developer onboarding, with optional GitHub and learning goals.
 - Company account creation flow (creates tenant + owner admin).
 - Company employee model and management service groundwork.
 - Domain-based tenant resolution on frontend:
@@ -175,6 +175,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Company Signup Tenant Redirect Fix](docs/feature/company-signup-tenant-redirect-fix.md)
 - [Agent Issue Template Workflow](docs/feature/agent-issue-template-workflow.md)
 - [Issue-Driven V1 Workflow](docs/feature/issue-driven-v1-workflow.md)
+- [Developer Onboarding V1](docs/feature/developer-onboarding-v1.md)
+- [OAuth Logout Issue Draft](docs/feature/oauth-logout-issue-draft.md)
 - [GitHub OAuth Production Cookie Domain Fix](docs/feature/github-oauth-prod-cookie-domain-fix.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
@@ -242,6 +244,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Auth / session / tenancy
 
 - `POST /api/TokenAuth/Authenticate`
+- `POST /api/TokenAuth/BeginGitHubConnection`
 - `POST /api/services/app/Account/Register`
 - `POST /api/services/app/Account/IsTenantAvailable`
 - `GET /api/services/app/Session/GetCurrentLoginInformations`
@@ -249,6 +252,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/GetGithubSkillSuggestions`
 - `GET /api/services/app/DeveloperOnboarding/SearchPublicDevelopers`
 - `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`

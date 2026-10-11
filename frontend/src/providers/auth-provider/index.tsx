@@ -28,6 +28,7 @@ import {
 } from "./context";
 import { AuthReducer } from "./reducer";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { AxiosError } from "axios";
 
 interface IAuthResponse {
   accessToken: string;
@@ -168,9 +169,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     dispatch(registerPending());
 
     try {
-      await instance.post("/api/services/app/Account/Register", input);
+      const registration = await instance.post("/api/services/app/Account/Register", input);
+      if (registration.data?.result?.canLogin === false) {
+        throw new Error("Your account was created but cannot sign in yet. Contact support before trying again.");
+      }
       const res = await instance.post("/api/TokenAuth/Authenticate", {
-        userNameOrEmailAddress: input.userName,
+        userNameOrEmailAddress: input.userName || input.emailAddress,
         password: input.password,
         rememberClient: true,
       });
@@ -182,10 +186,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
       };
       setAuthToken(authUser.accessToken);
       dispatch(registerSuccess(authUser));
-    } catch {
+    } catch (error) {
       removeAuthToken();
       dispatch(registerError());
+      throw new Error(error instanceof AxiosError
+        ? error.response?.data?.error?.message || "Unable to create your account. Check your details and try again."
+        : error instanceof Error ? error.message : "Unable to create your account.");
     }
+  };
+
+  const beginGithubConnection = async (returnPath: string) => {
+    const res = await instance.post("/api/TokenAuth/BeginGitHubConnection", { returnPath }, { withCredentials: true });
+    const authorizationUrl = res.data?.result?.authorizationUrl;
+    const url = new URL(authorizationUrl);
+    if (url.protocol !== "https:" || url.hostname !== "github.com" || url.pathname !== "/login/oauth/authorize") {
+      throw new Error("GitHub connection is unavailable. You can skip it and add skills manually.");
+    }
+    return url.href;
   };
 
   const logout = async () => {
@@ -201,7 +218,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   return (
     <AuthStateContext.Provider value={state}>
-      <AuthActionContext.Provider value={{ login, register, logout }}>
+      <AuthActionContext.Provider value={{ login, register, logout, beginGithubConnection }}>
         {children}
       </AuthActionContext.Provider>
     </AuthStateContext.Provider>
