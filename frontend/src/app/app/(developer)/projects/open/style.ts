@@ -5,6 +5,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-direction: column;
     gap: ${token.marginLG}px;
+    min-width: 0;
+    max-width: 100%;
   `,
   header: css`
     display: flex;
@@ -28,6 +30,49 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-wrap: wrap;
     gap: ${token.marginXS}px;
+  `,
+  browseSection: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginLG}px;
+    min-width: 0;
+    max-width: 100%;
+  `,
+  filters: css`
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    gap: ${token.marginSM}px;
+    min-width: 0;
+
+    > * {
+      min-width: 0;
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 520px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  `,
+  projectGrid: css`
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: ${token.marginLG}px;
+
+    > * {
+      min-width: 0;
+    }
+  `,
+  loading: css`
+    display: grid;
+    place-items: center;
+    min-height: 220px;
+  `,
+  resultCount: css`
+    align-self: flex-end;
   `,
   swipeBoard: css`
     position: relative;
