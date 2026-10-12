@@ -37,7 +37,8 @@ const setupProfileRoutes = async (page: Page) => {
       profileHits += 1;
       await route.fulfill(
         jsonOk({
-          githubUsername: "octocat",
+          userId: 99, hasCompletedOnboarding: true,
+        githubUsername: "octocat",
           studyLevel: 1,
           teamworkRating: 8,
           skills: ["React", "TypeScript"],

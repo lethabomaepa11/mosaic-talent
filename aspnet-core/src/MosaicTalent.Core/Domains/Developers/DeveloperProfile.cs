@@ -8,6 +8,11 @@ public class DeveloperProfile : FullAuditedEntity<Guid>
 {
     public Guid DeveloperId { get; set; }
 
+    public bool HasCompletedOnboarding { get; set; }
+
+    [Range(0, 3)]
+    public int OnboardingStep { get; set; }
+
     [MaxLength(2000)]
     public string Bio { get; set; }
 

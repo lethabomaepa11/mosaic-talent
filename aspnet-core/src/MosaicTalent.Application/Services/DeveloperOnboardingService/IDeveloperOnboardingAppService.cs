@@ -11,6 +11,7 @@ public interface IDeveloperOnboardingAppService : IApplicationService
     Task<DeveloperPublicProfileDto> GetPublicProfile(GetPublicDeveloperProfileInput input);
     Task<List<DeveloperSearchResultDto>> SearchPublicDevelopers(GetPublicDeveloperSearchResultsInput input);
     Task<DeveloperOnboardingDto> GetMyProfile();
+    Task<List<string>> GetGithubSkillSuggestions();
     Task<DeveloperOnboardingDto> UpsertMyProfile(UpsertDeveloperOnboardingInput input);
     Task<List<StudyLevelOptionDto>> GetStudyLevels();
     Task<DeveloperLearningPathResultDto> GetMyLearningPathRecommendations();

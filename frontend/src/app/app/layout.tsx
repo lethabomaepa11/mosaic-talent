@@ -13,27 +13,29 @@ import { useCompanyProfileAction } from "@/providers/company-profile-provider";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { getAuthToken } from "@/utils/axiosInstance";
+import { OnboardingGuard } from "./OnboardingGuard";
 import { useStyles } from "./style";
 
 const DeveloperLayout = ({ children }: PropsWithChildren) => {
   const router = useRouter();
   const { styles } = useStyles();
-  const { isAuthenticated, isPending } = useAuthState();
+  const { isAuthenticated, isPending, isSessionRestored } = useAuthState();
   const { fetchMyEmployeeProfile } = useCompanyProfileAction();
   const { tenancyName } = useTenantResolutionState();
-  const { fetchCurrentUser, fetchMyProfile } = useDeveloperAction();
+  const { fetchCurrentUser } = useDeveloperAction();
   const hasToken = Boolean(getAuthToken());
   const hasOAuthBootstrap =
     typeof window !== "undefined" &&
     window.location.hash.includes("oauthAccessToken=");
   const isCompanyTenant = Boolean(tenancyName);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated && !hasToken && !hasOAuthBootstrap && !isPending) {
+    if (isSessionRestored && !isAuthenticated && !hasToken && !hasOAuthBootstrap && !isPending) {
       router.push("/login");
     }
-  }, [hasOAuthBootstrap, hasToken, isAuthenticated, isPending, router]);
+  }, [hasOAuthBootstrap, hasToken, isAuthenticated, isPending, isSessionRestored, router]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -46,10 +48,9 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
     }
 
     fetchCurrentUser();
-    fetchMyProfile();
   }, [isAuthenticated, isCompanyTenant]);
 
-  if (!isAuthenticated && (hasToken || hasOAuthBootstrap || isPending)) {
+  if (!isAuthenticated) {
     return (
       <div className={styles.loadingState}>
         Restoring your session...
@@ -60,7 +61,11 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
   return (
     <div className={styles.shell}>
       <div className={styles.desktopSidebar}>
-        {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}
+        {isCompanyTenant ? (
+          <CompanySidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        ) : (
+          <AppSidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        )}
       </div>
       <div className={styles.main}>
         {isCompanyTenant ? (
@@ -68,7 +73,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
         ) : (
           <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
         )}
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content}><OnboardingGuard>{children}</OnboardingGuard></main>
         {!isCompanyTenant ? <MobileDeveloperNav /> : null}
       </div>
       <AppOperatorPanel />

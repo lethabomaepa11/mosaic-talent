@@ -53,6 +53,19 @@ describe("AppSidebar", () => {
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
   });
 
+  it("shows icon-only navigation and an accessible expand control when collapsed", () => {
+    mocks.usePathname.mockReturnValue("/app/projects/open");
+    const onCollapseToggle = vi.fn();
+
+    render(<AppSidebar collapsed onCollapseToggle={onCollapseToggle} />);
+
+    expect(screen.queryByText("Discover")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Discover" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Create Project" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(onCollapseToggle).toHaveBeenCalledOnce();
+  });
+
   it("calls logout and redirects when sign out is clicked", async () => {
     mocks.usePathname.mockReturnValue("/app/projects/open");
     mocks.logout.mockResolvedValue(undefined);
