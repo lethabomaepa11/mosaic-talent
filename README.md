@@ -169,6 +169,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
+- [Project Creation with Optional GitHub (#98)](docs/feature/project-creation-optional-github.md)
 - [OAuth Logout Cookie Cleanup (#102)](docs/feature/oauth-logout-cookie-cleanup.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
