@@ -9,15 +9,15 @@ namespace MosaicTalent.Authorization.Accounts.Dto;
 
 public class RegisterInput : IValidatableObject
 {
-    [Required]
+    [StringLength(AbpUserBase.MaxNameLength + AbpUserBase.MaxSurnameLength + 1)]
+    public string FullName { get; set; }
+
     [StringLength(AbpUserBase.MaxNameLength)]
     public string Name { get; set; }
 
-    [Required]
     [StringLength(AbpUserBase.MaxSurnameLength)]
     public string Surname { get; set; }
 
-    [Required]
     [StringLength(AbpUserBase.MaxUserNameLength)]
     public string UserName { get; set; }
 
@@ -36,6 +36,25 @@ public class RegisterInput : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (string.IsNullOrWhiteSpace(FullName))
+        {
+            if (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(Surname) || string.IsNullOrWhiteSpace(UserName))
+            {
+                yield return new ValidationResult("Full name is required.", new[] { nameof(FullName) });
+            }
+        }
+        else
+        {
+            var names = RegistrationDetails.SplitFullName(FullName);
+            if (names.Name.Length > AbpUserBase.MaxNameLength || names.Surname.Length > AbpUserBase.MaxSurnameLength)
+            {
+                yield return new ValidationResult("Full name is too long.", new[] { nameof(FullName) });
+            }
+            if (!RegistrationDetails.IsStrongPassword(Password))
+            {
+                yield return new ValidationResult("Use at least 8 characters, uppercase and lowercase letters, a number, and a symbol.", new[] { nameof(Password) });
+            }
+        }
         if (!UserName.IsNullOrEmpty())
         {
             if (!UserName.Equals(EmailAddress) && ValidationHelper.IsEmail(UserName))

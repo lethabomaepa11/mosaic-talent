@@ -21,7 +21,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace MosaicTalent.Controllers
 {
     [Route("api/[controller]/[action]")]
-    public class TokenAuthController : MosaicTalentControllerBase
+    public partial class TokenAuthController : MosaicTalentControllerBase
     {
         private readonly LogInManager _logInManager;
         private readonly ITenantCache _tenantCache;
@@ -71,124 +71,6 @@ namespace MosaicTalent.Controllers
                 ExpireInSeconds = (int)_configuration.Expiration.TotalSeconds,
                 UserId = loginResult.User.Id
             };
-        }
-
-        [HttpGet]
-        public IActionResult GitHubAuth([FromQuery] string mode = "login", [FromQuery] string returnPath = "")
-        {
-            if (!_gitHubOAuthService.IsConfigured())
-            {
-                return BadRequest("GitHub OAuth is not configured. Set GitHubOAuth:ClientId, GitHubOAuth:ClientSecret, and GitHubOAuth:RedirectUri.");
-            }
-
-            var oauthMode = string.Equals(mode, "connect", StringComparison.OrdinalIgnoreCase)
-                ? "connect"
-                : "login";
-            var normalizedReturnPath = NormalizeReturnPath(returnPath);
-
-            var state = Guid.NewGuid().ToString("N");
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                Path = "/",
-                MaxAge = TimeSpan.FromMinutes(10)
-            };
-
-            Response.Cookies.Append(
-                GitHubStateCookieName,
-                state,
-                cookieOptions);
-            Response.Cookies.Append(
-                GitHubModeCookieName,
-                oauthMode,
-                cookieOptions);
-            Response.Cookies.Append(
-                GitHubReturnPathCookieName,
-                normalizedReturnPath,
-                cookieOptions);
-
-            return Redirect(_gitHubOAuthService.BuildAuthorizationUrl(
-                state,
-                includeRepositoryScope: oauthMode == "connect"));
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GitHubCallback([FromQuery] string code, [FromQuery] string state, [FromQuery] string error)
-        {
-            var oauthMode = GetCookieOrDefault(GitHubModeCookieName, "login");
-            var returnPath = NormalizeReturnPath(GetCookieOrDefault(GitHubReturnPathCookieName, string.Empty));
-
-            Response.Cookies.Delete(GitHubModeCookieName, new CookieOptions { Path = "/" });
-            Response.Cookies.Delete(GitHubReturnPathCookieName, new CookieOptions { Path = "/" });
-
-            if (!string.IsNullOrWhiteSpace(error))
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_denied"));
-            }
-
-            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_invalid_callback"));
-            }
-
-            if (!Request.Cookies.TryGetValue(GitHubStateCookieName, out var expectedState) || !string.Equals(expectedState, state, StringComparison.Ordinal))
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_invalid_state"));
-            }
-
-            Response.Cookies.Delete(GitHubStateCookieName, new CookieOptions { Path = "/" });
-
-            var accessToken = await _gitHubOAuthService.ExchangeCodeForTokenAsync(code);
-            if (string.IsNullOrWhiteSpace(accessToken))
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_token_exchange_failed"));
-            }
-
-            var gitHubUser = await _gitHubOAuthService.GetUserAsync(accessToken);
-            if (gitHubUser == null)
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_profile_failed"));
-            }
-
-            var emailAddress = await _gitHubOAuthService.ResolveEmailAsync(accessToken, gitHubUser);
-            if (string.IsNullOrWhiteSpace(emailAddress))
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_email_required"));
-            }
-
-            var user = await _gitHubOAuthService.FindOrCreateTenantUserAsync(gitHubUser, emailAddress, accessToken);
-            if (user == null)
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_user_failed"));
-            }
-
-            var principal = await _userClaimsPrincipalFactory.CreateAsync(user);
-            var identity = principal.Identity as ClaimsIdentity;
-            if (identity == null)
-            {
-                return Redirect(BuildOAuthRedirect(oauthMode, returnPath, "github_identity_failed"));
-            }
-
-            var appAccessToken = CreateAccessToken(CreateJwtClaims(identity));
-            // Remove legacy names so localhost OAuth does not overwrite JS-managed frontend cookies with HttpOnly cookies.
-            Response.Cookies.Delete(LegacyFrontendAccessTokenCookieName, new CookieOptions { Path = "/" });
-            Response.Cookies.Delete(LegacyFrontendTenantCookieName, new CookieOptions { Path = "/" });
-
-            Response.Cookies.Append(
-                ServerAccessTokenCookieName,
-                appAccessToken,
-                BuildSessionCookieOptions());
-
-            var tenantCookieValue = user.TenantId?.ToString()
-                                    ?? (AbpSession.TenantId.HasValue ? AbpSession.TenantId.Value.ToString() : "host");
-            Response.Cookies.Append(
-                ServerTenantCookieName,
-                tenantCookieValue,
-                BuildSessionCookieOptions());
-
-            return Redirect(BuildOAuthRedirect(oauthMode, returnPath, null, appAccessToken, tenantCookieValue));
         }
 
         [HttpGet]
@@ -243,25 +125,13 @@ namespace MosaicTalent.Controllers
                 return $"{redirectUrl}#oauthAccessToken={encodedToken}&oauthTenantId={encodedTenant}";
             }
 
-            var normalizedPath = NormalizeReturnPath(returnPath);
+            var normalizedPath = GitHubConnectionTickets.SafeReturnPath(returnPath.StartsWith("/projects/") ? "/app" + returnPath : returnPath);
             var query = new Dictionary<string, string>
             {
                 ["githubConnected"] = string.IsNullOrWhiteSpace(errorCode) ? "1" : "0",
             };
-
-            if (!string.IsNullOrWhiteSpace(errorCode))
-            {
-                query["githubConnectError"] = errorCode;
-            }
-
-            var suffix = QueryHelpers.AddQueryString(normalizedPath, query);
-            suffix = suffix.TrimStart('/');
-            if (suffix.StartsWith("app/", StringComparison.OrdinalIgnoreCase))
-            {
-                suffix = suffix.Substring("app/".Length);
-            }
-
-            return _gitHubOAuthService.BuildClientRedirect(suffix);
+            if (!string.IsNullOrWhiteSpace(errorCode)) query["githubConnectError"] = errorCode;
+            return _gitHubOAuthService.BuildSiteRedirect(QueryHelpers.AddQueryString(normalizedPath, query));
         }
 
         private static string NormalizeReturnPath(string returnPath)
