@@ -1,497 +1,133 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
-import {
-  BarChart3,
-  Brain,
-  Check,
-  ChevronRight,
-  GitBranch,
-  MessageSquare,
-  Shield,
-  Sparkles,
-  Target,
-  TrendingUp,
-  Users,
-  Zap,
-} from "lucide-react";
-import { Button, Spin, Tabs } from "antd";
-import { InsightReportDemo } from "@/components/landing/insight-report-demo";
+import { ArrowRight, CheckCircle2, Compass, GitPullRequest, MessageCircle, Sparkles, Users } from "lucide-react";
+import { Spin } from "antd";
 import { useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
-import { designTokens } from "@/theme/antdTheme";
-import { useStyles } from "./style";
 import { shouldRestrictLandingOnTenantSubdomain } from "./landingAccess";
+import { useStyles } from "./style";
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5 },
-};
-
-const stagger = {
-  animate: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-type TabItem = {
-  icon: ComponentType<{ size?: number; className?: string }>;
-  title: string;
-  description: string;
-};
-
-const devItems: TabItem[] = [
+const benefits = [
   {
-    icon: Users,
-    title: "Join Team Projects",
-    description:
-      "Collaborate on real projects with other developers. Build your portfolio while practicing teamwork.",
+    icon: Compass,
+    title: "Find a place to contribute",
+    description: "Explore open team projects and choose work that fits your skills and the skills you want to build.",
   },
   {
-    icon: MessageSquare,
-    title: "Get Peer Reviews",
-    description:
-      "Receive AI-analyzed feedback from teammates. Understand your strengths and growth areas.",
+    icon: GitPullRequest,
+    title: "Make your progress visible",
+    description: "Record what you built, link your work, and reflect on what you learned along the way.",
   },
   {
-    icon: Brain,
-    title: "Practice with AI Simulator",
-    description:
-      "Handle difficult team scenarios in a safe environment. Build conflict resolution skills.",
+    icon: MessageCircle,
+    title: "Grow with useful feedback",
+    description: "Get thoughtful reviews from teammates so you can see your strengths and decide what to improve next.",
   },
 ];
 
-const companyItems: TabItem[] = [
-  {
-    icon: GitBranch,
-    title: "Scan GitHub Profile",
-    description:
-      "AI analyzes code quality, contribution patterns, and collaboration history automatically.",
-  },
-  {
-    icon: Target,
-    title: "Custom Assessments",
-    description:
-      "Generate role-specific tickets and evaluate problem-solving approaches.",
-  },
-  {
-    icon: BarChart3,
-    title: "Full Insight Reports",
-    description:
-      "Get comprehensive candidate profiles with soft skill scores and team fit predictions.",
-  },
-];
-
-const simulatorFeatures = [
-  {
-    icon: Zap,
-    title: "Real Scenarios",
-    desc: "Practice with missed deadlines, scope creep, conflicts, and more",
-  },
-  {
-    icon: Brain,
-    title: "Adaptive AI",
-    desc: "AI responds naturally based on your communication approach",
-  },
-  {
-    icon: BarChart3,
-    title: "Detailed Feedback",
-    desc: "Get scored on communication, empathy, and resolution skills",
-  },
-  {
-    icon: TrendingUp,
-    title: "Track Progress",
-    desc: "See your soft skills improve over time with each simulation",
-  },
+const steps = [
+  { number: "01", title: "Create your account", description: "Sign up with your details to start your developer profile." },
+  { number: "02", title: "Set your direction", description: "Add your skills and goals. Connect GitHub if you want, or skip it for now." },
+  { number: "03", title: "Build with a team", description: "Find a project, contribute, and turn your work into evidence of your growth." },
 ];
 
 const LandingPage = () => {
-  const [activeTab, setActiveTab] = useState("developers");
   const { mode } = useAppearanceState();
   const { isResolved, tenancyName, source } = useTenantResolutionState();
   const { styles } = useStyles();
   const logoSrc = mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
-  const shouldRestrictLanding = shouldRestrictLandingOnTenantSubdomain({
-    isResolved,
-    tenancyName,
-    source,
-  });
-
-  const tabItems = activeTab === "developers" ? devItems : companyItems;
+  const shouldRestrictLanding = shouldRestrictLandingOnTenantSubdomain({ isResolved, tenancyName, source });
 
   useEffect(() => {
-    if (!shouldRestrictLanding) {
-      return;
-    }
-
-    window.location.replace("/app");
+    if (shouldRestrictLanding) window.location.replace("/app");
   }, [shouldRestrictLanding]);
 
   if (!isResolved || shouldRestrictLanding) {
-    return (
-      <div className={styles.resolvingState}>
-        <Spin size="large" />
-      </div>
-    );
+    return <div className={styles.resolvingState}><Spin size="large" /></div>;
   }
 
   return (
     <div className={styles.page}>
-      <nav className={styles.nav}>
-        <div className={styles.container}>
+      <header className={styles.header}>
+        <nav className={styles.container} aria-label="Main navigation">
           <div className={styles.navInner}>
-            <Link href="/" className={styles.brand}>
-              <Image
-                src={logoSrc}
-                alt="Mosaic Talent"
-                width={156}
-                height={30}
-                className={styles.brandLogo}
-                priority
-              />
+            <Link href="/" className={styles.brand} aria-label="Mosaic Talent home">
+              <Image src={logoSrc} alt="Mosaic Talent" width={156} height={30} className={styles.brandLogo} loading="eager" />
             </Link>
-
             <div className={styles.navLinks}>
-              <a href="#how-it-works" className={styles.muted}>
-                How it Works
-              </a>
-              <a href="#features" className={styles.muted}>
-                Features
-              </a>
-              <a href="#for-companies" className={styles.muted}>
-                For Companies
-              </a>
+              <a href="#benefits">Why join</a>
+              <a href="#how-it-works">How it works</a>
             </div>
-
             <div className={styles.navActions}>
-              <Link href="/login">
-                <Button type="text" className={styles.signInButton}>
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button type="primary" className={styles.getStartedButton}>
-                  Get Started
-                </Button>
-              </Link>
+              <Link href="/login" className={styles.signIn}>Sign in</Link>
+              <Link href="/signup" className={styles.navCta}>Create account</Link>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
-      <section className={styles.hero}>
-        <div className={styles.heroGlowPrimary} />
-        <div className={styles.heroGlowSecondary} />
-
-        <div className={styles.container}>
-          <motion.div
-            className={styles.heroContent}
-            initial={false}
-            animate="animate"
-            variants={stagger}
-          >
-            <motion.div variants={fadeInUp} className={styles.heroBadge}>
-              <Sparkles size={14} />
-              <span>AI-Powered Hiring Intelligence</span>
-            </motion.div>
-
-            <motion.h1 variants={fadeInUp} className={styles.heroTitle}>
-              Discover the{" "}
-              <span className={styles.gradientText}>full picture</span> of
-              developer talent
-            </motion.h1>
-
-            <motion.p variants={fadeInUp} className={styles.heroText}>
-              Beyond code quality. AI-driven soft skill assessment, peer
-              reviews, and team simulation for smarter hiring decisions.
-            </motion.p>
-
-            <motion.div variants={fadeInUp} className={styles.heroActions}>
-              <Link href="/login">
-                <Button type="primary" size="large">
-                  Start Free Trial
-                  <ChevronRight size={18} className={styles.buttonIcon} />
-                </Button>
-              </Link>
-              <Link href="#how-it-works">
-                <Button size="large" variant="outlined">
-                  See How It Works
-                </Button>
-              </Link>
-              <a href="/mosaictalent.apk" download>
-                <Button size="large" variant="outlined">
-                  Download Mobile App
-                </Button>
-              </a>
-            </motion.div>
-
-            <motion.div variants={fadeInUp} className={styles.heroChecks}>
-              <span className={styles.checkItem}>
-                <Check size={14} color={designTokens.teal} /> No credit card
-                required
-              </span>
-              <span className={styles.checkItem}>
-                <Check size={14} color={designTokens.teal} /> Free for
-                developers
-              </span>
-              <span className={styles.checkItem}>
-                <Check size={14} color={designTokens.teal} /> 14-day company
-                trial
-              </span>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      <section className={styles.stats}>
-        <div className={styles.container}>
-          <div className={styles.statsGrid}>
-            {[
-              { value: "10K+", label: "Developers Assessed" },
-              { value: "500+", label: "Companies Hiring" },
-              { value: "87%", label: "Hiring Success Rate" },
-              { value: "3.2x", label: "Faster to Hire" },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                className={styles.statItem}
-                initial={false}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <p className={styles.statValue}>{stat.value}</p>
-                <div className={styles.statLabel}>{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="how-it-works" className={styles.section}>
-        <div className={styles.container}>
-          <motion.div
-            className={styles.sectionHeader}
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className={styles.sectionTitle}>How It Works</h2>
-            <p className={styles.sectionText}>
-              A complete ecosystem for growing and showcasing developer soft
-              skills
-            </p>
-          </motion.div>
-
-          <div className={styles.tabsWrap}>
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              centered
-              items={[
-                { key: "developers", label: "For Developers" },
-                { key: "companies", label: "For Companies" },
-              ]}
-            />
-          </div>
-
-          <div className={styles.cardsGrid}>
-            {tabItems.map((item, i) => (
-              <motion.div
-                key={item.title}
-                className={styles.featureCard}
-                initial={false}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <div
-                  className={
-                    activeTab === "developers"
-                      ? styles.iconBox
-                      : styles.iconBoxTeal
-                  }
-                >
-                  <item.icon size={24} />
+      <main>
+        <section className={styles.hero} aria-labelledby="hero-title">
+          <div className={styles.container}>
+            <div className={styles.heroGrid}>
+              <div className={styles.heroCopy}>
+                <span className={styles.eyebrow}><Sparkles size={16} aria-hidden="true" /> Built for developers who want to grow</span>
+                <h1 id="hero-title" className={styles.heroTitle}>Build with people. <span>Grow with purpose.</span></h1>
+                <p className={styles.heroDescription}>Move beyond tutorials. Join team projects, make real contributions, and get feedback that helps you become a stronger developer.</p>
+                <div className={styles.heroActions}>
+                  <Link href="/signup" className={styles.primaryAction}>Create your free account <ArrowRight size={18} aria-hidden="true" /></Link>
+                  <a href="#how-it-works" className={styles.secondaryAction}>See how it works</a>
                 </div>
-                <h3 className={styles.cardTitle}>{item.title}</h3>
-                <p className={styles.cardText}>{item.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="features" className={styles.sectionAlt}>
-        <div className={styles.container}>
-          <motion.div
-            className={styles.sectionHeader}
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className={styles.sectionTitle}>AI Teammate Simulator</h2>
-            <p className={styles.sectionText}>
-              Practice handling real workplace scenarios with our AI-powered
-              simulation
-            </p>
-          </motion.div>
-
-          <div className={styles.simulatorGrid}>
-            <motion.div
-              className={styles.simulatorCard}
-              initial={false}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <div className={styles.simulatorTop}>
-                <span
-                  className={styles.traffic}
-                  style={{ background: "#ef444488" }}
-                />
-                <span
-                  className={styles.traffic}
-                  style={{ background: "#eab30888" }}
-                />
-                <span
-                  className={styles.traffic}
-                  style={{ background: "#22c55e88" }}
-                />
-                <span className={styles.simulatorLabel}>AI Teammate Simulator</span>
+                <p className={styles.heroNote}><CheckCircle2 size={17} aria-hidden="true" /> GitHub connection is optional during onboarding.</p>
               </div>
-              <div className={styles.simulatorBody}>
-                <div className={styles.chatRow}>
-                  <div className={styles.avatar} />
-                  <div className={styles.bubble}>
-                    I know the feature was due yesterday, but the requirements
-                    kept changing. It&apos;s not really my fault...
-                  </div>
+
+              <div className={styles.journeyCard} aria-label="Your developer journey">
+                <div className={styles.journeyHeader}>
+                  <span className={styles.journeyIcon}><Users size={23} aria-hidden="true" /></span>
+                  <div><p className={styles.journeyLabel}>YOUR NEXT CHAPTER</p><h2>Learn by building together</h2></div>
                 </div>
-                <div className={styles.chatRowRight}>
-                  <div className={styles.bubblePrimary}>
-                    I understand the requirements shifted. Can we discuss what
-                    blockers you faced?
-                  </div>
-                  <div className={styles.avatarPrimary} />
+                <div className={styles.journeyTrack}>
+                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>1</span><div><strong>Discover a project</strong><p>Find a team and a challenge that moves you forward.</p></div></div>
+                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>2</span><div><strong>Contribute real work</strong><p>Build, collaborate, and keep a record of your progress.</p></div></div>
+                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>3</span><div><strong>Reflect and improve</strong><p>Learn from your own notes and your team&apos;s feedback.</p></div></div>
                 </div>
+                <div className={styles.journeyFooter}><span className={styles.journeyDot} /> Your growth starts with one project</div>
               </div>
-            </motion.div>
-
-            <motion.div
-              initial={false}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <div className={styles.simulatorList}>
-                {simulatorFeatures.map((feature) => (
-                  <div key={feature.title} className={styles.simulatorItem}>
-                    <div className={styles.simulatorItemIcon}>
-                      <feature.icon size={18} />
-                    </div>
-                    <div>
-                      <h4 className={styles.cardTitle}>{feature.title}</h4>
-                      <p className={styles.cardText}>{feature.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Link href="/login">
-                <Button type="primary" className={styles.simulatorCta}>
-                  Try the Simulator
-                  <ChevronRight size={16} className={styles.buttonIcon} />
-                </Button>
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      <section id="for-companies" className={styles.section}>
-        <div className={styles.container}>
-          <motion.div
-            className={styles.sectionHeader}
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className={styles.sectionTitle}>Complete Candidate Insights</h2>
-            <p className={styles.sectionText}>
-              Make data-driven hiring decisions with comprehensive soft skill
-              assessments
-            </p>
-          </motion.div>
-
-          <InsightReportDemo />
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <div className={styles.container}>
-          <motion.div
-            className={styles.ctaBox}
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className={styles.sectionTitle}>
-              Ready to see the full picture?
-            </h2>
-            <p className={styles.sectionText}>
-              Join thousands of developers and companies already using
-              mosaictalent
-            </p>
-            <div className={styles.heroActions}>
-              <Link href="/login">
-                <Button type="primary" size="large">
-                  Get Started Free
-                  <ChevronRight size={18} className={styles.buttonIcon} />
-                </Button>
-              </Link>
-              <Link href="/company">
-                <Button size="large" variant="outlined">
-                  Schedule Demo
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      <footer className={styles.footer}>
-        <div className={styles.container}>
-          <div className={styles.footerInner}>
-            <Link href="/" className={styles.brand}>
-              <Image
-                src={logoSrc}
-                alt="Mosaic Talent"
-                width={156}
-                height={30}
-                className={styles.brandLogo}
-              />
-            </Link>
-
-            <div className={styles.footerLinks}>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-              <a href="#">Contact</a>
-            </div>
-
-            <div className={styles.footerBadge}>
-              <Shield size={16} color={designTokens.teal} />
-              <span>SOC 2 Compliant</span>
             </div>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        <section id="benefits" className={styles.section} aria-labelledby="benefits-title">
+          <div className={styles.container}>
+            <div className={styles.sectionIntro}><span className={styles.sectionKicker}>WHY JOIN</span><h2 id="benefits-title">Experience you can talk about. Growth you can see.</h2><p>Mosaic Talent helps you practice the skills that matter when working with other developers.</p></div>
+            <div className={styles.benefitsGrid}>
+              {benefits.map(({ icon: Icon, title, description }) => <article className={styles.benefitCard} key={title}><span className={styles.benefitIcon}><Icon size={24} aria-hidden="true" /></span><h3>{title}</h3><p>{description}</p></article>)}
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className={styles.stepsSection} aria-labelledby="steps-title">
+          <div className={styles.container}>
+            <div className={styles.sectionIntro}><span className={styles.sectionKicker}>GET STARTED</span><h2 id="steps-title">From signup to your first contribution</h2><p>A simple path from what you know today to what you want to learn next.</p></div>
+            <div className={styles.stepsGrid}>
+              {steps.map((step) => <article className={styles.stepCard} key={step.number}><span className={styles.stepNumber}>{step.number}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.finalSection} aria-labelledby="final-title">
+          <div className={styles.container}>
+            <div className={styles.finalCard}><div><span className={styles.sectionKicker}>READY WHEN YOU ARE</span><h2 id="final-title">Your next project could change what you can do.</h2><p>Create your profile, meet a team, and start building.</p></div><Link href="/signup" className={styles.primaryAction}>Join Mosaic Talent <ArrowRight size={18} aria-hidden="true" /></Link></div>
+          </div>
+        </section>
+      </main>
+
+      <footer className={styles.footer}><div className={styles.container}><div className={styles.footerInner}><span>Mosaic Talent · Build together. Grow together.</span><Link href="/login">Already a member? Sign in</Link></div></div></footer>
     </div>
   );
 };
 
 export default LandingPage;
-
