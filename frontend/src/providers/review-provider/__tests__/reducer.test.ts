@@ -6,6 +6,9 @@ import { ReviewReducer } from "../reducer";
 const projectReview = {
   projectId: "project-1",
   projectTitle: "Project One",
+  projectStatus: "in-progress",
+  canRequestPeerReview: true,
+  peerReviewRequestMessage: "",
   assignedToMe: [],
   receivedByMe: [],
 };
