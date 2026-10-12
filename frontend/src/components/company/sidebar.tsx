@@ -10,6 +10,8 @@ import {
   Briefcase,
   Settings,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
@@ -45,7 +47,12 @@ const isItemActive = (pathname: string, href: string) => {
   return pathname.startsWith(href);
 };
 
-export const CompanySidebar = () => {
+interface ICompanySidebarProps {
+  collapsed?: boolean;
+  onCollapseToggle?: () => void;
+}
+
+export const CompanySidebar = ({ collapsed = false, onCollapseToggle }: ICompanySidebarProps) => {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const { logout } = useAuthAction();
@@ -61,24 +68,34 @@ export const CompanySidebar = () => {
   };
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logoRow}>
+    <aside className={cx(styles.sidebar, collapsed && styles.sidebarCollapsed)}>
+      <div className={cx(styles.logoRow, collapsed && styles.logoRowCollapsed)}>
         {companyLogoUrl ? (
           <img
             src={companyLogoUrl}
             alt={`${companyName || tenancyName || "Company"} logo`}
-            className={styles.companyLogo}
+            className={cx(styles.companyLogo, collapsed && styles.companyLogoCollapsed)}
           />
         ) : (
           <Image
-            src={defaultLogoSrc}
+            src={collapsed ? "/logo.svg" : defaultLogoSrc}
             alt="Mosaic Talent"
             width={144}
             height={28}
-            className={styles.logoImage}
+            className={cx(styles.logoImage, collapsed && styles.logoImageCollapsed)}
             priority
           />
         )}
+        {onCollapseToggle ? (
+          <Button
+            type="text"
+            className={styles.collapseButton}
+            icon={collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            onClick={onCollapseToggle}
+          />
+        ) : null}
       </div>
 
       <div className={styles.body}>
@@ -86,13 +103,14 @@ export const CompanySidebar = () => {
           const active = isItemActive(pathname, item.href);
 
           return (
-            <Link key={item.href} href={item.href} data-ai-route={item.href}>
+            <Link key={item.href} href={item.href} data-ai-route={item.href} aria-label={item.label} title={collapsed ? item.label : undefined} aria-current={active ? "page" : undefined}>
               <Button
                 type="text"
-                className={cx(styles.navButton, active && styles.navButtonActive)}
+                className={cx(styles.navButton, active && styles.navButtonActive, collapsed && styles.iconButton)}
                 icon={<item.icon className="h-4 w-4" />}
+                aria-label={item.label}
               >
-                {item.label}
+                {collapsed ? null : item.label}
               </Button>
             </Link>
           );
@@ -102,11 +120,12 @@ export const CompanySidebar = () => {
       <div className={styles.footer}>
         <Button
           type="text"
-          className={styles.footerButton}
+          className={cx(styles.footerButton, collapsed && styles.iconButton)}
           icon={<LogOut size={16} />}
+          aria-label="Sign Out"
           onClick={handleLogout}
         >
-          Sign Out
+          {collapsed ? null : "Sign Out"}
         </Button>
       </div>
     </aside>
