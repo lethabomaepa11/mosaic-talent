@@ -38,6 +38,8 @@ describe("AppSidebar", () => {
     expect(screen.getByText("My Projects")).toBeInTheDocument();
     expect(screen.getByText("My Profile")).toBeInTheDocument();
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
+    expect(screen.queryByText("AI Simulator")).not.toBeInTheDocument();
+    expect(screen.queryByText("+ Start Simulation")).not.toBeInTheDocument();
   });
 
   it("keeps developer navigation regardless of non-developer path", () => {

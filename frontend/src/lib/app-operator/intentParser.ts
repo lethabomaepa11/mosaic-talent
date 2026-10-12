@@ -205,21 +205,6 @@ const parseQuickActionIntent = (command: string): IAppOperatorIntent | null => {
       prompt: prompt || command,
     });
   }
-  if (/start\s+simulation|start\s+scenario|open\s+simulator/i.test(normalized)) {
-    return buildActionIntent("start_scenario", command, "start_scenario", {});
-  }
-  if (/contribute\s+scenario|create\s+scenario/i.test(normalized)) {
-    const titleMatch = command.match(/title\s*[:=-]?\s*(.+?)(?:\s+prompt|$)/i);
-    const promptMatch = command.match(/prompt\s*[:=-]?\s*(.+)$/i);
-    return buildActionIntent("contribute_scenario", command, "contribute_scenario", {
-      title: titleMatch?.[1]?.trim() ?? "",
-      prompt: promptMatch?.[1]?.trim() ?? "",
-    });
-  }
-  if (/end\s+simulation|stop\s+simulation/i.test(normalized)) {
-    return buildActionIntent("end_simulation", command, "end_simulation", {});
-  }
-
   return null;
 };
 

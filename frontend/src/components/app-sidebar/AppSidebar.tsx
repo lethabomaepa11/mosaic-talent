@@ -8,7 +8,6 @@ import {
   User,
   Compass,
   FolderKanban,
-  Brain,
   MessageSquare,
   LogOut,
 } from "lucide-react";
@@ -27,7 +26,6 @@ const developerNav: INavItem[] = [
   { href: "/app/projects/open", label: "Discover", icon: Compass },
   { href: "/app/projects/my", label: "My Projects", icon: FolderKanban },
   { href: "/app/profile", label: "My Profile", icon: User },
-  { href: "/app/simulator", label: "AI Simulator", icon: Brain },
   { href: "/app/reviews", label: "Peer Reviews", icon: MessageSquare },
 ];
 
@@ -95,11 +93,6 @@ export const AppSidebar = () => {
           <Link href="/app/projects/my?create=true" className={styles.navLink} data-ai-route="/app/projects/my?create=true">
             <Button type="text" className={styles.quickButton}>
               + Create Project
-            </Button>
-          </Link>
-          <Link href="/app/simulator" className={styles.navLink} data-ai-route="/app/simulator">
-            <Button type="text" className={styles.quickButton}>
-              + Start Simulation
             </Button>
           </Link>
         </div>

@@ -638,7 +638,7 @@ const ProfilePage = () => {
                             {draft.teamworkRating.toFixed(1)}/10
                           </Typography.Text>
                           <Typography.Text type="secondary">
-                            Updated from AI simulation performance and peer reviews.
+                            Based on peer reviews and any past AI simulation results.
                           </Typography.Text>
                         </div>
                       </div>
@@ -963,7 +963,7 @@ const ProfilePage = () => {
                       </div>
                     ) : (
                       <Typography.Text type="secondary">
-                        Complete reviews, projects, and simulations to unlock
+                        Complete reviews and projects to unlock
                         badges.
                       </Typography.Text>
                     )}
