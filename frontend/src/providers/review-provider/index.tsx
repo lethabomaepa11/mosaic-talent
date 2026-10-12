@@ -97,6 +97,9 @@ const normalizeFeedback = (input?: Partial<IAIReviewFeedback>): IAIReviewFeedbac
 const normalizeProjectReview = (input: Partial<IProjectPeerReview>): IProjectPeerReview => ({
   projectId: String(input.projectId ?? ""),
   projectTitle: input.projectTitle ?? "",
+  projectStatus: input.projectStatus ?? "completed",
+  canRequestPeerReview: Boolean(input.canRequestPeerReview),
+  peerReviewRequestMessage: input.peerReviewRequestMessage ?? "",
   assignedToMe: (input.assignedToMe ?? []).map(normalizeReview),
   receivedByMe: (input.receivedByMe ?? []).map(normalizeReview),
   feedback: normalizeFeedback(input.feedback),
@@ -161,6 +164,21 @@ export const ReviewProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const requestProjectPeerReview = async (projectId: string) => {
+    dispatch(generateProjectReviewPending());
+
+    try {
+      const res = await instance.post(`${ENDPOINT}/RequestProjectPeerReview`, { projectId });
+      const projectReview = normalizeProjectReview((res.data?.result ?? {}) as Partial<IProjectPeerReview>);
+      dispatch(generateProjectReviewSuccess(projectReview));
+      await fetchMyProjectPeerReviews();
+      return projectReview;
+    } catch (error) {
+      dispatch(generateProjectReviewError());
+      throw new Error(readApiErrorMessage(error, "Failed to request a peer review."));
+    }
+  };
+
   const setPeerReviewRating = async (reviewId: string, rating: number) => {
     dispatch(setRatingPending());
 
@@ -207,6 +225,7 @@ export const ReviewProvider = ({ children }: PropsWithChildren) => {
           fetchMyProjectPeerReviews,
           fetchProjectPeerReviews,
           generateProjectPeerReviews,
+          requestProjectPeerReview,
           setPeerReviewRating,
           submitReviewAnswer,
         }}

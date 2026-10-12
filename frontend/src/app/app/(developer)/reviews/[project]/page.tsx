@@ -27,6 +27,7 @@ const ProjectReviewsPage = () => {
 
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRequestingPeerReview, setIsRequestingPeerReview] = useState(false);
   const [projectLoading, setProjectLoading] = useState(false);
   const [ratingLoadingByReview, setRatingLoadingByReview] = useState<Record<string, boolean>>({});
   const [answerLoadingByQuestion, setAnswerLoadingByQuestion] = useState<Record<string, boolean>>({});
@@ -36,6 +37,7 @@ const ProjectReviewsPage = () => {
     fetchMyProjectPeerReviews,
     fetchProjectPeerReviews,
     generateProjectPeerReviews,
+    requestProjectPeerReview,
     setPeerReviewRating,
     submitReviewAnswer,
   } = useReviewAction();
@@ -76,6 +78,20 @@ const ProjectReviewsPage = () => {
       toast.error("Generation failed", message);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRequestPeerReview = async () => {
+    if (!projectId) return;
+    setIsRequestingPeerReview(true);
+    try {
+      await requestProjectPeerReview(projectId);
+      toast.success("Review requested", "Your teammates have been notified to review your work.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to request a peer review.";
+      toast.error("Request failed", message);
+    } finally {
+      setIsRequestingPeerReview(false);
     }
   };
 
@@ -145,17 +161,34 @@ const ProjectReviewsPage = () => {
             All reviews are anonymous. Complete assigned reviews and check anonymous feedback.
           </Typography.Paragraph>
         </div>
-        <Button
-          icon={<Sparkles size={14} />}
-          type="primary"
-          onClick={() => void handleGenerateReviews()}
-          disabled={!projectId}
-          loading={isGenerating}
-          data-ai-action="generate-peer-reviews"
-        >
-          Generate Reviews
-        </Button>
+        {activeProjectReview?.projectStatus === "open" || activeProjectReview?.projectStatus === "in-progress" ? (
+          <Button
+            icon={<Sparkles size={14} />}
+            type="primary"
+            onClick={() => void handleRequestPeerReview()}
+            disabled={!projectId || !activeProjectReview.canRequestPeerReview}
+            loading={isRequestingPeerReview}
+            data-ai-action="request-peer-review"
+          >
+            Request Peer Review
+          </Button>
+        ) : (
+          <Button
+            icon={<Sparkles size={14} />}
+            type="primary"
+            onClick={() => void handleGenerateReviews()}
+            disabled={!projectId}
+            loading={isGenerating}
+            data-ai-action="generate-peer-reviews"
+          >
+            Generate Reviews
+          </Button>
+        )}
       </div>
+
+      {activeProjectReview?.peerReviewRequestMessage ? (
+        <Typography.Text type="secondary">{activeProjectReview.peerReviewRequestMessage}</Typography.Text>
+      ) : null}
 
       {projectLoading ? <Spin /> : null}
 
