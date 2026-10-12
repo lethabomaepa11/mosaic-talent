@@ -148,7 +148,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [AI Matching](docs/feature/ai-matching.md)
 - [Open Project Browsing](docs/feature/open-project-browse.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
-- [Ask Moahi](docs/feature/ai-app-operator.md)
+- [Ask Moahi and operator testing](docs/feature/ai-app-operator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Company Jobs](docs/feature/company-jobs.md)
 - [Company Profile Role Labels](docs/feature/company-profile-role-labels.md)
