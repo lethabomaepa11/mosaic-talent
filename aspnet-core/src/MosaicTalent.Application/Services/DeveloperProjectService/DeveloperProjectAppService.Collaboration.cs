@@ -18,6 +18,34 @@ public partial class DeveloperProjectAppService
     private const int RecommendedActiveProjectLimit = 3;
     private const int RecommendedWorkloadScoreLimit = 160;
 
+    public async Task<DeveloperProjectDto> SetProjectMemberMentor(SetProjectMemberMentorInput input)
+    {
+        if (input == null || input.ProjectId == Guid.Empty || input.MemberId == Guid.Empty)
+        {
+            throw new UserFriendlyException("Project member is required.");
+        }
+
+        var developer = await GetCurrentDeveloper();
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        var actorMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id)
+            ?? throw new UserFriendlyException("Project membership not found.");
+        if (project.OwnerDeveloperId != developer.Id && actorMembership.Role != MemberRole.Lead)
+        {
+            throw new UserFriendlyException("Only project leads can assign a mentor.");
+        }
+
+        var targetMembership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == project.Id && x.DeveloperId == input.MemberId)
+            ?? throw new UserFriendlyException("Selected member is not part of this project.");
+        targetMembership.IsMentor = input.IsMentor;
+        await _projectMemberRepository.UpdateAsync(targetMembership);
+        await CurrentUnitOfWork.SaveChangesAsync();
+
+        var mapped = await MapProjects(new List<Project> { project });
+        return mapped.First();
+    }
+
     public async Task<RepositoryReadmeDto> GetRepositoryReadme(RepositoryReadmeInput input)
     {
         var developer = await GetCurrentDeveloper();

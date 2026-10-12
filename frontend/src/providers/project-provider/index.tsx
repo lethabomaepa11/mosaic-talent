@@ -144,6 +144,7 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
     userName: member.userName ?? "",
     avatar: member.avatar ?? "",
     role: normalizeMemberRole(member.role),
+    isMentor: Boolean(member.isMentor),
   })),
   tasks: (input.tasks ?? []).map(normalizeTask),
 });
@@ -619,6 +620,26 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const setProjectMemberMentor = async (
+    projectId: string,
+    memberId: string,
+    isMentor: boolean,
+  ) => {
+    try {
+      const res = await instance.put(`${ENDPOINT}/SetProjectMemberMentor`, {
+        projectId,
+        memberId,
+        isMentor,
+      });
+      const project = normalizeProject((res.data?.result ?? {}) as Partial<IProject>);
+      dispatch(fetchProjectSuccess(project));
+      await Promise.all([fetchMyProjects(), fetchOpenProjects()]);
+      return project;
+    } catch (error) {
+      throw new Error(readApiErrorMessage(error, "Failed to update mentor assignment."));
+    }
+  };
+
   const aiMatchProject = async () => {
     dispatch(aiMatchPending());
 
@@ -964,6 +985,7 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           removeProjectMember,
           submitProjectComplaint,
           assignMemberRole,
+          setProjectMemberMentor,
           aiMatchProject,
           aiFillTeam,
           aiGenerateProjectTasks,
