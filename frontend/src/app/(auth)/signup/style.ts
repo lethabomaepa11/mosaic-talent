@@ -1,6 +1,12 @@
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
+  eyebrow: css`
+    color: ${token.colorPrimary};
+    font-size: ${token.fontSizeSM}px;
+    font-weight: ${token.fontWeightStrong};
+    margin-bottom: ${token.marginSM}px;
+  `,
   page: css`
     min-height: 100vh;
     display: flex;

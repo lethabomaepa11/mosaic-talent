@@ -5,6 +5,11 @@ namespace MosaicTalent.Services.DeveloperOnboardingService.DTO;
 
 public class DeveloperOnboardingDto
 {
+    public long UserId { get; set; }
+    public string FullName { get; set; }
+    public string EmailAddress { get; set; }
+    public bool HasCompletedOnboarding { get; set; }
+    public int OnboardingStep { get; set; }
     public string GithubUsername { get; set; }
     public string AvatarUrl { get; set; }
     public int? YearsOfExperience { get; set; }
