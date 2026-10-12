@@ -28,6 +28,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
     window.location.hash.includes("oauthAccessToken=");
   const isCompanyTenant = Boolean(tenancyName);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated && !hasToken && !hasOAuthBootstrap && !isPending) {
@@ -60,7 +61,11 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
   return (
     <div className={styles.shell}>
       <div className={styles.desktopSidebar}>
-        {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}
+        {isCompanyTenant ? (
+          <CompanySidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        ) : (
+          <AppSidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        )}
       </div>
       <div className={styles.main}>
         {isCompanyTenant ? (
