@@ -5,6 +5,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-direction: column;
     gap: ${token.marginLG}px;
+    min-width: 0;
   `,
   header: css`
     display: flex;
@@ -35,12 +36,41 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   projectGrid: css`
     display: grid;
-    grid-template-columns: 1fr;
     gap: ${token.marginMD}px;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  `,
+  projectControls: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginMD}px;
+  `,
+  filters: css`
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    gap: ${token.marginSM}px;
+    min-width: 0;
 
-    @media (min-width: 992px) {
+    > * {
+      min-width: 0;
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    @media (max-width: 520px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  `,
+  loading: css`
+    display: grid;
+    place-items: center;
+    min-height: 220px;
+  `,
+  resultCount: css`
+    align-self: flex-end;
   `,
   matchingOverlay: css`
     position: fixed;

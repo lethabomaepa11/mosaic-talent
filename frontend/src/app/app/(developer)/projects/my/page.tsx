@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Button, Card, Empty, Spin, Typography } from "antd";
+import { Button, Card, Empty, Input, Segmented, Select, Spin, Typography } from "antd";
 import { FolderKanban, Plus, Sparkles } from "lucide-react";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
@@ -14,11 +14,16 @@ import { useStyles } from "./style";
 
 const MyProjectsPage = () => {
   const [isMatching, setIsMatching] = useState(false);
+  const [projectPeriod, setProjectPeriod] = useState<"active" | "past">("active");
+  const [searchText, setSearchText] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>();
+  const [sortBy, setSortBy] = useState("newest");
   const router = useRouter();
   const { styles } = useStyles();
 
   const { fetchCurrentUser } = useDeveloperAction();
-  const { myProjects } = useProjectState();
+  const { myProjects, isPending } = useProjectState();
   const { fetchMyProjects, fetchOpenProjects, aiMatchProject } = useProjectAction();
 
   useEffect(() => {
@@ -45,6 +50,24 @@ const MyProjectsPage = () => {
       setIsMatching(false);
     }
   };
+
+  const availableSkills = [...new Set(myProjects.flatMap((project) => project.skills))].sort((a, b) => a.localeCompare(b));
+  const visibleProjects = myProjects
+    .filter((project) => {
+      const isPast = ["complete", "completed"].includes(project.status.toLocaleLowerCase());
+      const query = searchText.trim().toLocaleLowerCase();
+      const searchableText = [project.title, project.description, ...project.skills].join(" ").toLocaleLowerCase();
+      return isPast === (projectPeriod === "past")
+        && (!query || searchableText.includes(query))
+        && selectedSkills.every((skill) => project.skills.some((projectSkill) => projectSkill.toLocaleLowerCase() === skill.toLocaleLowerCase()))
+        && (!selectedDifficulty || project.difficulty === selectedDifficulty);
+    })
+    .sort((a, b) => {
+      if (sortBy === "title") return a.title.localeCompare(b.title);
+      if (sortBy === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortBy === "workload") return a.estimatedHoursPerWeek - b.estimatedHoursPerWeek;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   return (
     <div className={styles.page} data-ai-page="projects-my">
@@ -81,20 +104,75 @@ const MyProjectsPage = () => {
         </div>
       </motion.div>
 
-      {myProjects.length === 0 ? (
+      <div className={styles.projectControls}>
+        <Segmented
+          value={projectPeriod}
+          onChange={(value) => setProjectPeriod(value as "active" | "past")}
+          options={[{ label: "Active", value: "active" }, { label: "Past", value: "past" }]}
+          aria-label="Project period"
+        />
+        <div className={styles.filters}>
+          <Input
+            allowClear
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search your projects"
+            aria-label="Search my projects"
+          />
+          <Select
+            mode="multiple"
+            allowClear
+            value={selectedSkills}
+            onChange={setSelectedSkills}
+            options={availableSkills.map((skill) => ({ label: skill, value: skill }))}
+            placeholder="Filter by skills"
+            aria-label="Filter my projects by skills"
+          />
+          <Select
+            allowClear
+            value={selectedDifficulty}
+            onChange={setSelectedDifficulty}
+            options={["beginner", "intermediate", "advanced", "expert"].map((difficulty) => ({ label: difficulty, value: difficulty }))}
+            placeholder="Any difficulty"
+            aria-label="Filter my projects by difficulty"
+          />
+          <Select
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { label: "Newest", value: "newest" },
+              { label: "Oldest", value: "oldest" },
+              { label: "Name A–Z", value: "title" },
+              { label: "Lowest weekly hours", value: "workload" },
+            ]}
+            aria-label="Sort my projects"
+          />
+        </div>
+      </div>
+
+      {isPending && myProjects.length === 0 ? (
+        <div className={styles.loading}><Spin /></div>
+      ) : myProjects.length === 0 ? (
         <Card className={styles.emptyCard}>
           <Empty
             image={<FolderKanban size={48} />}
             description="No projects yet. Create one or let AI match you."
           />
         </Card>
+      ) : visibleProjects.length === 0 ? (
+        <Card className={styles.emptyCard}>
+          <Empty description={projectPeriod === "past" ? "No past projects found." : "No active projects match these filters."} />
+        </Card>
       ) : (
         <div className={styles.projectGrid}>
-          {myProjects.map((project) => (
+          {visibleProjects.map((project) => (
             <ProjectCard key={project.id} project={project} isMember />
           ))}
         </div>
       )}
+      <Typography.Text type="secondary" className={styles.resultCount}>
+        Showing {visibleProjects.length} of {myProjects.length} projects
+      </Typography.Text>
 
       <AnimatePresence>
         {isMatching ? (
