@@ -385,9 +385,12 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
 
     try {
       const res = await instance.get(`${ENDPOINT}/GetOpenProjects`);
-      dispatch(fetchOpenProjectsSuccess(normalizeProjectList(res.data?.result)));
+      const projects = normalizeProjectList(res.data?.result);
+      dispatch(fetchOpenProjectsSuccess(projects));
+      return projects;
     } catch {
       dispatch(fetchOpenProjectsError());
+      return [];
     }
   };
 
