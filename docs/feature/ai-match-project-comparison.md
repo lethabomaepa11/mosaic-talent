@@ -7,3 +7,7 @@ Developers can start joining from the comparison. The existing workload check ru
 The feature uses existing project matching endpoints and data. No schema change or migration is required.
 
 Related issue: [#96](https://github.com/lethabomaepa11/mosaic-talent/issues/96).
+
+# CI test compatibility
+
+The responsive browser test reads the comparison grid through Playwright's locator evaluation so TypeScript knows the element exists after the visibility check.

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+
 const jsonOk = (result: unknown) => ({
   status: 200,
   contentType: "application/json",
@@ -15,9 +17,9 @@ const projects = [
 test("shows and compares three AI project matches on the post-login Discover page", async ({ page }) => {
   await page.addInitScript(() => { document.cookie = "mosaic-talent.e2e=1; path=/"; });
   await page.context().addCookies([
-    { name: "mosaic-talent.access-token", value: "e2e-token", url: "http://127.0.0.1:3000" },
-    { name: "mosaic-talent.abp-tenant-id", value: "1", url: "http://127.0.0.1:3000" },
-    { name: "mosaic-talent.e2e", value: "1", url: "http://127.0.0.1:3000" },
+    { name: "mosaic-talent.access-token", value: "e2e-token", url: baseURL },
+    { name: "mosaic-talent.abp-tenant-id", value: "1", url: baseURL },
+    { name: "mosaic-talent.e2e", value: "1", url: baseURL },
   ]);
   await page.route("**/api/services/app/Session/GetCurrentLoginInformations", (route) =>
     route.fulfill(jsonOk({ user: { id: 99, userName: "octocat", name: "Octo", surname: "Cat" } })),
@@ -42,8 +44,8 @@ test("shows and compares three AI project matches on the post-login Discover pag
   const grid = comparison.getByTestId("ai-match-grid");
   for (const [width, columns] of [[360, 1], [768, 2], [1280, 3]]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect.poll(async () => page.evaluate((element) =>
-      getComputedStyle(element).gridTemplateColumns.split(" ").length, await grid.elementHandle(),
+    await expect.poll(async () => grid.evaluate((element) =>
+      getComputedStyle(element).gridTemplateColumns.split(" ").length,
     )).toBe(columns);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
