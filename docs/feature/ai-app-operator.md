@@ -142,3 +142,5 @@ Ask Moahi now includes **manual voice input**:
 - execution engine tests
 - operator reducer tests
 - operator panel interaction tests
+
+The panel interaction tests explicitly unmount their React trees with Testing Library `cleanup()` after each case. Clearing the document body directly left scheduled React work alive after jsdom shut down, which caused intermittent `window is not defined` errors in Linux CI even when every assertion passed.
