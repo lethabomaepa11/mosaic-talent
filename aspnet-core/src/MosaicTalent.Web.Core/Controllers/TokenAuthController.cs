@@ -206,6 +206,18 @@ namespace MosaicTalent.Controllers
             return Ok(string.Empty);
         }
 
+        [HttpPost]
+        [AbpAllowAnonymous]
+        public IActionResult Logout()
+        {
+            var cookieOptions = BuildSessionCookieOptions();
+            Response.Cookies.Delete(ServerAccessTokenCookieName, cookieOptions);
+            Response.Cookies.Delete(ServerTenantCookieName, cookieOptions);
+            Response.Cookies.Delete(LegacyFrontendAccessTokenCookieName, cookieOptions);
+            Response.Cookies.Delete(LegacyFrontendTenantCookieName, cookieOptions);
+            return Ok();
+        }
+
         private string BuildOAuthRedirect(
             string mode,
             string returnPath,
