@@ -3,6 +3,7 @@ using Abp.Zero.Configuration;
 using MosaicTalent.Authorization.Accounts.Dto;
 using MosaicTalent.Authorization.Users;
 using System.Threading.Tasks;
+using System;
 
 namespace MosaicTalent.Authorization.Accounts;
 
@@ -37,6 +38,14 @@ public class AccountAppService : MosaicTalentAppServiceBase, IAccountAppService
 
     public async Task<RegisterOutput> Register(RegisterInput input)
     {
+        if (!string.IsNullOrWhiteSpace(input.FullName))
+        {
+            var names = RegistrationDetails.SplitFullName(input.FullName);
+            input.Name = names.Name;
+            input.Surname = names.Surname;
+            // Opaque suffix avoids leaking an email address through public profile URLs.
+            input.UserName = RegistrationDetails.UsernamePrefix(names.Name) + "-" + Guid.NewGuid().ToString("N").Substring(0, 12);
+        }
         var user = await _userRegistrationManager.RegisterAsync(
             input.Name,
             input.Surname,

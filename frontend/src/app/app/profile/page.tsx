@@ -104,7 +104,6 @@ const ProfilePage = () => {
     useCompanyProfileState();
   const {
     fetchCurrentUser,
-    fetchMyProfile,
     fetchStudyLevels,
     fetchLearningPathRecommendations,
     fetchMyGamificationSummary,
@@ -121,7 +120,6 @@ const ProfilePage = () => {
     }
 
     fetchCurrentUser();
-    fetchMyProfile();
     fetchStudyLevels();
     fetchLearningPathRecommendations();
     fetchMyGamificationSummary();

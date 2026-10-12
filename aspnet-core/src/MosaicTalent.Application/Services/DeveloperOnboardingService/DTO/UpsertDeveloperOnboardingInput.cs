@@ -6,9 +6,13 @@ namespace MosaicTalent.Services.DeveloperOnboardingService.DTO;
 
 public class UpsertDeveloperOnboardingInput
 {
-    [Required]
     [MaxLength(64)]
     public string GithubUsername { get; set; }
+
+    public bool CompleteOnboarding { get; set; }
+
+    [Range(0, 3)]
+    public int OnboardingStep { get; set; }
 
     [MaxLength(512)]
     public string AvatarUrl { get; set; }

@@ -92,10 +92,10 @@ export function AppProviders({ children }: PropsWithChildren) {
     <TenantResolutionProvider>
       <TenantBootstrap>
         <FaviconSync />
-        <AppearanceProvider>
-          <AppearanceBootstrap>
-            <CompanyAccountProvider>
-              <AuthProvider>
+        <AuthProvider>
+          <AppearanceProvider>
+            <AppearanceBootstrap>
+              <CompanyAccountProvider>
                 <CompanyProfileProvider>
                   <DeveloperProvider>
                     <ProjectProvider>
@@ -119,10 +119,10 @@ export function AppProviders({ children }: PropsWithChildren) {
                     </ProjectProvider>
                   </DeveloperProvider>
                 </CompanyProfileProvider>
-              </AuthProvider>
-            </CompanyAccountProvider>
-          </AppearanceBootstrap>
-        </AppearanceProvider>
+              </CompanyAccountProvider>
+            </AppearanceBootstrap>
+          </AppearanceProvider>
+        </AuthProvider>
       </TenantBootstrap>
     </TenantResolutionProvider>
   );

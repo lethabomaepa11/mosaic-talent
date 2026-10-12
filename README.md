@@ -47,7 +47,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Shared `/login` page with tenant branding:
   - company logo + company name shown when tenant is resolved.
   - self-signup link hidden on company tenant login.
-- User signup + developer onboarding flow.
+- Full-name signup and required developer onboarding, with optional GitHub and learning goals.
 - Company account creation flow (creates tenant + owner admin).
 - Company employee model and management service groundwork.
 - Domain-based tenant resolution on frontend:
@@ -166,6 +166,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
 - [Project Creation with Optional GitHub (#98)](docs/feature/project-creation-optional-github.md)
+- [OAuth Logout Cookie Cleanup (#102)](docs/feature/oauth-logout-cookie-cleanup.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
 - [Project Delete Restricted To Sole Member](docs/feature/project-delete-sole-member-only.md)
@@ -175,6 +176,9 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Company Signup Tenant Redirect Fix](docs/feature/company-signup-tenant-redirect-fix.md)
 - [Agent Issue Template Workflow](docs/feature/agent-issue-template-workflow.md)
+- [Issue-Driven V1 Workflow](docs/feature/issue-driven-v1-workflow.md)
+- [Developer Onboarding V1](docs/feature/developer-onboarding-v1.md)
+- [OAuth Logout Issue #102](docs/feature/oauth-logout-issue-draft.md)
 - [GitHub OAuth Production Cookie Domain Fix](docs/feature/github-oauth-prod-cookie-domain-fix.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
@@ -242,6 +246,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Auth / session / tenancy
 
 - `POST /api/TokenAuth/Authenticate`
+- `POST /api/TokenAuth/BeginGitHubConnection`
 - `POST /api/services/app/Account/Register`
 - `POST /api/services/app/Account/IsTenantAvailable`
 - `GET /api/services/app/Session/GetCurrentLoginInformations`
@@ -249,6 +254,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/GetGithubSkillSuggestions`
 - `GET /api/services/app/DeveloperOnboarding/SearchPublicDevelopers`
 - `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
