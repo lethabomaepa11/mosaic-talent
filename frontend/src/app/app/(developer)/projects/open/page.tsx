@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button, Empty, Modal, Spin, Typography } from "antd";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
+import { ProjectMatchComparison } from "@/components/project-match-comparison/ProjectMatchComparison";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
 import { IProjectJoinLoadWarning } from "@/providers/project-provider/context";
@@ -118,6 +119,8 @@ const OpenProjectsPage = () => {
           </Link>
         </div>
       </motion.div>
+
+      <ProjectMatchComparison />
 
       <div className={styles.swipeBoard}>
         {swipeProjects.length === 0 ? (
