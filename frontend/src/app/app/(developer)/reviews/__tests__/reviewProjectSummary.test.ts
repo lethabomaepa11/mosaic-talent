@@ -6,6 +6,9 @@ describe("toReviewProjectSummary", () => {
     const summary = toReviewProjectSummary({
       projectId: "project-1",
       projectTitle: "Project One",
+      projectStatus: "in-progress",
+      canRequestPeerReview: true,
+      peerReviewRequestMessage: "",
       assignedToMe: [
         {
           id: "r-1",

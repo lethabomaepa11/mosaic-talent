@@ -15,6 +15,8 @@ public class PeerReview : FullAuditedEntity<Guid>, IMustHaveTenant
 
     public Guid RevieweeDeveloperId { get; set; }
 
+    public bool IsEarlyRequest { get; set; }
+
     [Range(1, 10)]
     public int Rating { get; set; } = 5;
 }

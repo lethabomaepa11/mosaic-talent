@@ -1,6 +1,7 @@
 using Abp.Dependency;
 using Abp.Domain.Repositories;
 using Abp.Notifications;
+using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
@@ -65,6 +66,105 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         _notificationEventDispatcher = notificationEventDispatcher;
     }
 
+    public async Task<int> RequestPeerReviewFromTeammates(
+        Guid projectId,
+        int tenantId,
+        Guid revieweeDeveloperId)
+    {
+        var project = await _projectRepository.FirstOrDefaultAsync(projectId)
+            ?? throw new UserFriendlyException("Project not found.");
+        var members = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .ToListAsync();
+        var membership = members.FirstOrDefault(x => x.DeveloperId == revieweeDeveloperId);
+        var now = DateTime.UtcNow;
+        var latestRequestReview = await _peerReviewRepository.GetAll()
+            .Where(x => x.ProjectId == projectId && x.RevieweeDeveloperId == revieweeDeveloperId && x.IsEarlyRequest)
+            .OrderByDescending(x => x.CreationTime)
+            .FirstOrDefaultAsync();
+        var eligibility = PeerReviewRequestPolicy.Evaluate(
+            project.Status,
+            membership != null,
+            members.Select(x => x.DeveloperId).Distinct().Count(),
+            membership?.CreationTime,
+            latestRequestReview?.CreationTime,
+            now);
+        if (!eligibility.CanRequest)
+        {
+            throw new UserFriendlyException(eligibility.Message);
+        }
+
+        var reviewerIds = members
+            .Select(x => x.DeveloperId)
+            .Where(x => x != revieweeDeveloperId)
+            .Distinct()
+            .ToList();
+        var projectSkills = await _projectSkillRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.Name)
+            .ToListAsync();
+        var tasks = await _projectTaskRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .ToListAsync();
+        var reviewers = await _developerRepository.GetAll()
+            .Where(x => reviewerIds.Contains(x.Id))
+            .ToListAsync();
+
+        foreach (var reviewerId in reviewerIds)
+        {
+            var review = new PeerReview
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                ReviewerDeveloperId = reviewerId,
+                RevieweeDeveloperId = revieweeDeveloperId,
+                IsEarlyRequest = true,
+                Rating = 5,
+            };
+            await _peerReviewRepository.InsertAsync(review);
+
+            var questions = await GenerateQuestions(
+                project,
+                projectSkills,
+                tasks,
+                reviewerId,
+                revieweeDeveloperId);
+            foreach (var question in questions)
+            {
+                await _questionRepository.InsertAsync(new AIReviewQuestion
+                {
+                    TenantId = tenantId,
+                    PeerReviewId = review.Id,
+                    Text = question.Text,
+                    Type = question.Type,
+                    RelatedGoal = question.RelatedGoal,
+                    Category = question.Category,
+                });
+            }
+        }
+
+        var reviewerUserIds = reviewers
+            .Where(x => x.UserId > 0)
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToArray();
+        if (reviewerUserIds.Length > 0)
+        {
+            var message = $"A teammate requested your anonymous peer review for \"{project.Title}\".";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                tenantId,
+                reviewerUserIds,
+                "MosaicTalent.PeerReviewAssigned",
+                message,
+                NotificationSeverity.Info,
+                "/app/reviews",
+                "Peer review requested",
+                message);
+        }
+
+        return reviewerIds.Count;
+    }
+
     public async Task EnsureGeneratedForProject(Guid projectId, int tenantId)
     {
         var project = await _projectRepository.FirstOrDefaultAsync(projectId);
@@ -105,7 +205,9 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
             foreach (var revieweeId in memberIds.Where(x => x != reviewerId))
             {
                 var exists = existingReviews.Any(x =>
-                    x.ReviewerDeveloperId == reviewerId && x.RevieweeDeveloperId == revieweeId);
+                    x.ReviewerDeveloperId == reviewerId &&
+                    x.RevieweeDeveloperId == revieweeId &&
+                    !x.IsEarlyRequest);
                 if (exists)
                 {
                     continue;
