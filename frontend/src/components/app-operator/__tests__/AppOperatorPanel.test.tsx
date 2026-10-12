@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppOperatorPanel } from "@/components/app-operator";
 import { AppOperatorProvider } from "@/providers/app-operator-provider";
@@ -35,7 +35,7 @@ describe("AppOperatorPanel", () => {
   });
 
   afterEach(() => {
-    document.body.innerHTML = "";
+    cleanup();
   });
 
   it("prompts for missing fields when required fields are absent", async () => {
