@@ -68,4 +68,4 @@ After the manual migration, test against the real backend:
 6. Check a 360px phone and desktop, including primary buttons, tagged inputs, and no horizontal page overflow.
 7. Visit onboarding as a completed user and verify company navigation still works.
 
-The related OAuth logout cookie issue is tracked separately as [#102](oauth-logout-issue-draft.md). It is being fixed on its own issue branch.
+The related OAuth logout cookie issue is tracked separately as [#102](oauth-logout-issue-draft.md), with its fix submitted in PR #104.
