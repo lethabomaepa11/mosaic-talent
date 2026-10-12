@@ -100,6 +100,37 @@ export const useStyles = createStyles(({ token, css }) => ({
       padding: ${token.paddingLG}px;
     }
   `,
+  swipeIntro: css`
+    text-align: center;
+    margin-bottom: ${token.marginSM}px;
+  `,
+  swipeProgress: css`
+    margin: 0;
+    color: ${token.colorPrimary};
+    font-weight: ${token.fontWeightStrong};
+  `,
+  swipeActionBar: css`
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: ${token.marginSM}px;
+    margin-top: ${token.marginMD}px;
+
+    @media (max-width: 520px) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      > button {
+        min-width: 0;
+      }
+    }
+  `,
+  swipeEmpty: css`
+    min-height: 340px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+  `,
   swipeStack: css`
     position: relative;
     min-height: clamp(370px, calc(100vh - 390px), 520px);
