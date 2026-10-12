@@ -70,12 +70,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - profile skills and learning goals now receive AI suggestion chips and typing suggestions
 - Gamification layer:
   - developer points and levels for collaboration/growth actions
-  - badge unlocks for review participation, project completion, and simulation consistency
+  - badge unlocks for review participation and project completion; previously earned simulation badges remain recorded
   - profile progression card and reward feedback within review workflows
-- Teamwork simulator:
-  - scenario-based sessions with role bots
-  - turn-based conversation with assessor feedback
-  - communication dimension scoring per turn
 - Ask Moahi (AI assistant/operator):
   - full-page command execution across routes/forms/workflows
   - Groq-backed intent planning with deterministic local fallback
@@ -87,7 +83,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project-level AI feedback summary + strengths/improvements/tips + growth score
 - Teamwork rating governance:
   - teamwork rating is system-managed (not user-editable)
-  - rating is derived from peer reviews and AI simulation performance
+  - rating is derived from peer reviews and historical AI simulation performance
 - Company jobs:
   - company admin job posting management in `/app/jobs`
   - developer + public job applications with source + lifecycle status
@@ -124,8 +120,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - anonymous `/developers/[username]` profile page with skills, current projects, and completed projects
   - project member names link to public profiles from project details
 - Global search in the header:
-  - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
-  - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
+  - Autocomplete combines developer matches (via `SearchPublicDevelopers`) and project names.
+  - Selecting a suggestion navigates to the matching developer profile or project detail.
 - Project collaboration upgrade:
   - project details now use tabs (`Repo Safety`, `Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
   - AI Fill Team now sends member invites (in-app + email when configured) instead of force-adding members
@@ -146,6 +142,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
+- [AI Simulator retirement](docs/feature/ai-simulator-retirement.md)
+- [AI Simulator historical implementation](docs/feature/ai-simulator.md)
 - [Open Project Browsing](docs/feature/open-project-browse.md)
 - [Open Project Discovery Decisions](docs/feature/open-project-discovery.md)
 - [AI Simulator](docs/feature/ai-simulator.md)
@@ -309,11 +307,11 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/PeerReview/SetPeerReviewRating`
 - `POST /api/services/app/PeerReview/SubmitReviewAnswer`
 
-### AI simulator
+### AI simulator (retired)
+
+These endpoints remain for historical records. `CreateScenario` and `StartSession` reject new work.
 
 - `GET /api/services/app/SimulationScenario/GetScenarios`
-- `POST /api/services/app/SimulationScenario/CreateScenario`
-- `POST /api/services/app/SimulationScenario/StartSession`
 - `GET /api/services/app/SimulationScenario/GetSession`
 - `POST /api/services/app/SimulationScenario/SendMessage`
 - `POST /api/services/app/SimulationVoice/Turn`

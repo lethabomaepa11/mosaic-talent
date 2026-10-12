@@ -64,7 +64,6 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
     {
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
         await EnsureCurrentDeveloper();
-        await EnsureDefaultScenarios(tenantId);
 
         var scenarios = await _scenarioRepository.GetAll()
             .Where(x => x.TenantId == tenantId)
@@ -74,130 +73,14 @@ public partial class SimulationScenarioAppService : MosaicTalentAppServiceBase, 
         return await MapScenarios(scenarios);
     }
 
-    public async Task<SimulationScenarioDto> CreateScenario(CreateSimulationScenarioInput input)
+    public Task<SimulationScenarioDto> CreateScenario(CreateSimulationScenarioInput input)
     {
-        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
-        await EnsureCurrentDeveloper();
-
-        var scenario = new SimulationScenario
-        {
-            TenantId = tenantId,
-            Title = input.Title.Trim(),
-            Prompt = input.Prompt.Trim(),
-            BotCount = input.BotCount,
-        };
-
-        await _scenarioRepository.InsertAsync(scenario);
-        await CurrentUnitOfWork.SaveChangesAsync();
-
-        var roles = (input.RequiredRoles ?? new List<string>())
-            .Select(ParseBotRole)
-            .Distinct()
-            .ToList();
-
-        foreach (var role in roles)
-        {
-            await _requiredRoleRepository.InsertAsync(new SimulationScenarioRequiredRole
-            {
-                TenantId = tenantId,
-                ScenarioId = scenario.Id,
-                Role = role,
-            });
-        }
-
-        await CurrentUnitOfWork.SaveChangesAsync();
-        var mapped = await MapScenarios(new List<SimulationScenario> { scenario });
-        return mapped.First();
+        return Task.FromException<SimulationScenarioDto>(new UserFriendlyException("AI Simulator has been retired."));
     }
 
-    public async Task<SimulationSessionDto> StartSession(StartSimulationSessionInput input)
+    public Task<SimulationSessionDto> StartSession(StartSimulationSessionInput input)
     {
-        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
-        await EnsureCurrentDeveloper();
-
-        var scenario = await _scenarioRepository.GetAll()
-            .FirstOrDefaultAsync(x => x.Id == input.ScenarioId && x.TenantId == tenantId)
-            ?? throw new UserFriendlyException("Simulation scenario not found.");
-
-        var requiredRoles = await _requiredRoleRepository.GetAll()
-            .Where(x => x.ScenarioId == scenario.Id)
-            .Select(x => x.Role)
-            .Distinct()
-            .ToListAsync();
-        var participantName = await ResolveParticipantName();
-        var speakingRoles = requiredRoles
-            .Where(role => role != BotRole.Assessor && role != BotRole.Orchestrator)
-            .Distinct()
-            .ToList();
-
-        if (PromptImpliesManagerCounterpart(scenario.Prompt) &&
-            !speakingRoles.Contains(BotRole.Stakeholder))
-        {
-            speakingRoles.Insert(0, BotRole.Stakeholder);
-        }
-
-        var sessionType = ParseSessionType(input.SessionType, speakingRoles.Count);
-
-        var session = new SimulationSession
-        {
-            TenantId = tenantId,
-            ScenarioId = scenario.Id,
-            SessionType = sessionType,
-            OrchestratorNeeded = sessionType == SessionType.MeetingSimulation || speakingRoles.Count >= 3,
-        };
-
-        await _sessionRepository.InsertAsync(session);
-        await CurrentUnitOfWork.SaveChangesAsync();
-
-        var rolesToCreate = speakingRoles.Count > 0 ? speakingRoles : new List<BotRole> { BotRole.Teammate };
-        var order = 1;
-        foreach (var role in rolesToCreate)
-        {
-            await _botRepository.InsertAsync(new SimulationBot
-            {
-                TenantId = tenantId,
-                SessionId = session.Id,
-                Role = role,
-                PersonalityPrompt = BuildBotPersonality(role, scenario.Title, scenario.Prompt, participantName),
-                CurrentState = "Ready",
-                IsActive = true,
-                TurnOrder = order++,
-            });
-        }
-
-        await _botRepository.InsertAsync(new SimulationBot
-        {
-            TenantId = tenantId,
-            SessionId = session.Id,
-            Role = BotRole.Assessor,
-            PersonalityPrompt = "Observe communication quality and provide concise coaching notes.",
-            CurrentState = "Observing",
-            IsActive = true,
-            TurnOrder = null,
-        });
-
-        if (session.OrchestratorNeeded)
-        {
-            await _botRepository.InsertAsync(new SimulationBot
-            {
-                TenantId = tenantId,
-                SessionId = session.Id,
-                Role = BotRole.Orchestrator,
-                PersonalityPrompt = "Manage speaking turns and maintain conversation coherence.",
-                CurrentState = "Managing flow",
-                IsActive = true,
-                TurnOrder = null,
-            });
-        }
-
-        await CurrentUnitOfWork.SaveChangesAsync();
-
-        var kickoffTrigger = session.SessionType == SessionType.MeetingSimulation
-            ? "Meeting kickoff"
-            : "Session kickoff";
-        await GenerateAndPersistBotTurn(tenantId, session, scenario, kickoffTrigger);
-
-        return await GetSession(new GetSimulationSessionInput { SessionId = session.Id });
+        return Task.FromException<SimulationSessionDto>(new UserFriendlyException("AI Simulator has been retired."));
     }
 
     public async Task<SimulationSessionDto> GetSession(GetSimulationSessionInput input)

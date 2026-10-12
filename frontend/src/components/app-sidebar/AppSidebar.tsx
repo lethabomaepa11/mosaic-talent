@@ -8,7 +8,6 @@ import {
   User,
   Compass,
   FolderKanban,
-  Brain,
   MessageSquare,
   LogOut,
   PanelLeftClose,
@@ -30,7 +29,6 @@ const developerNav: INavItem[] = [
   { href: "/app/projects/open", label: "Discover", icon: Compass },
   { href: "/app/projects/my", label: "My Projects", icon: FolderKanban },
   { href: "/app/profile", label: "My Profile", icon: User },
-  { href: "/app/simulator", label: "AI Simulator", icon: Brain },
   { href: "/app/reviews", label: "Peer Reviews", icon: MessageSquare },
 ];
 
@@ -114,11 +112,6 @@ export const AppSidebar = ({ collapsed = false, onCollapseToggle }: IAppSidebarP
           <Link href="/app/projects/my?create=true" className={styles.navLink} data-ai-route="/app/projects/my?create=true" aria-label="Create Project" title={collapsed ? "Create Project" : undefined}>
             <Button type="text" className={cx(styles.quickButton, collapsed && styles.iconButton)} icon={collapsed ? <Plus size={16} /> : undefined} aria-label="Create Project">
               {collapsed ? null : "+ Create Project"}
-            </Button>
-          </Link>
-          <Link href="/app/simulator" className={styles.navLink} data-ai-route="/app/simulator">
-            <Button type="text" className={styles.quickButton}>
-              + Start Simulation
             </Button>
           </Link>
         </div>

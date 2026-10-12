@@ -289,9 +289,6 @@ export const executeOperatorIntent = async (
     save_email_templates: "save_email_templates",
     publish_page_builder: "publish_page_builder",
     ask_ai_page_builder: "ask_ai_page_builder",
-    start_scenario: "start_scenario",
-    contribute_scenario: "contribute_scenario",
-    end_simulation: "end_simulation",
     reject_candidate: "reject_candidate",
     send_candidate_email: "send_candidate_email",
   };
