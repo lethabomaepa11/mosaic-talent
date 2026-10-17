@@ -2051,6 +2051,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
                     UserName = user?.UserName ?? string.Empty,
                     Avatar = user?.AvatarUrl ?? string.Empty,
                     Role = member.Role == MemberRole.Lead ? "lead" : "member",
+                    IsMentor = member.IsMentor,
                 };
             }).ToList();
             var memberNameMap = memberDtos.ToDictionary(x => x.Id, x => x.Name);

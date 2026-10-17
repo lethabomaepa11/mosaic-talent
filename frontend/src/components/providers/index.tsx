@@ -10,6 +10,7 @@ import { CompanyAccountProvider } from "@/providers/company-account-provider";
 import { CompanyProfileProvider } from "@/providers/company-profile-provider";
 import { DeveloperProvider } from "@/providers/developer-provider";
 import { ProjectProvider } from "@/providers/project-provider";
+import { ProjectProgressProvider } from "@/providers/project-progress-provider";
 import { JobProvider } from "@/providers/job-provider";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { ReviewProvider } from "@/providers/review-provider";
@@ -98,9 +99,10 @@ export function AppProviders({ children }: PropsWithChildren) {
                 <CompanyProfileProvider>
                   <DeveloperProvider>
                     <ProjectProvider>
-                      <JobProvider>
-                        <ReviewProvider>
-                          <NotificationProvider>
+                      <ProjectProgressProvider>
+                        <JobProvider>
+                          <ReviewProvider>
+                            <NotificationProvider>
                               <AppOperatorProvider>
                                 <AppProgressProvider>
                                   <AntdProvider>
@@ -110,9 +112,10 @@ export function AppProviders({ children }: PropsWithChildren) {
                                   </AntdProvider>
                                 </AppProgressProvider>
                               </AppOperatorProvider>
-                          </NotificationProvider>
-                        </ReviewProvider>
-                      </JobProvider>
+                            </NotificationProvider>
+                          </ReviewProvider>
+                        </JobProvider>
+                      </ProjectProgressProvider>
                     </ProjectProvider>
                   </DeveloperProvider>
                 </CompanyProfileProvider>

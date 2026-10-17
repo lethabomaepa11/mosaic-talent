@@ -277,6 +277,7 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   memberItem: css`
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: ${token.marginSM}px;
     padding: ${token.paddingSM}px;

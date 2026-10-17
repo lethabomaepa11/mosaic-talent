@@ -23,6 +23,7 @@ public interface IDeveloperProjectAppService : IApplicationService
     Task<DeveloperProjectDto> RemoveProjectMember(RemoveProjectMemberInput input);
     Task SubmitProjectComplaint(SubmitProjectComplaintInput input);
     Task<DeveloperProjectDto> AssignMemberRole(AssignProjectMemberRoleInput input);
+    Task<DeveloperProjectDto> SetProjectMemberMentor(SetProjectMemberMentorInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafety(ScanRepoSafetyInput input);
     Task<RepoSafetyScanResultDto> ScanRepoSafetyByUrl(ScanRepoSafetyByUrlInput input);
     Task<DeveloperProjectDto> AiMatchProject();

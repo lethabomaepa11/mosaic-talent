@@ -30,6 +30,8 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<ProjectMember> ProjectMembers { get; set; }
     public DbSet<ProjectSkill> ProjectSkills { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
+    public DbSet<ProjectProgressEntry> ProjectProgressEntries { get; set; }
+    public DbSet<ProjectProgressReview> ProjectProgressReviews { get; set; }
     public DbSet<ProjectMeeting> ProjectMeetings { get; set; }
     public DbSet<ProjectMeetingReminderPreference> ProjectMeetingReminderPreferences { get; set; }
     public DbSet<ProjectTeamInvite> ProjectTeamInvites { get; set; }
@@ -151,6 +153,18 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
             builder.HasIndex(x => new { x.ProjectId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.ProjectId });
             builder.HasIndex(x => new { x.ProjectId, x.AssignedDeveloperId });
+        });
+
+        modelBuilder.Entity<ProjectProgressEntry>(builder =>
+        {
+            builder.HasIndex(x => new { x.ProjectId, x.CreationTime });
+            builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.ProjectId });
+        });
+
+        modelBuilder.Entity<ProjectProgressReview>(builder =>
+        {
+            builder.HasIndex(x => new { x.EntryId, x.ReviewerDeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.ReviewerDeveloperId });
         });
 
         modelBuilder.Entity<ProjectMeeting>(builder =>

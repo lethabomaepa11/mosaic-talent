@@ -8,6 +8,7 @@ export interface IProjectMember {
   userName?: string;
   avatar: string;
   role: "lead" | "member";
+  isMentor?: boolean;
 }
 
 export interface IProjectTask {
@@ -280,6 +281,11 @@ export interface IProjectActionContext {
     memberId: string,
     role: "lead" | "member",
   ) => Promise<IProject | undefined>;
+  setProjectMemberMentor: (
+    projectId: string,
+    memberId: string,
+    isMentor: boolean,
+  ) => Promise<IProject | undefined>;
   aiMatchProject: () => Promise<IProject | undefined>;
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
   aiGenerateProjectTasks: (
@@ -386,6 +392,7 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   removeProjectMember: async () => undefined,
   submitProjectComplaint: async () => undefined,
   assignMemberRole: async () => undefined,
+  setProjectMemberMentor: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,
   aiGenerateProjectTasks: async () => [],
