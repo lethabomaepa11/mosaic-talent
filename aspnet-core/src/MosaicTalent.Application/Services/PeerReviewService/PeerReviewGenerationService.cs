@@ -109,6 +109,11 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         var tasks = await _projectTaskRepository.GetAll()
             .Where(x => x.ProjectId == projectId)
             .ToListAsync();
+        var progressEntries = await _projectProgressEntryRepository.GetAll()
+            .Where(x => x.ProjectId == projectId && x.DeveloperId == revieweeDeveloperId)
+            .OrderByDescending(x => x.CreationTime)
+            .Take(20)
+            .ToListAsync();
         var reviewers = await _developerRepository.GetAll()
             .Where(x => reviewerIds.Contains(x.Id))
             .ToListAsync();
@@ -130,6 +135,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                 project,
                 projectSkills,
                 tasks,
+                progressEntries,
                 reviewerId,
                 revieweeDeveloperId);
             foreach (var question in questions)
