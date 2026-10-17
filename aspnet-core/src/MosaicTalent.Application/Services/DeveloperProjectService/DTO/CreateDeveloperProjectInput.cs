@@ -17,7 +17,6 @@ public class CreateDeveloperProjectInput
     [Range(2, 8)]
     public int? MaxMembers { get; set; } = 4;
 
-    [Required]
     [MaxLength(256)]
     public string GithubRepo { get; set; }
 

@@ -1,6 +1,6 @@
 ---
 name: follow-git-workflow
-description: Use this skill before starting ANY feature or fix. Covers issue-first workflow with repository issue templates, branch naming, commit message conventions, the mandatory planning step, and the push workflow. The agent must always show a plan, create a template-based issue, and create a branch before writing code.
+description: Use this skill before starting ANY feature or fix. Covers tracked issues, repository issue templates, branch naming, commit conventions, plan approval, testing, and the push workflow. Reuse an existing issue when it covers the work; create a template-based issue only when no suitable issue exists.
 ---
 
 # Mosaic-Talent — Git Workflow
@@ -15,7 +15,7 @@ Every piece of work — no matter how small — follows this sequence:
 
 ```
 1. Show plan
-2. Create issue
+2. Select the existing tracking issue, or create a template-based issue when none covers the approved work
 3. Create branch
 4. Write code, make sure to keep it under 300 lines or split into multiple files. If code exceeds 300 lines, refactor into multiple files until each file is under 300 lines.
 5. Always call apis through provider actions, never directly from components. If API logic is needed in a component, add it to the relevant provider or create a new provider if necessary.
@@ -169,7 +169,9 @@ git push origin feature/<name>
 
 ## Issue First (Mandatory)
 
-Before creating the branch, create a GitHub issue that documents:
+Before creating the branch, select the existing GitHub issue that covers the work. User-written issues are valid tracking issues and do not need to be recreated or reformatted.
+
+When no suitable issue exists, create a GitHub issue that documents:
 
 - Problem summary
 - Current behavior
@@ -178,13 +180,15 @@ Before creating the branch, create a GitHub issue that documents:
 
 Use the issue number in branch and PR context where possible.
 
+For backlog selection and discovered problems, follow [work-prioritized-issues](../work-prioritized-issues/SKILL.md). Issue creation does not authorize implementation; plan approval still applies.
+
 ---
 
 ## Issue Template Rules (Mandatory)
 
-- Always use `.github/ISSUE_TEMPLATE/bug_report.md` for bug fixes.
-- Always use `.github/ISSUE_TEMPLATE/feature_request.md` for feature/chore/refactor work.
-- Issue body must follow the selected template sections.
+- For new issues, use `.github/ISSUE_TEMPLATE/bug_report.md` for bug fixes.
+- For new issues, use `.github/ISSUE_TEMPLATE/feature_request.md` for feature/chore/refactor work.
+- New issue bodies must follow the selected template sections; do not create duplicate issues to enforce templates on existing user-written issues.
 
 Preferred command:
 
@@ -200,7 +204,7 @@ If running non-interactively and `gh` cannot combine `--template` with `--body`,
 ## Pull Request Rules
 
 - Open pull requests against `dev` (not `main`).
-- Link the issue in the PR body using `Closes #<issue-number>` or `Fixes #<issue-number>`.
+- Link fully addressed issues in the PR body using `Closes #<issue-number>` or `Fixes #<issue-number>`. For partial work, use `Refs #<issue-number>` and describe what remains.
 - Include test evidence in the PR body.
 - Before commit/push/PR, ask the user to test the implemented functionality and wait for explicit confirmation.
 
@@ -259,9 +263,9 @@ Only after the plan is shown and explicitly confirmed by the user should the age
 ## Full Workflow Example
 
 ```bash
-# 1. Start clean
-git checkout main
-git pull origin main
+# 1. After plan approval, select an existing issue or create one; start clean from dev
+git checkout dev
+git pull origin dev
 
 # 2. Create branch
 git checkout -b feature/employee-provider
@@ -275,12 +279,12 @@ git checkout -b feature/employee-provider
 # 5. Run tests — do NOT continue until all pass
 npm test --watchAll=false
 
-# 6. Commit (include tests in the same commit or as a follow-up test commit)
+# 6. After user functional testing confirmation, commit
 git add .
 git commit -m "feat: add employee provider with full CRUD"
 git commit -m "test: add unit tests for employee provider"
 
-# 7. Push — only after green tests
+# 7. Push — only after green tests and user functional testing confirmation
 git push origin feature/employee-provider
 ```
 

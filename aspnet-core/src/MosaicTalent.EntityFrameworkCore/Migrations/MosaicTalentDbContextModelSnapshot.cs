@@ -2123,7 +2123,6 @@ namespace MosaicTalent.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GithubUsername")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
@@ -2149,6 +2148,10 @@ namespace MosaicTalent.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GithubUsername")
+                        .IsUnique()
+                        .HasFilter("\"GithubUsername\" IS NOT NULL AND \"IsDeleted\" = false");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -2181,6 +2184,9 @@ namespace MosaicTalent.Migrations
                     b.Property<Guid>("DeveloperId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("HasCompletedOnboarding")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -2193,6 +2199,9 @@ namespace MosaicTalent.Migrations
                     b.Property<string>("Location")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<int>("OnboardingStep")
+                        .HasColumnType("integer");
 
                     b.Property<double>("TeamworkRating")
                         .HasColumnType("double precision");

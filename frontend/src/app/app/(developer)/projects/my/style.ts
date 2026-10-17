@@ -72,29 +72,6 @@ export const useStyles = createStyles(({ token, css }) => ({
   resultCount: css`
     align-self: flex-end;
   `,
-  matchingOverlay: css`
-    position: fixed;
-    inset: 0;
-    z-index: 1200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, ${token.colorBgBase} 88%, transparent);
-    backdrop-filter: blur(2px);
-  `,
-  matchingContent: css`
-    text-align: center;
-  `,
-  matchingDot: css`
-    width: 72px;
-    height: 72px;
-    margin: 0 auto ${token.marginSM}px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, ${token.colorPrimary} 24%, transparent);
-  `,
   formGrid: css`
     display: grid;
     gap: ${token.marginSM}px;

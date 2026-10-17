@@ -1,6 +1,36 @@
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
+  eyebrow: css`
+    color: ${token.colorPrimary};
+    font-size: ${token.fontSizeSM}px;
+    font-weight: ${token.fontWeightStrong};
+  `,
+  progress: css`margin-bottom: ${token.marginLG}px;`,
+  steps: css`
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 0;
+    gap: ${token.marginXS}px;
+    list-style: none;
+    margin: ${token.marginXS}px 0;
+    font-size: ${token.fontSizeSM}px;
+  `,
+  step: css`color: ${token.colorTextSecondary}; overflow-wrap: anywhere;`,
+  currentStep: css`color: ${token.colorPrimary}; font-weight: ${token.fontWeightStrong};`,
+  stepTitle: css`
+    margin: 0;
+    font-size: ${token.fontSizeHeading4}px;
+    @media (min-width: 768px) { font-size: ${token.fontSizeHeading3}px; }
+  `,
+  accountDetails: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+    margin: 0;
+    dt { color: ${token.colorTextSecondary}; font-size: ${token.fontSizeSM}px; }
+    dd { margin: 0 0 ${token.marginSM}px; overflow-wrap: anywhere; }
+  `,
+  fullWidth: css`width: 100%; min-width: 0;`,
   page: css`
     min-height: 100vh;
     padding: ${token.paddingLG}px ${token.padding}px;

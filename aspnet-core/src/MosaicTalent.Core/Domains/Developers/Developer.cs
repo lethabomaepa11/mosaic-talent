@@ -8,7 +8,6 @@ public class Developer : FullAuditedEntity<Guid>
 {
     public long UserId { get; set; }
 
-    [Required]
     [MaxLength(64)]
     public string GithubUsername { get; set; }
 

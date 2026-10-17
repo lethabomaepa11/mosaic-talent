@@ -21,17 +21,42 @@ export const useStyles = createStyles(({ token, css }) => ({
       min-height: 100vh;
     }
   `,
+  sidebarCollapsed: css`
+    width: 76px;
+    min-width: 76px;
+
+    @media (max-width: 991px) {
+      width: 100%;
+      min-width: 100%;
+    }
+  `,
   logoRow: css`
     display: flex;
     align-items: center;
     height: 64px;
     padding: 0 ${token.paddingLG}px;
     border-bottom: 1px solid ${token.colorBorder};
+    justify-content: space-between;
+  `,
+  logoRowCollapsed: css`
+    flex-direction: column;
+    justify-content: center;
+    gap: ${token.marginXXS}px;
+    height: 92px;
+    padding: ${token.paddingXS}px;
   `,
   logoImage: css`
     width: auto;
     max-width: 100%;
     height: 26px;
+  `,
+  logoImageCollapsed: css`
+    width: 32px;
+    height: 32px;
+  `,
+  collapseButton: css`
+    flex: none;
+    color: ${token.colorTextSecondary};
   `,
   body: css`
     flex: 1;
@@ -56,6 +81,11 @@ export const useStyles = createStyles(({ token, css }) => ({
       color: ${token.colorText};
       background: color-mix(in srgb, ${token.colorText} 6%, transparent);
     }
+  `,
+  iconButton: css`
+    justify-content: center;
+    width: 100%;
+    padding-inline: 0;
   `,
   navButtonActive: css`
     color: ${token.colorPrimary};
