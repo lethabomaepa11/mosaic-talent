@@ -250,6 +250,35 @@ export const AppOperatorPanel = () => {
     actions.addAssistantMessage("Should I run this for you now?");
   };
 
+  const runSlashCommand = (rawCommand: string) => {
+    const commandName = rawCommand.trim().toLowerCase().split(/\s+/, 1)[0];
+    const destinations: Record<string, { path: string; reply: string }> = {
+      "/login": { path: "/login", reply: "Opening sign in." },
+      "/signup": { path: "/signup", reply: "Opening account creation." },
+      "/onboarding": { path: "/onboarding", reply: "Opening onboarding." },
+      "/company": { path: "/company/signup", reply: "Opening company account creation." },
+    };
+
+    if (commandName === "/help") {
+      actions.addAssistantMessage(
+        "I can explain the next step in plain language. Try a question such as “How do I join a project?” or use /login, /signup, /onboarding, or /company.",
+      );
+      return true;
+    }
+
+    const destination = destinations[commandName];
+    if (!destination) {
+      actions.addAssistantMessage("I do not know that shortcut yet. Type /help to see the available shortcuts.");
+      return true;
+    }
+
+    actions.addAssistantMessage(destination.reply);
+    if (pathname !== destination.path) {
+      router.push(destination.path);
+    }
+    return true;
+  };
+
   const processCommand = async (rawCommand: string, fromVoice: boolean) => {
     if (isSubmittingRef.current) {
       return;
@@ -265,6 +294,11 @@ export const AppOperatorPanel = () => {
       actions.addUserMessage(fromVoice ? `[voice] ${trimmed}` : trimmed);
       if (!fromVoice) {
         setCommand("");
+      }
+
+      if (trimmed.startsWith("/")) {
+        runSlashCommand(trimmed);
+        return;
       }
 
       actions.setPending(true);
@@ -583,7 +617,7 @@ export const AppOperatorPanel = () => {
               <Typography.Text type="secondary">
                 {isCompanyTenant
                   ? 'Try: "How do I create a frontend engineer job?" or "Shortlist React candidates with teamwork above 8."'
-                  : 'Try: "How do I create a project?" or "Join an open project for React and TypeScript."'}
+                  : 'Try: "How do I create a project?", “Join an open project for React and TypeScript,” or /help.'}
               </Typography.Text>
             ) : null}
             {history.map((item) => (
@@ -632,7 +666,7 @@ export const AppOperatorPanel = () => {
               value={command}
               onChange={(event) => setCommand(event.target.value)}
               onPressEnter={() => void handleSubmit()}
-              placeholder="Ask Moahi to do something..."
+              placeholder="Ask a question or type /help"
               className={styles.input}
               data-ai-field="operator-command-input"
             />
