@@ -3124,6 +3124,9 @@ namespace MosaicTalent.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsEarlyRequest")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp with time zone");
 
@@ -3151,8 +3154,7 @@ namespace MosaicTalent.Migrations
 
                     b.HasIndex("TenantId", "ReviewerDeveloperId");
 
-                    b.HasIndex("ProjectId", "ReviewerDeveloperId", "RevieweeDeveloperId")
-                        .IsUnique();
+                    b.HasIndex("ProjectId", "ReviewerDeveloperId", "RevieweeDeveloperId");
 
                     b.ToTable("PeerReviews");
                 });

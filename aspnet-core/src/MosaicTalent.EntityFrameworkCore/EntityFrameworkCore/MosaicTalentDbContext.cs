@@ -175,7 +175,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
 
         modelBuilder.Entity<PeerReview>(builder =>
         {
-            builder.HasIndex(x => new { x.ProjectId, x.ReviewerDeveloperId, x.RevieweeDeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.ProjectId, x.ReviewerDeveloperId, x.RevieweeDeveloperId });
             builder.HasIndex(x => new { x.TenantId, x.ReviewerDeveloperId });
             builder.HasIndex(x => new { x.TenantId, x.RevieweeDeveloperId });
         });

@@ -79,8 +79,15 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             return new List<ProjectPeerReviewsDto>();
         }
 
+        var assignedProjectIds = await _peerReviewRepository.GetAll()
+            .Where(x => x.ReviewerDeveloperId == developer.Id)
+            .Select(x => x.ProjectId)
+            .Distinct()
+            .ToListAsync();
+
         var projects = await _projectRepository.GetAll()
-            .Where(x => projectIds.Contains(x.Id) && x.Status == ProjectStatus.Complete)
+            .Where(x => projectIds.Contains(x.Id) &&
+                (x.Status == ProjectStatus.Complete || assignedProjectIds.Contains(x.Id)))
             .OrderByDescending(x => x.LastModificationTime ?? x.CreationTime)
             .ToListAsync();
 
@@ -108,6 +115,15 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
         var developer = await GetCurrentDeveloper();
         var project = await EnsureProjectMember(input.ProjectId, developer.Id);
         await _generationService.EnsureGeneratedForProject(project.Id, project.TenantId);
+        return await BuildProjectReviews(project.Id, developer.Id);
+    }
+
+    public async Task<ProjectPeerReviewsDto> RequestProjectPeerReview(GenerateProjectPeerReviewsInput input)
+    {
+        var developer = await GetCurrentDeveloper();
+        var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
+        var project = await EnsureProjectMember(input.ProjectId, developer.Id);
+        await _generationService.RequestPeerReviewFromTeammates(project.Id, tenantId, developer.Id);
         return await BuildProjectReviews(project.Id, developer.Id);
     }
 
@@ -362,7 +378,7 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
             };
         }).ToList();
 
-        return new ProjectPeerReviewsDto
+        var dto = new ProjectPeerReviewsDto
         {
             ProjectId = project.Id,
             ProjectTitle = project.Title,
@@ -383,6 +399,37 @@ public class PeerReviewAppService : MosaicTalentAppServiceBase, IPeerReviewAppSe
                     GrowthScore = feedback.GrowthScore,
                 },
         };
+
+        dto.ProjectStatus = project.Status switch
+        {
+            ProjectStatus.Open => "open",
+            ProjectStatus.InProgress => "in-progress",
+            ProjectStatus.Complete => "completed",
+            _ => "draft",
+        };
+
+        var membership = await _projectMemberRepository.GetAll()
+            .FirstOrDefaultAsync(x => x.ProjectId == projectId && x.DeveloperId == currentDeveloperId);
+        var memberCount = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.DeveloperId)
+            .Distinct()
+            .CountAsync();
+        var lastRequest = await _peerReviewRepository.GetAll()
+            .Where(x => x.ProjectId == projectId && x.RevieweeDeveloperId == currentDeveloperId && x.IsEarlyRequest)
+            .OrderByDescending(x => x.CreationTime)
+            .FirstOrDefaultAsync();
+        var eligibility = PeerReviewRequestPolicy.Evaluate(
+            project.Status,
+            membership != null,
+            memberCount,
+            membership?.CreationTime,
+            lastRequest?.CreationTime,
+            DateTime.UtcNow);
+        dto.CanRequestPeerReview = eligibility.CanRequest;
+        dto.PeerReviewRequestMessage = eligibility.Message;
+
+        return dto;
     }
 
     private async Task<PeerReviewDto> BuildPeerReviewDto(PeerReview review)
