@@ -35,7 +35,7 @@ describe("AppSidebar", () => {
     render(<AppSidebar />);
 
     expect(screen.getByText("Discover")).toBeInTheDocument();
-    expect(screen.getByText("My Projects")).toBeInTheDocument();
+    expect(screen.queryByText("My Projects")).not.toBeInTheDocument();
     expect(screen.getByText("My Profile")).toBeInTheDocument();
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
     expect(screen.queryByText("AI Simulator")).not.toBeInTheDocument();

@@ -26,6 +26,25 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: ${token.marginXXS}px 0 0;
     color: ${token.colorTextSecondary};
   `,
+  discoveryModes: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginMD}px;
+    padding: ${token.paddingSM}px ${token.paddingMD}px;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+    background: ${token.colorBgContainer};
+
+    @media (max-width: 767px) {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  `,
+  modeCopy: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+  `,
   actionRow: css`
     display: flex;
     flex-wrap: wrap;
