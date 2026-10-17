@@ -15,7 +15,7 @@ const navItems = [
 const moreItems = [
   { href: "/app/projects/my", label: "Projects", icon: FolderKanban },
   { href: "/app/how-to", label: "How to use", icon: CircleHelp },
-  { href: "/app/settings", label: "Settings", icon: Settings },
+  { href: "/app/preferences", label: "Settings", icon: Settings },
 ];
 const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(" ");
 
