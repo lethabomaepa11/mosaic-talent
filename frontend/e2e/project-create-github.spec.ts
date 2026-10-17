@@ -29,7 +29,6 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
-        userId: 99, hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
@@ -49,6 +48,10 @@ const setupCoreRoutes = async (page: Page) => {
 };
 
 const waitForWorkspaceReady = async (page: Page) => {
+  const guard = page.locator("[data-ai-guard-loading='developer']");
+  if (await guard.count()) {
+    await guard.waitFor({ state: "detached" });
+  }
   await page.waitForSelector("[data-ai-page='projects-create']", { state: "attached" });
 };
 
@@ -93,7 +96,7 @@ test.beforeEach(async ({ page }) => {
   await setupCoreRoutes(page);
 });
 
-test("shows GitHub connect gate before project creation when not connected", async ({ page }) => {
+test("allows project creation without connecting GitHub", async ({ page }) => {
   await page.route(
     "**/api/services/app/DeveloperProject/GetGithubConnectionStatus",
     async (route) => {
@@ -111,7 +114,19 @@ test("shows GitHub connect gate before project creation when not connected", asy
   await waitForWorkspaceReady(page);
 
   await expect(page.getByText("Connect GitHub to create a project.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create Project", exact: true })).toBeDisabled();
+  await expect(page.getByText(/create this project without a repository/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create Project", exact: true })).toBeEnabled();
+
+  let createPayload: { githubRepo?: string } | undefined;
+  await page.route("**/api/services/app/DeveloperProject/CreateProject", async (route) => {
+    createPayload = route.request().postDataJSON() as { githubRepo?: string };
+    await route.fulfill(jsonOk({ id: "project-without-repo", title: "Study Group", githubRepo: null }));
+  });
+  await page.getByLabel("Project Title").fill("Study Group");
+  await page.getByPlaceholder("Write markdown specs for your team.").fill("A repo-free project.");
+  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await expect.poll(() => createPayload).toBeDefined();
+  expect(createPayload?.githubRepo).toBe("");
 });
 
 test("creates project using selected GitHub repository", async ({ page }) => {
@@ -128,6 +143,7 @@ test("creates project using selected GitHub repository", async ({ page }) => {
       );
     },
   );
+  await mockSafeRepoScan(page);
 
   await page.route(
     "**/api/services/app/DeveloperProject/GetMyGithubRepositories",
@@ -173,16 +189,19 @@ test("creates project using selected GitHub repository", async ({ page }) => {
     );
   });
 
-  await mockSafeRepoScan(page);
-
   await page.goto("/app/projects/create");
 
   await waitForWorkspaceReady(page);
-
+  await expect(page.getByLabel("Project Title")).toHaveValue("");
+  await expect(page.getByPlaceholder("Write markdown specs for your team.")).toHaveValue("");
+  await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/alpha");
+  await expect(page.getByText("Repository passed safety checks")).toBeVisible();
+  await expect(page.getByLabel("Project Title")).toHaveValue("alpha");
   await page.getByLabel("Project Title").fill("Alpha Delivery");
   await page.getByPlaceholder("Write markdown specs for your team.").fill("Project created from test");
   await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/beta");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
+  await expect(page.getByLabel("Project Title")).toHaveValue("Alpha Delivery");
   await page.getByRole("button", { name: "Create Project", exact: true }).click();
 
   await expect.poll(() => createPayload).toBeDefined();
@@ -204,6 +223,8 @@ test("creates a new GitHub repository and auto-selects it for project creation",
       );
     },
   );
+
+  await mockSafeRepoScan(page);
 
   await page.route(
     "**/api/services/app/DeveloperProject/GetMyGithubRepositories",
@@ -260,8 +281,6 @@ test("creates a new GitHub repository and auto-selects it for project creation",
     );
   });
 
-  await mockSafeRepoScan(page);
-
   await page.goto("/app/projects/create");
 
   await waitForWorkspaceReady(page);
@@ -270,6 +289,7 @@ test("creates a new GitHub repository and auto-selects it for project creation",
   await page.getByLabel("Repository Name").fill("new-repo");
   await page.getByRole("dialog", { name: "Create GitHub Repository" }).getByRole("button", { name: "Create Repository" }).click();
 
+  await expect(page.getByLabel("Project Title")).toHaveValue("new-repo");
   await page.getByLabel("Project Title").fill("Repo Build");
   await page.getByPlaceholder("Write markdown specs for your team.").fill("Project with created repo");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();

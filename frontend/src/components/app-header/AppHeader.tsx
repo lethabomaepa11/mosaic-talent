@@ -27,7 +27,6 @@ import {
   type IDeveloperSearchResult,
 } from "@/providers/developer-provider";
 import { useProjectState } from "@/providers/project-provider";
-import { useSimulationState } from "@/providers/simulation-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { NotificationCenter } from "@/components/notification-center";
 import { useStyles } from "./styles";
@@ -55,7 +54,6 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
   const { profile: companyProfile } = useCompanyProfileState();
   const { searchPublicDevelopers } = useDeveloperAction();
   const { myProjects, openProjects } = useProjectState();
-  const { scenarios } = useSimulationState();
   const router = useRouter();
   const isCompanyTenant = Boolean(tenancyName);
 
@@ -159,21 +157,9 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       .slice(0, 6);
   }, [combinedProjects, normalizedSearch]);
 
-  const scenarioMatches = useMemo(() => {
-    if (!normalizedSearch) {
-      return [];
-    }
-    return scenarios
-      .filter((scenario) =>
-        scenario.title.toLowerCase().includes(normalizedSearch),
-      )
-      .slice(0, 6);
-  }, [scenarios, normalizedSearch]);
-
   const hasAnyResults =
     developerResults.length > 0 ||
-    projectMatches.length > 0 ||
-    scenarioMatches.length > 0;
+    projectMatches.length > 0;
 
   const autocompleteOptions = useMemo(() => {
     const groups = [];
@@ -229,27 +215,8 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       });
     }
 
-    if (scenarioMatches.length > 0) {
-      groups.push({
-        label: "Simulations",
-        options: scenarioMatches.map((scenario) => ({
-          value: `scenario:${scenario.id}`,
-          label: (
-            <Space align="center" className={styles.searchOption}>
-              <div>
-                <Typography.Text strong>{scenario.title}</Typography.Text>
-                <Typography.Text type="secondary">
-                  {scenario.botCount} bots · {scenario.requiredRoles.join(", ")}
-                </Typography.Text>
-              </div>
-            </Space>
-          ),
-        })),
-      });
-    }
-
     return groups;
-  }, [developerResults, projectMatches, scenarioMatches, styles.searchOption]);
+  }, [developerResults, projectMatches, styles.searchOption]);
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
@@ -274,8 +241,6 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       router.push(`/developers/${encodeURIComponent(id)}`);
     } else if (type === "project") {
       router.push(`/app/projects/${id}`);
-    } else if (type === "scenario") {
-      router.push(`/app/simulator?scenarioId=${id}`);
     }
 
     setSearchValue("");
@@ -333,7 +298,7 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
         >
           <Input
             prefix={<Search size={16} />}
-            placeholder="Search projects, reviews, simulations..."
+            placeholder="Search developers and projects..."
             className={styles.searchInput}
             suffix={
               isDeveloperSearchPending ? <Spin size="small" /> : undefined

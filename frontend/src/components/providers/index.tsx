@@ -13,7 +13,6 @@ import { ProjectProvider } from "@/providers/project-provider";
 import { JobProvider } from "@/providers/job-provider";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { ReviewProvider } from "@/providers/review-provider";
-import { SimulationProvider } from "@/providers/simulation-provider";
 import { AppOperatorProvider } from "@/providers/app-operator-provider";
 import {
   TenantResolutionProvider,
@@ -102,7 +101,6 @@ export function AppProviders({ children }: PropsWithChildren) {
                       <JobProvider>
                         <ReviewProvider>
                           <NotificationProvider>
-                            <SimulationProvider>
                               <AppOperatorProvider>
                                 <AppProgressProvider>
                                   <AntdProvider>
@@ -112,7 +110,6 @@ export function AppProviders({ children }: PropsWithChildren) {
                                   </AntdProvider>
                                 </AppProgressProvider>
                               </AppOperatorProvider>
-                            </SimulationProvider>
                           </NotificationProvider>
                         </ReviewProvider>
                       </JobProvider>

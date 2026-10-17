@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button, Empty, Input, Modal, Select, Spin, Typography } from "antd";
 import { Search } from "lucide-react";
 import { toast } from "@/components/providers";
@@ -11,9 +11,8 @@ import { ProjectMatchComparison } from "@/components/project-match-comparison/Pr
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
 import { IProjectJoinLoadWarning } from "@/providers/project-provider/context";
+import { SwipeProjectDeck } from "./SwipeProjectDeck";
 import { useStyles } from "./style";
-
-const SWIPE_THRESHOLD = 120;
 
 const OpenProjectsPage = () => {
   const [view, setView] = useState<"browse" | "swipe">("browse");
@@ -22,7 +21,6 @@ const OpenProjectsPage = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>();
   const [sortBy, setSortBy] = useState("newest");
   const [swipeIndex, setSwipeIndex] = useState(0);
-  const [dragOffsetX, setDragOffsetX] = useState(0);
   const [joinWarning, setJoinWarning] = useState<{
     projectId: string;
     warning: IProjectJoinLoadWarning;
@@ -40,12 +38,6 @@ const OpenProjectsPage = () => {
   }, []);
 
   useEffect(() => {
-    setSwipeIndex(0);
-  }, [openProjects.length]);
-  useEffect(() => {
-    setDragOffsetX(0);
-  }, [swipeIndex]);
-  useEffect(() => {
     if (!isJoiningProject) {
       return;
     }
@@ -62,9 +54,6 @@ const OpenProjectsPage = () => {
     };
   }, [isJoiningProject]);
 
-  const swipeProjects = useMemo(() => {
-    return openProjects.slice(swipeIndex, swipeIndex + 3);
-  }, [openProjects, swipeIndex]);
   const availableSkills = useMemo(
     () => [...new Set(openProjects.flatMap((project) => project.skills))].sort((a, b) => a.localeCompare(b)),
     [openProjects],
@@ -87,8 +76,6 @@ const OpenProjectsPage = () => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [openProjects, searchText, selectedSkills, selectedDifficulty, sortBy]);
-  const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(" ");
-
   const executeJoin = async (projectId: string, confirmHighWorkload = false) => {
     setIsJoiningProject(true);
     try {
@@ -98,12 +85,12 @@ const OpenProjectsPage = () => {
       const message = error instanceof Error ? error.message : "Failed to join project.";
       toast.error("Join failed", message);
     } finally {
-      setSwipeIndex((prev) => prev + 1);
       setIsJoiningProject(false);
     }
   };
 
   const handleSwipeJoin = async (projectId: string) => {
+    if (isJoiningProject) return;
     setIsJoiningProject(true);
     try {
       const warning = await getJoinProjectLoadWarning(projectId);
@@ -138,7 +125,7 @@ const OpenProjectsPage = () => {
             Open Projects
           </Typography.Title>
           <Typography.Paragraph className={styles.subtitle}>
-            Browse every open collaboration, or use the swipe view to review projects one at a time.
+            Find a team project where you can contribute, grow your skills, and work with other developers.
           </Typography.Paragraph>
         </div>
         <div className={styles.actionRow}>
@@ -210,103 +197,17 @@ const OpenProjectsPage = () => {
             Showing {visibleProjects.length} of {openProjects.length} open projects
           </Typography.Text>
         </section>
-      ) : <div className={styles.swipeBoard}>
-        {swipeProjects.length === 0 ? (
-          <Empty description="No more open projects to swipe." />
-        ) : (
-          <>
-            <div className={styles.swipeStack}>
-              <AnimatePresence>
-                {swipeProjects
-                  .slice()
-                  .reverse()
-                  .map((project, index) => {
-                    const isTop = index === swipeProjects.length - 1;
-                    const visualOffset = (swipeProjects.length - 1 - index) * 10;
-
-                    return (
-                      <motion.div
-                        key={project.id}
-                        className={cx(styles.swipeCard, isTop && styles.swipeCardTop)}
-                        initial={false}
-                        animate={{
-                          opacity: 1,
-                          y: visualOffset,
-                          scale: 1 - visualOffset * 0.01,
-                        }}
-                        exit={{ opacity: 0, x: 260, rotate: 12 }}
-                        drag={isTop && !isJoiningProject ? "x" : false}
-                        dragElastic={0.18}
-                        dragConstraints={{ left: 0, right: 0 }}
-                        onDrag={(_, info) => {
-                          if (isTop) {
-                            setDragOffsetX(info.offset.x);
-                          }
-                        }}
-                        onDragEnd={(_, info) => {
-                          if (isJoiningProject) {
-                            setDragOffsetX(0);
-                            return;
-                          }
-
-                          if (info.offset.x > SWIPE_THRESHOLD) {
-                            setDragOffsetX(0);
-                            void handleSwipeJoin(project.id);
-                            return;
-                          }
-
-                          if (info.offset.x < -SWIPE_THRESHOLD) {
-                            setDragOffsetX(0);
-                            handleSwipeSkip();
-                            return;
-                          }
-
-                          setDragOffsetX(0);
-                        }}
-                      >
-                        {isTop ? (
-                          <div className={styles.swipeOverlayWrap}>
-                            <span
-                              className={cx(
-                                styles.swipeOverlay,
-                                styles.swipeOverlayLike,
-                                dragOffsetX > 28 && styles.swipeOverlayVisible,
-                              )}
-                            >
-                              LIKE
-                            </span>
-                            <span
-                              className={cx(
-                                styles.swipeOverlay,
-                                styles.swipeOverlayNope,
-                                dragOffsetX < -28 && styles.swipeOverlayVisible,
-                              )}
-                            >
-                              NOPE
-                            </span>
-                          </div>
-                        ) : null}
-                        <ProjectCard
-                          project={project}
-                          onJoin={() => {
-                            if (!isJoiningProject) {
-                              void handleSwipeJoin(project.id);
-                            }
-                          }}
-                          variant="swipe"
-                          hideActions
-                        />
-                      </motion.div>
-                    );
-                  })}
-              </AnimatePresence>
-            </div>
-            <p className={styles.swipeHint}>
-              Swipe right to join. Swipe left to skip.
-            </p>
-          </>
-        )}
-      </div>}
+      ) : (
+        <SwipeProjectDeck
+          projects={openProjects}
+          swipeIndex={swipeIndex}
+          isJoiningProject={isJoiningProject}
+          onJoin={(projectId) => { void handleSwipeJoin(projectId); }}
+          onSkip={handleSwipeSkip}
+          onBrowse={() => setView("browse")}
+          onRestart={() => setSwipeIndex(0)}
+        />
+      )}
       <Modal
         open={Boolean(joinWarning)}
         title="Workload Warning"
