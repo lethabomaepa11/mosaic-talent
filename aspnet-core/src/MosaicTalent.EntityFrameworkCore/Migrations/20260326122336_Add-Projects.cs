@@ -1,10 +1,14 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using MosaicTalent.EntityFrameworkCore;
 
 #nullable disable
 
 namespace MosaicTalent.Migrations
 {
+    [DbContext(typeof(MosaicTalentDbContext))]
+    [Migration("20260326122336_Add-Projects")]
     public partial class AddProjects : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
