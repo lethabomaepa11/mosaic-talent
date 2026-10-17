@@ -2,7 +2,7 @@ import { handleActions } from "redux-actions";
 import { AuthStateEnums } from "./actions";
 import { IAuthStateContext, INITIAL_STATE } from "./context";
 
-export const AuthReducer = handleActions<IAuthStateContext, IAuthStateContext>(
+export const AuthReducer = handleActions<IAuthStateContext, Partial<IAuthStateContext>>(
   {
     [AuthStateEnums.LOGIN_PENDING]: (state, { payload }) => ({
       ...state,

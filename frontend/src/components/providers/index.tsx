@@ -14,7 +14,6 @@ import { ProjectProgressProvider } from "@/providers/project-progress-provider";
 import { JobProvider } from "@/providers/job-provider";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { ReviewProvider } from "@/providers/review-provider";
-import { SimulationProvider } from "@/providers/simulation-provider";
 import { AppOperatorProvider } from "@/providers/app-operator-provider";
 import {
   TenantResolutionProvider,
@@ -93,10 +92,10 @@ export function AppProviders({ children }: PropsWithChildren) {
     <TenantResolutionProvider>
       <TenantBootstrap>
         <FaviconSync />
-        <AppearanceProvider>
-          <AppearanceBootstrap>
-            <CompanyAccountProvider>
-              <AuthProvider>
+        <AuthProvider>
+          <AppearanceProvider>
+            <AppearanceBootstrap>
+              <CompanyAccountProvider>
                 <CompanyProfileProvider>
                   <DeveloperProvider>
                     <ProjectProvider>
@@ -104,17 +103,15 @@ export function AppProviders({ children }: PropsWithChildren) {
                         <JobProvider>
                           <ReviewProvider>
                             <NotificationProvider>
-                              <SimulationProvider>
-                                <AppOperatorProvider>
-                                  <AppProgressProvider>
-                                    <AntdProvider>
-                                      <PageTransitionGate />
-                                      <AntdToastViewport />
-                                      {children}
-                                    </AntdProvider>
-                                  </AppProgressProvider>
-                                </AppOperatorProvider>
-                              </SimulationProvider>
+                              <AppOperatorProvider>
+                                <AppProgressProvider>
+                                  <AntdProvider>
+                                    <PageTransitionGate />
+                                    <AntdToastViewport />
+                                    {children}
+                                  </AntdProvider>
+                                </AppProgressProvider>
+                              </AppOperatorProvider>
                             </NotificationProvider>
                           </ReviewProvider>
                         </JobProvider>
@@ -122,10 +119,10 @@ export function AppProviders({ children }: PropsWithChildren) {
                     </ProjectProvider>
                   </DeveloperProvider>
                 </CompanyProfileProvider>
-              </AuthProvider>
-            </CompanyAccountProvider>
-          </AppearanceBootstrap>
-        </AppearanceProvider>
+              </CompanyAccountProvider>
+            </AppearanceBootstrap>
+          </AppearanceProvider>
+        </AuthProvider>
       </TenantBootstrap>
     </TenantResolutionProvider>
   );

@@ -47,7 +47,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - Shared `/login` page with tenant branding:
   - company logo + company name shown when tenant is resolved.
   - self-signup link hidden on company tenant login.
-- User signup + developer onboarding flow.
+- Full-name signup and required developer onboarding, with optional GitHub and learning goals.
 - Company account creation flow (creates tenant + owner admin).
 - Company employee model and management service groundwork.
 - Domain-based tenant resolution on frontend:
@@ -70,12 +70,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - profile skills and learning goals now receive AI suggestion chips and typing suggestions
 - Gamification layer:
   - developer points and levels for collaboration/growth actions
-  - badge unlocks for review participation, project completion, and simulation consistency
+  - badge unlocks for review participation and project completion; previously earned simulation badges remain recorded
   - profile progression card and reward feedback within review workflows
-- Teamwork simulator:
-  - scenario-based sessions with role bots
-  - turn-based conversation with assessor feedback
-  - communication dimension scoring per turn
 - Ask Moahi (AI assistant/operator):
   - full-page command execution across routes/forms/workflows
   - Groq-backed intent planning with deterministic local fallback
@@ -87,7 +83,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - project-level AI feedback summary + strengths/improvements/tips + growth score
 - Teamwork rating governance:
   - teamwork rating is system-managed (not user-editable)
-  - rating is derived from peer reviews and AI simulation performance
+  - rating is derived from peer reviews and historical AI simulation performance
 - Company jobs:
   - company admin job posting management in `/app/jobs`
   - developer + public job applications with source + lifecycle status
@@ -124,8 +120,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - anonymous `/developers/[username]` profile page with skills, current projects, and completed projects
   - project member names link to public profiles from project details
 - Global search in the header:
-  - Autocomplete combines developer matches (via new `SearchPublicDevelopers` endpoint), project names, and simulation scenarios.
-  - Selecting a suggestion navigates to the matching developer profile, project detail, or simulator scenario.
+  - Autocomplete combines developer matches (via `SearchPublicDevelopers`) and project names.
+  - Selecting a suggestion navigates to the matching developer profile or project detail.
 - Project collaboration upgrade:
   - project details now use tabs (`Repo Safety`, `Team`, `Project Spec`, `Repo Analysis`, `Tasks`, `Meetings`)
   - AI Fill Team now sends member invites (in-app + email when configured) instead of force-adding members
@@ -144,9 +140,16 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 
 ## Documentation
 
+- [MVP 1 release queue](docs/feature/mvp1-release-queue.md)
+- [Developer landing page](docs/feature/developer-landing.md)
+
 - [Docs Index](docs/README.md)
 - [AI Matching](docs/feature/ai-matching.md)
-- [AI Simulator](docs/feature/ai-simulator.md)
+- [AI Match Project Comparison](docs/feature/ai-match-project-comparison.md)
+- [AI Simulator retirement](docs/feature/ai-simulator-retirement.md)
+- [AI Simulator historical implementation](docs/feature/ai-simulator.md)
+- [Open Project Browsing](docs/feature/open-project-browse.md)
+- [Open Project Discovery Decisions](docs/feature/open-project-discovery.md)
 - [Ask Moahi and operator testing](docs/feature/ai-app-operator.md)
 - [AI Peer Reviews](docs/feature/ai-peer-reviews.md)
 - [Project Work Evidence](docs/feature/project-work-evidence.md)
@@ -155,6 +158,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Custom 404 Page](docs/feature/custom-404-page.md)
 - [Mobile Tabs and Header Responsiveness](docs/feature/mobile-tabs-and-header-responsiveness.md)
 - [Discover Mobile Swipe Layout](docs/feature/discover-mobile-swipe-layout.md)
+- [Collapsible Sidebar](docs/feature/collapsible-sidebar.md)
 - [Remove Image URL Inputs Except Page Builder](docs/feature/remove-image-url-inputs-except-page-builder.md)
 - [Assessment Connected Workspace UI](docs/feature/assessment-connected-workspace-ui.md)
 - [CompanyJob Real Data Refactor](docs/feature/companyjob-real-data-refactor.md)
@@ -166,6 +170,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Assessment Submission Task/File Processing](docs/feature/assessment-submission-task-file-processing.md)
 - [GitHub Candidate Background Analysis](docs/feature/github-candidate-background-analysis.md)
 - [Repo Safety Scan](docs/feature/repo-safety-scan.md)
+- [Project Creation with Optional GitHub (#98)](docs/feature/project-creation-optional-github.md)
+- [OAuth Logout Cookie Cleanup (#102)](docs/feature/oauth-logout-cookie-cleanup.md)
 - [Repo Safety Auto-Enforcement](docs/feature/repo-safety-auto-enforcement.md)
 - [Project Leave + Lead Role Assignment](docs/feature/project-leave-and-member-role-assignment.md)
 - [Project Delete Restricted To Sole Member](docs/feature/project-delete-sole-member-only.md)
@@ -175,6 +181,10 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Tenant Resolution for mosaictalent.co.za](docs/feature/tenant-resolution-mosaictalent-domain.md)
 - [Company Signup Tenant Redirect Fix](docs/feature/company-signup-tenant-redirect-fix.md)
 - [Agent Issue Template Workflow](docs/feature/agent-issue-template-workflow.md)
+- [Issue-Driven V1 Workflow](docs/feature/issue-driven-v1-workflow.md)
+- [Developer Onboarding V1](docs/feature/developer-onboarding-v1.md)
+- [Fresh PostgreSQL Bootstrap](docs/feature/fresh-postgresql-bootstrap.md)
+- [OAuth Logout Issue #102](docs/feature/oauth-logout-issue-draft.md)
 - [GitHub OAuth Production Cookie Domain Fix](docs/feature/github-oauth-prod-cookie-domain-fix.md)
 - [Route Groups + Company/Developer Guards](docs/feature/route-groups-company-developer-guards.md)
 - [Public Developer Profiles and Project Visibility](docs/feature/public-profiles-project-visibility.md)
@@ -242,6 +252,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Auth / session / tenancy
 
 - `POST /api/TokenAuth/Authenticate`
+- `POST /api/TokenAuth/BeginGitHubConnection`
 - `POST /api/services/app/Account/Register`
 - `POST /api/services/app/Account/IsTenantAvailable`
 - `GET /api/services/app/Session/GetCurrentLoginInformations`
@@ -249,6 +260,7 @@ After successful company creation, frontend redirects user to tenant login URL.
 ### Developer onboarding
 
 - `GET /api/services/app/DeveloperOnboarding/GetMyProfile`
+- `GET /api/services/app/DeveloperOnboarding/GetGithubSkillSuggestions`
 - `GET /api/services/app/DeveloperOnboarding/SearchPublicDevelopers`
 - `GET /api/services/app/DeveloperOnboarding/GetPublicProfile`
 - `GET /api/services/app/DeveloperOnboarding/GetStudyLevels`
@@ -301,11 +313,11 @@ After successful company creation, frontend redirects user to tenant login URL.
 - `POST /api/services/app/PeerReview/SetPeerReviewRating`
 - `POST /api/services/app/PeerReview/SubmitReviewAnswer`
 
-### AI simulator
+### AI simulator (retired)
+
+These endpoints remain for historical records. `CreateScenario` and `StartSession` reject new work.
 
 - `GET /api/services/app/SimulationScenario/GetScenarios`
-- `POST /api/services/app/SimulationScenario/CreateScenario`
-- `POST /api/services/app/SimulationScenario/StartSession`
 - `GET /api/services/app/SimulationScenario/GetSession`
 - `POST /api/services/app/SimulationScenario/SendMessage`
 - `POST /api/services/app/SimulationVoice/Turn`

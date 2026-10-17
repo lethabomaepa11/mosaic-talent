@@ -64,6 +64,8 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
         modelBuilder.Entity<Developer>(builder =>
         {
             builder.HasIndex(x => x.UserId).IsUnique();
+            builder.HasIndex(x => x.GithubUsername).IsUnique()
+                .HasFilter("\"GithubUsername\" IS NOT NULL AND \"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<DeveloperProfile>(builder =>

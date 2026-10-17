@@ -37,7 +37,7 @@ export enum DeveloperStateEnums {
 
 export const fetchProfilePending = createAction<DeveloperStatePatch>(
   DeveloperStateEnums.DEVELOPER_FETCH_PROFILE_PENDING,
-  () => ({ isPending: true, isSuccess: false, isError: false }),
+  () => ({ profileStatus: "loading", isPending: true, isSuccess: false, isError: false }),
 );
 
 export const fetchProfileSuccess = createAction<
@@ -48,11 +48,12 @@ export const fetchProfileSuccess = createAction<
   isSuccess: true,
   isError: false,
   profile,
+  profileStatus: "ready",
 }));
 
 export const fetchProfileError = createAction<DeveloperStatePatch>(
   DeveloperStateEnums.DEVELOPER_FETCH_PROFILE_ERROR,
-  () => ({ isPending: false, isSuccess: false, isError: true }),
+  () => ({ profileStatus: "error", isPending: false, isSuccess: false, isError: true }),
 );
 
 export const fetchLevelsPending = createAction<DeveloperStatePatch>(

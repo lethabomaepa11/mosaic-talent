@@ -13,7 +13,7 @@ export enum AuthStateEnums {
   LOGOUT_ERROR = "AUTH_LOGOUT_ERROR",
 }
 
-export const loginPending = createAction<IAuthStateContext>(
+export const loginPending = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.LOGIN_PENDING,
   () => ({
     isPending: true,
@@ -23,18 +23,19 @@ export const loginPending = createAction<IAuthStateContext>(
   }),
 );
 
-export const loginSuccess = createAction<IAuthStateContext, IUser>(
+export const loginSuccess = createAction<Partial<IAuthStateContext>, IUser>(
   AuthStateEnums.LOGIN_SUCCESS,
   (user) => ({
     isPending: false,
     isSuccess: true,
     isError: false,
     isAuthenticated: true,
+    isSessionRestored: true,
     user,
   }),
 );
 
-export const loginError = createAction<IAuthStateContext>(
+export const loginError = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.LOGIN_ERROR,
   () => ({
     isPending: false,
@@ -42,10 +43,11 @@ export const loginError = createAction<IAuthStateContext>(
     isError: true,
     isAuthenticated: false,
     user: undefined,
+    isSessionRestored: true,
   }),
 );
 
-export const registerPending = createAction<IAuthStateContext>(
+export const registerPending = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.REGISTER_PENDING,
   () => ({
     isPending: true,
@@ -55,18 +57,19 @@ export const registerPending = createAction<IAuthStateContext>(
   }),
 );
 
-export const registerSuccess = createAction<IAuthStateContext, IUser>(
+export const registerSuccess = createAction<Partial<IAuthStateContext>, IUser>(
   AuthStateEnums.REGISTER_SUCCESS,
   (user) => ({
     isPending: false,
     isSuccess: true,
     isError: false,
     isAuthenticated: true,
+    isSessionRestored: true,
     user,
   }),
 );
 
-export const registerError = createAction<IAuthStateContext>(
+export const registerError = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.REGISTER_ERROR,
   () => ({
     isPending: false,
@@ -74,10 +77,11 @@ export const registerError = createAction<IAuthStateContext>(
     isError: true,
     isAuthenticated: false,
     user: undefined,
+    isSessionRestored: true,
   }),
 );
 
-export const logoutPending = createAction<IAuthStateContext>(
+export const logoutPending = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.LOGOUT_PENDING,
   () => ({
     isPending: true,
@@ -87,7 +91,7 @@ export const logoutPending = createAction<IAuthStateContext>(
   }),
 );
 
-export const logoutSuccess = createAction<IAuthStateContext>(
+export const logoutSuccess = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.LOGOUT_SUCCESS,
   () => ({
     isPending: false,
@@ -95,10 +99,11 @@ export const logoutSuccess = createAction<IAuthStateContext>(
     isError: false,
     isAuthenticated: false,
     user: undefined,
+    isSessionRestored: true,
   }),
 );
 
-export const logoutError = createAction<IAuthStateContext>(
+export const logoutError = createAction<Partial<IAuthStateContext>>(
   AuthStateEnums.LOGOUT_ERROR,
   () => ({
     isPending: false,

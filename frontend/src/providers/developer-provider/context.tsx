@@ -8,6 +8,12 @@ export interface IStudyLevelOption {
 }
 
 export interface IDeveloperProfile {
+  userId?: number;
+  fullName?: string;
+  emailAddress?: string;
+  hasCompletedOnboarding?: boolean;
+  completeOnboarding?: boolean;
+  onboardingStep?: number;
   githubUsername: string;
   avatarUrl?: string;
   yearsOfExperience?: number;
@@ -121,6 +127,7 @@ export interface ICurrentUserSummary {
 }
 
 export interface IDeveloperStateContext {
+  profileStatus: "idle" | "loading" | "ready" | "error";
   isPending: boolean;
   isSuccess: boolean;
   isError: boolean;
@@ -135,10 +142,11 @@ export interface IDeveloperStateContext {
 }
 
 export interface IDeveloperActionContext {
-  fetchMyProfile: () => Promise<void>;
+  fetchMyProfile: () => Promise<IDeveloperProfile | undefined>;
+  getGithubSkillSuggestions: () => Promise<string[]>;
   fetchStudyLevels: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
-  upsertMyProfile: (input: IDeveloperProfile) => Promise<void>;
+  upsertMyProfile: (input: IDeveloperProfile) => Promise<IDeveloperProfile>;
   getPublicProfile: (userName: string) => Promise<IPublicDeveloperProfile | undefined>;
   searchPublicDevelopers: (query: string) => Promise<IDeveloperSearchResult[]>;
   scanMyGithubProfile: () => Promise<IGithubScanResult | undefined>;
@@ -163,6 +171,7 @@ export const INITIAL_PROFILE: IDeveloperProfile = {
 };
 
 export const INITIAL_STATE: IDeveloperStateContext = {
+  profileStatus: "idle",
   isPending: false,
   isSuccess: false,
   isError: false,
@@ -181,9 +190,10 @@ export const DeveloperStateContext =
 
 export const DeveloperActionContext = createContext<IDeveloperActionContext>({
   fetchMyProfile: async () => undefined,
+  getGithubSkillSuggestions: async () => [],
   fetchStudyLevels: async () => undefined,
   fetchCurrentUser: async () => undefined,
-  upsertMyProfile: async () => undefined,
+  upsertMyProfile: async (input) => input,
   getPublicProfile: async () => undefined,
   searchPublicDevelopers: async () => [],
   scanMyGithubProfile: async () => undefined,

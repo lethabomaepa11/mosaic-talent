@@ -1,50 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
-import { Button, Card, Empty, Spin, Typography } from "antd";
-import { FolderKanban, Plus, Sparkles } from "lucide-react";
-import { toast } from "@/components/providers";
+import { useEffect } from "react";
+import { motion } from "framer-motion";
+import { Button, Card, Empty, Typography } from "antd";
+import { FolderKanban, Plus } from "lucide-react";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
+import { ProjectMatchComparison } from "@/components/project-match-comparison/ProjectMatchComparison";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
 import { useStyles } from "./style";
 
 const MyProjectsPage = () => {
-  const [isMatching, setIsMatching] = useState(false);
-  const router = useRouter();
   const { styles } = useStyles();
 
   const { fetchCurrentUser } = useDeveloperAction();
   const { myProjects } = useProjectState();
-  const { fetchMyProjects, fetchOpenProjects, aiMatchProject } = useProjectAction();
+  const { fetchMyProjects, fetchOpenProjects } = useProjectAction();
 
   useEffect(() => {
     fetchCurrentUser();
     fetchMyProjects();
     fetchOpenProjects();
   }, []);
-
-  const handleAIMatch = async () => {
-    setIsMatching(true);
-    try {
-      const matched = await aiMatchProject();
-      if (!matched) {
-        toast.info("No matches", "No matching open projects found.");
-        return;
-      }
-
-      toast.success("Match found", `Best match: "${matched.title}".`);
-      router.push(`/app/projects/${matched.id}?from=ai-match`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "AI matching failed.";
-      toast.error("Match failed", message);
-    } finally {
-      setIsMatching(false);
-    }
-  };
 
   return (
     <div className={styles.page} data-ai-page="projects-my">
@@ -61,14 +39,6 @@ const MyProjectsPage = () => {
           <Link href="/app/projects/open">
             <Button>Browse Open Projects</Button>
           </Link>
-          <Button
-            onClick={handleAIMatch}
-            loading={isMatching}
-            icon={<Sparkles size={14} />}
-            data-ai-action="ai-match-project"
-          >
-            AI Match Me
-          </Button>
           <Link href="/app/projects/create">
             <Button
               type="primary"
@@ -80,6 +50,8 @@ const MyProjectsPage = () => {
           </Link>
         </div>
       </motion.div>
+
+      <ProjectMatchComparison />
 
       {myProjects.length === 0 ? (
         <Card className={styles.emptyCard}>
@@ -96,28 +68,6 @@ const MyProjectsPage = () => {
         </div>
       )}
 
-      <AnimatePresence>
-        {isMatching ? (
-          <motion.div
-            className={styles.matchingOverlay}
-            initial={false}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className={styles.matchingContent}
-              initial={false}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-            >
-              <div className={styles.matchingDot}>
-                <Spin size="large" />
-              </div>
-              <Typography.Title level={4}>Finding your perfect match...</Typography.Title>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 };

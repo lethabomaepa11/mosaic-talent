@@ -245,7 +245,7 @@ export interface IProjectStateContext {
 
 export interface IProjectActionContext {
   fetchMyProjects: () => Promise<void>;
-  fetchOpenProjects: () => Promise<void>;
+  fetchOpenProjects: () => Promise<IProject[]>;
   fetchProjectById: (projectId: string) => Promise<IProject | undefined>;
   getGithubConnectionStatus: () => Promise<IGithubConnectionStatus>;
   getMyGithubRepositories: () => Promise<IGithubRepository[]>;
@@ -374,7 +374,7 @@ export const ProjectStateContext =
 
 export const ProjectActionContext = createContext<IProjectActionContext>({
   fetchMyProjects: async () => undefined,
-  fetchOpenProjects: async () => undefined,
+  fetchOpenProjects: async () => [],
   fetchProjectById: async () => undefined,
   getGithubConnectionStatus: async () => ({
     isConnected: false,

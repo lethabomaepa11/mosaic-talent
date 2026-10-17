@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -62,6 +62,7 @@ const CreateProjectPage = () => {
   const [isGeneratingSpec, setIsGeneratingSpec] = useState(false);
   const [isLoadingReadme, setIsLoadingReadme] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const lastAutofilledTitle = useRef("");
 
   const [githubConnection, setGithubConnection] = useState({
     isConnected: false,
@@ -141,14 +142,6 @@ const CreateProjectPage = () => {
 
       const repositories = await getMyGithubRepositories();
       setGithubRepos(repositories);
-
-      const selectedRepo = form.getFieldValue("githubRepo");
-      if (!selectedRepo && repositories.length > 0) {
-        form.setFieldValue(
-          "githubRepo",
-          repositories[0]?.fullName || repositories[0]?.name,
-        );
-      }
     } catch (error) {
       setIsGithubStatusLoading(false);
       const message =
@@ -185,6 +178,20 @@ const CreateProjectPage = () => {
       window.history.replaceState({}, "", nextUrl);
     }
   }, []);
+
+  useEffect(() => {
+    const selectedRepo = githubRepos.find((repo) => (repo.fullName || repo.name) === selectedGithubRepo);
+    if (!selectedRepo) {
+      lastAutofilledTitle.current = "";
+      return;
+    }
+
+    const currentTitle = String(form.getFieldValue("title") ?? "").trim();
+    if (!currentTitle || currentTitle === lastAutofilledTitle.current) {
+      form.setFieldValue("title", selectedRepo.name);
+      lastAutofilledTitle.current = selectedRepo.name;
+    }
+  }, [selectedGithubRepo, githubRepos, form]);
 
   useEffect(() => {
     if (!githubConnection.isConnected || !selectedGithubRepo) {
@@ -394,22 +401,23 @@ const CreateProjectPage = () => {
   const handleCreateProject = async () => {
     try {
       const values = await form.validateFields();
-      const selectedRepoUrl = resolveSelectedRepoUrl(String(values.githubRepo ?? ""));
+      const repoValue = String(values.githubRepo ?? "").trim();
+      const selectedRepoUrl = repoValue ? resolveSelectedRepoUrl(repoValue) : "";
       const isUnsafeSelection = isRepoSafetyUnsafe(repoSafetyResult);
 
-      if (isRepoSafetyChecking) {
+      if (repoValue && !selectedRepoUrl) {
+        throw new Error("Choose a repository from your GitHub list, or clear the repository field.");
+      }
+
+      if (selectedRepoUrl && isRepoSafetyChecking) {
         throw new Error("Repository safety scan is still running. Please wait.");
       }
 
-      if (!selectedRepoUrl) {
-        throw new Error("Select a repository from the list to run safety checks.");
-      }
-
-      if (!repoSafetyResult) {
+      if (selectedRepoUrl && !repoSafetyResult) {
         throw new Error("Repository safety check is required before project creation.");
       }
 
-      if (isUnsafeSelection) {
+      if (selectedRepoUrl && isUnsafeSelection) {
         throw new Error(
           "This repository cannot be added because the safety scan detected potentially malicious code.",
         );
@@ -420,7 +428,7 @@ const CreateProjectPage = () => {
         title: values.title,
         description: values.description,
         maxMembers: values.maxMembers,
-        githubRepo: values.githubRepo,
+        githubRepo: selectedRepoUrl ? values.githubRepo : "",
         difficulty: Number(values.difficulty),
         estimatedHoursPerWeek: Number(values.estimatedHoursPerWeek),
         skills: normalizeSkills(String(values.skills ?? "")),
@@ -602,7 +610,7 @@ const CreateProjectPage = () => {
               description={
                 <Space direction="vertical" size={8}>
                   <Typography.Text>
-                    Project creation requires selecting one of your GitHub repositories.
+                    You can create this project without a repository, or connect GitHub to link one.
                   </Typography.Text>
                   <Button onClick={handleConnectGithub}>Connect GitHub</Button>
                 </Space>
@@ -615,7 +623,6 @@ const CreateProjectPage = () => {
                 label={`GitHub Repository (${githubConnection.githubUsername})`}
                 name="githubRepo"
                 rules={[
-                  { required: true, message: "Select a GitHub repository." },
                   {
                     validator: (_, value) => {
                       if (!value) {
@@ -691,11 +698,8 @@ const CreateProjectPage = () => {
               onClick={() => void handleCreateProject()}
               disabled={
                 isGithubStatusLoading ||
-                !githubConnection.isConnected ||
                 isGithubLoading ||
-                isRepoSafetyChecking ||
-                isUnsafeRepo ||
-                (Boolean(selectedGithubRepo) && !repoSafetyResult)
+                (Boolean(selectedGithubRepo) && (isRepoSafetyChecking || isUnsafeRepo || !repoSafetyResult))
               }
             >
               Create Project
