@@ -23,6 +23,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     padding: ${token.paddingXS}px ${token.paddingSM}px;
   `,
   item: css`
+    border: 0;
+    background: transparent;
     height: 50px;
     display: flex;
     align-items: center;
@@ -38,6 +40,21 @@ export const useStyles = createStyles(({ token, css }) => ({
       background: color-mix(in srgb, ${token.colorText} 6%, transparent);
       color: ${token.colorText};
     }
+  `,
+  moreDrawer: css`
+    .ant-drawer-content { border-radius: ${token.borderRadiusLG}px ${token.borderRadiusLG}px 0 0; }
+  `,
+  moreLinks: css`
+    display: grid;
+    gap: ${token.marginXS}px;
+  `,
+  moreLink: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px;
+    border-radius: ${token.borderRadius}px;
+    color: ${token.colorText};
   `,
   itemActive: css`
     color: ${token.colorPrimary};

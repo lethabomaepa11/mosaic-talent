@@ -13,7 +13,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { Menu, Moon, Search, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useAppearanceAction,
@@ -33,10 +33,9 @@ import { useStyles } from "./styles";
 
 interface IAppHeaderProps {
   onSearchChange?: (value: string) => void;
-  onMenuClick?: () => void;
 }
 
-export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
+export const AppHeader = ({ onSearchChange }: IAppHeaderProps) => {
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [developerResults, setDeveloperResults] = useState<
@@ -308,14 +307,6 @@ export const AppHeader = ({ onSearchChange, onMenuClick }: IAppHeaderProps) => {
       </div>
 
       <div className={styles.actions}>
-        <Button
-          type="text"
-          shape="circle"
-          icon={<Menu size={18} />}
-          className={styles.menuButton}
-          aria-label="Open navigation menu"
-          onClick={onMenuClick}
-        />
         <NotificationCenter buttonAriaLabel="Notifications" />
 
         <Button

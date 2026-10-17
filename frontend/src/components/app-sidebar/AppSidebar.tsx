@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   User,
   Compass,
+  CircleHelp,
   MessageSquare,
   LogOut,
   PanelLeftClose,
@@ -27,6 +28,7 @@ interface INavItem {
 const developerNav: INavItem[] = [
   { href: "/app/projects/open", label: "Discover", icon: Compass },
   { href: "/app/profile", label: "My Profile", icon: User },
+  { href: "/app/how-to", label: "How to use", icon: CircleHelp },
   { href: "/app/reviews", label: "Peer Reviews", icon: MessageSquare },
 ];
 

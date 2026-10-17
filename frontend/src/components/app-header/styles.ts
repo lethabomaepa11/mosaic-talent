@@ -50,24 +50,22 @@ export const useStyles = createStyles(({ token, css }) => ({
       padding-top: 0;
     }
   `,
-  menuButton: css`
-    color: ${token.colorTextSecondary};
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-
-    @media (min-width: 992px) {
-      display: none;
-    }
-  `,
   iconButton: css`
     color: ${token.colorTextSecondary};
+
+    @media (max-width: 767px) {
+      display: none;
+    }
     width: 34px;
     min-width: 34px;
     height: 34px;
   `,
   avatarButton: css`
     padding: 0;
+
+    @media (max-width: 767px) {
+      display: none;
+    }
     width: 38px;
     min-width: 38px;
     height: 38px;

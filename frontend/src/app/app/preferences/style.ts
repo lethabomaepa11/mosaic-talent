@@ -1,0 +1,2 @@
+import { createStyles } from "antd-style";
+export const useStyles = createStyles(({ token, css }) => ({ page: css`display:grid;gap:${token.marginMD}px;max-width:680px;`,title:css`margin:0 !important;`,subtitle:css`margin:0 !important;color:${token.colorTextSecondary};`,section:css`display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:${token.marginMD}px;padding:${token.paddingLG}px 0;border-top:1px solid ${token.colorBorderSecondary};`,option:css`display:inline-flex;align-items:center;gap:${token.marginXXS}px;`}));

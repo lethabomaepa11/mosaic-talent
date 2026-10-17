@@ -71,7 +71,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
         {isCompanyTenant ? (
           <CompanyHeader onMenuClick={() => setIsMenuOpen(true)} />
         ) : (
-          <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+          <AppHeader />
         )}
         <main className={styles.content}><OnboardingGuard>{children}</OnboardingGuard></main>
         {!isCompanyTenant ? <MobileDeveloperNav /> : null}
