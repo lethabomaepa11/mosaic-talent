@@ -7,6 +7,7 @@ import { Button, Empty, Input, Modal, Select, Spin, Typography } from "antd";
 import { Search } from "lucide-react";
 import { toast } from "@/components/providers";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
+import { ProjectMatchComparison } from "@/components/project-match-comparison/ProjectMatchComparison";
 import { useDeveloperAction } from "@/providers/developer-provider";
 import { useProjectAction, useProjectState } from "@/providers/project-provider";
 import { IProjectJoinLoadWarning } from "@/providers/project-provider/context";
@@ -135,6 +136,8 @@ const OpenProjectsPage = () => {
           </Link>
         </div>
       </motion.div>
+
+      <ProjectMatchComparison />
 
       {view === "browse" ? (
         <section className={styles.browseSection} aria-label="Browse open projects">
