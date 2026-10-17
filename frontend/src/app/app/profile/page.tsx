@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
   Code,
+  FolderKanban,
   Loader2,
   Plus,
   Save,
@@ -19,6 +21,7 @@ import {
   Button,
   Card,
   Col,
+  Empty,
   Input,
   InputNumber,
   Progress,
@@ -27,6 +30,7 @@ import {
   Space,
   Spin,
   Tag,
+  Tabs,
   Typography,
   Upload,
 } from "antd";
@@ -40,8 +44,10 @@ import {
   useDeveloperState,
 } from "@/providers/developer-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
+import { useProjectAction, useProjectState } from "@/providers/project-provider";
 import { uploadFile } from "@/utils/fileUpload";
 import { useStyles } from "./style";
+import { splitProjectsByStatus } from "./projectSections";
 import { GithubOutlined } from "@ant-design/icons";
 import {
   normalizeSuggestionValues,
@@ -59,6 +65,7 @@ const companyRoleLabel = (role?: number) => {
 };
 
 const ProfilePage = () => {
+  const [activeTab, setActiveTab] = useState("profile");
   const [draft, setDraft] = useState({
     githubUsername: "",
     avatarUrl: "",
@@ -102,6 +109,7 @@ const ProfilePage = () => {
   } = useDeveloperState();
   const { profile: companyProfile, isPending: isCompanyPending } =
     useCompanyProfileState();
+  const { myProjects, isPending: isProjectsPending } = useProjectState();
   const {
     fetchCurrentUser,
     fetchStudyLevels,
@@ -112,6 +120,7 @@ const ProfilePage = () => {
   } = useDeveloperAction();
   const { fetchMyEmployeeProfile, updateMyEmployeeProfile } =
     useCompanyProfileAction();
+  const { fetchMyProjects } = useProjectAction();
 
   useEffect(() => {
     if (isCompanyTenant) {
@@ -123,6 +132,7 @@ const ProfilePage = () => {
     fetchStudyLevels();
     fetchLearningPathRecommendations();
     fetchMyGamificationSummary();
+    fetchMyProjects();
   }, []);
 
   useEffect(() => {
@@ -423,6 +433,8 @@ const ProfilePage = () => {
     }
   };
 
+  const projectGroups = splitProjectsByStatus(myProjects);
+
   return (
     <div className={styles.page} data-ai-page="profile">
       <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
@@ -434,6 +446,22 @@ const ProfilePage = () => {
         </Typography.Paragraph>
       </motion.div>
 
+      {!isCompanyTenant ? (
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          className={styles.profileTabs}
+          items={[
+            { key: "profile", label: "Profile" },
+            { key: "skills", label: "Skills" },
+            { key: "goals", label: "Learning Goals" },
+            { key: "projects", label: "My Projects" },
+            { key: "learning", label: "Learning Path" },
+          ]}
+        />
+      ) : null}
+
+      {(isCompanyTenant || activeTab === "profile") ? (
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Space direction="vertical" size={16} className={styles.fullWidth}>
@@ -643,158 +671,6 @@ const ProfilePage = () => {
                     </div>
                   </Card>
                 </motion.div>
-                <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
-                  <Card
-                    title={
-                      <Space>
-                        <Code size={16} /> Skills
-                      </Space>
-                    }
-                  >
-                    <div className={styles.tagWrap}>
-                      {currentSkills.map((skill) => (
-                        <Tag key={skill} color="gold" className={styles.tag}>
-                          {skill}
-                          <button
-                            type="button"
-                            className={styles.iconButton}
-                            onClick={() =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                skills: prev.skills.filter(
-                                  (item) => item !== skill,
-                                ),
-                              }))
-                            }
-                          >
-                            <X size={12} />
-                          </button>
-                        </Tag>
-                      ))}
-                    </div>
-
-                    <div className={styles.inputRow}>
-                      <AutoComplete
-                        className={styles.fullControl}
-                        value={newSkill}
-                        options={toSuggestionOptions(skillSuggestions)}
-                        filterOption={false}
-                        onSelect={(value) => handleAddSkill(String(value))}
-                        onChange={(value) => {
-                          setNewSkill(value);
-                          setSkillQuery(value);
-                        }}
-                      >
-                        <Input
-                          placeholder="Add a skill"
-                          onPressEnter={() => handleAddSkill(newSkill)}
-                        />
-                      </AutoComplete>
-                      <Button
-                        icon={<Plus size={14} />}
-                        onClick={() => handleAddSkill(newSkill)}
-                      >
-                        Add
-                      </Button>
-                    </div>
-
-                    <div className={styles.suggestWrap}>
-                      {skillSuggestions.map((item) => (
-                        <Button
-                          key={item}
-                          size="small"
-                          onClick={() => handleAddSkill(item)}
-                        >
-                          + {item}
-                        </Button>
-                      ))}
-                    </div>
-                    {isSkillSuggestionLoading ? (
-                      <div className={styles.suggestionLoading}>
-                        <Spin size="small" />
-                        <Typography.Text type="secondary">
-                          Loading AI skill suggestions...
-                        </Typography.Text>
-                      </div>
-                    ) : null}
-                  </Card>
-                </motion.div>
-                <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
-                  <Card
-                    title={
-                      <Space>
-                        <TrendingUp size={16} /> Learning Goals
-                      </Space>
-                    }
-                  >
-                    <div className={styles.goalList}>
-                      {currentGoals.map((goal) => (
-                        <div key={goal} className={styles.goalItem}>
-                          <Typography.Text>{goal}</Typography.Text>
-                          <button
-                            type="button"
-                            className={styles.iconButton}
-                            onClick={() =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                goals: prev.goals.filter(
-                                  (item) => item !== goal,
-                                ),
-                              }))
-                            }
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className={styles.inputRow}>
-                      <AutoComplete
-                        className={styles.fullControl}
-                        value={newGoal}
-                        options={toSuggestionOptions(goalSuggestions)}
-                        filterOption={false}
-                        onSelect={(value) => handleAddGoal(String(value))}
-                        onChange={(value) => {
-                          setNewGoal(value);
-                          setGoalQuery(value);
-                        }}
-                      >
-                        <Input
-                          placeholder="Add a learning goal"
-                          onPressEnter={() => handleAddGoal(newGoal)}
-                        />
-                      </AutoComplete>
-                      <Button
-                        icon={<Plus size={14} />}
-                        onClick={() => handleAddGoal(newGoal)}
-                      >
-                        Add
-                      </Button>
-                    </div>
-
-                    <div className={styles.suggestWrap}>
-                      {goalSuggestions.map((item) => (
-                        <Button
-                          key={item}
-                          size="small"
-                          onClick={() => handleAddGoal(item)}
-                        >
-                          + {item}
-                        </Button>
-                      ))}
-                    </div>
-                    {isGoalSuggestionLoading ? (
-                      <div className={styles.suggestionLoading}>
-                        <Spin size="small" />
-                        <Typography.Text type="secondary">
-                          Loading AI goal suggestions...
-                        </Typography.Text>
-                      </div>
-                    ) : null}
-                  </Card>
-                </motion.div>
               </>
             )}
             <Button
@@ -970,105 +846,150 @@ const ProfilePage = () => {
               </motion.div>
             ) : null}
 
-            {!isCompanyTenant ? (
-              <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
-                <Card
-                  title={
-                    <Space>
-                      <TrendingUp size={16} /> AI Learning Path
-                    </Space>
-                  }
-                  data-ai-section="learning-path"
-                >
-                  <Space
-                    direction="vertical"
-                    size={12}
-                    className={styles.fullWidth}
-                  >
-                    {isLearningPathPending ? (
-                      <div className={styles.learningPathLoading}>
-                        <Loader2 size={16} className={styles.spinIcon} />
-                        <Typography.Text type="secondary">
-                          Generating recommendations...
-                        </Typography.Text>
-                      </div>
-                    ) : null}
-
-                    {learningPath?.summary ? (
-                      <Typography.Text>{learningPath.summary}</Typography.Text>
-                    ) : (
-                      <Typography.Text type="secondary">
-                        Save your profile with skills and goals to unlock
-                        recommendations.
-                      </Typography.Text>
-                    )}
-
-                    {learningPath?.marketSignals?.length ? (
-                      <div className={styles.marketSignals}>
-                        {learningPath.marketSignals
-                          .slice(0, 3)
-                          .map((signal) => (
-                            <Tag key={signal} color="blue">
-                              {signal}
-                            </Tag>
-                          ))}
-                      </div>
-                    ) : null}
-
-                    {learningPath?.recommendations
-                      ?.slice(0, 3)
-                      .map((recommendation) => (
-                        <div
-                          key={`${recommendation.goal}-${recommendation.priority}`}
-                          className={styles.learningPathItem}
-                        >
-                          <div className={styles.learningPathHeader}>
-                            <Typography.Text strong>
-                              {recommendation.goal}
-                            </Typography.Text>
-                            <Tag
-                              color={
-                                recommendation.priority === "high"
-                                  ? "red"
-                                  : "gold"
-                              }
-                            >
-                              {recommendation.priority} -{" "}
-                              {recommendation.estimatedWeeks}w
-                            </Tag>
-                          </div>
-                          <Typography.Text type="secondary">
-                            {recommendation.gapSummary}
-                          </Typography.Text>
-                          {recommendation.recommendedSkills.length > 0 ? (
-                            <div className={styles.marketSignals}>
-                              {recommendation.recommendedSkills.map((skill) => (
-                                <Tag key={`${recommendation.goal}-${skill}`}>
-                                  {skill}
-                                </Tag>
-                              ))}
-                            </div>
-                          ) : null}
-                          {recommendation.suggestedActions.length > 0 ? (
-                            <ul className={styles.insights}>
-                              {recommendation.suggestedActions
-                                .slice(0, 3)
-                                .map((action) => (
-                                  <li key={`${recommendation.goal}-${action}`}>
-                                    {action}
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      ))}
-                  </Space>
-                </Card>
-              </motion.div>
-            ) : null}
           </Space>
         </Col>
       </Row>
+      ) : null}
+
+      {!isCompanyTenant && activeTab === "skills" ? (
+        <section className={styles.profileTabPanel} aria-label="Skills">
+          <div>
+            <Typography.Title level={3} className={styles.tabTitle}>Skills</Typography.Title>
+            <Typography.Text type="secondary">Keep your skills current so teams and project recommendations fit you.</Typography.Text>
+          </div>
+          <div className={styles.tagWrap}>
+            {currentSkills.map((skill) => (
+              <Tag key={skill} color="gold" className={styles.tag}>
+                {skill}
+                <button type="button" className={styles.iconButton} onClick={() => setDraft((previous) => ({ ...previous, skills: previous.skills.filter((item) => item !== skill) }))} aria-label={`Remove ${skill}`}>
+                  <X size={12} />
+                </button>
+              </Tag>
+            ))}
+          </div>
+          <div className={styles.inputRow}>
+            <AutoComplete className={styles.fullControl} value={newSkill} options={toSuggestionOptions(skillSuggestions)} filterOption={false} onSelect={(value) => handleAddSkill(String(value))} onChange={(value) => { setNewSkill(value); setSkillQuery(value); }}>
+              <Input placeholder="Add a skill" onPressEnter={() => handleAddSkill(newSkill)} />
+            </AutoComplete>
+            <Button icon={<Plus size={14} />} onClick={() => handleAddSkill(newSkill)}>Add</Button>
+          </div>
+          <div className={styles.suggestWrap}>{skillSuggestions.map((item) => <Button key={item} size="small" onClick={() => handleAddSkill(item)}>+ {item}</Button>)}</div>
+          {isSkillSuggestionLoading ? <div className={styles.suggestionLoading}><Spin size="small" /><Typography.Text type="secondary">Loading AI skill suggestions...</Typography.Text></div> : null}
+          <Button type="primary" onClick={handleSaveProfile} loading={isSaving || isPending} icon={<Save size={14} />}>Save skills</Button>
+        </section>
+      ) : null}
+
+      {!isCompanyTenant && activeTab === "goals" ? (
+        <section className={styles.profileTabPanel} aria-label="Learning goals">
+          <div>
+            <Typography.Title level={3} className={styles.tabTitle}>Learning Goals</Typography.Title>
+            <Typography.Text type="secondary">Set the skills and career habits you want to build next.</Typography.Text>
+          </div>
+          <div className={styles.goalList}>
+            {currentGoals.map((goal) => (
+              <div key={goal} className={styles.goalItem}>
+                <Typography.Text>{goal}</Typography.Text>
+                <button type="button" className={styles.iconButton} onClick={() => setDraft((previous) => ({ ...previous, goals: previous.goals.filter((item) => item !== goal) }))} aria-label={`Remove ${goal}`}><X size={14} /></button>
+              </div>
+            ))}
+          </div>
+          <div className={styles.inputRow}>
+            <AutoComplete className={styles.fullControl} value={newGoal} options={toSuggestionOptions(goalSuggestions)} filterOption={false} onSelect={(value) => handleAddGoal(String(value))} onChange={(value) => { setNewGoal(value); setGoalQuery(value); }}>
+              <Input placeholder="Add a learning goal" onPressEnter={() => handleAddGoal(newGoal)} />
+            </AutoComplete>
+            <Button icon={<Plus size={14} />} onClick={() => handleAddGoal(newGoal)}>Add</Button>
+          </div>
+          <div className={styles.suggestWrap}>{goalSuggestions.map((item) => <Button key={item} size="small" onClick={() => handleAddGoal(item)}>+ {item}</Button>)}</div>
+          {isGoalSuggestionLoading ? <div className={styles.suggestionLoading}><Spin size="small" /><Typography.Text type="secondary">Loading AI goal suggestions...</Typography.Text></div> : null}
+          <Button type="primary" onClick={handleSaveProfile} loading={isSaving || isPending} icon={<Save size={14} />}>Save learning goals</Button>
+        </section>
+      ) : null}
+
+      {!isCompanyTenant && activeTab === "projects" ? (
+        <section className={styles.tabSection} aria-label="My projects">
+          <div className={styles.tabHeader}>
+            <div>
+              <Typography.Title level={3} className={styles.tabTitle}>
+                My Projects
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                Pick up active work or revisit completed projects.
+              </Typography.Text>
+            </div>
+            <div className={styles.tabActions}>
+              <Link href="/app/projects/open"><Button>Browse projects</Button></Link>
+              <Link href="/app/projects/create"><Button type="primary">New project</Button></Link>
+            </div>
+          </div>
+
+          {isProjectsPending && myProjects.length === 0 ? (
+            <div className={styles.tabEmpty}><Spin /></div>
+          ) : myProjects.length === 0 ? (
+            <div className={styles.tabEmpty}>
+              <Empty image={<FolderKanban size={48} />} description="No projects yet. Browse open projects to get started." />
+            </div>
+          ) : (
+            <div className={styles.projectGroups}>
+              {([
+                ["Active", projectGroups.active],
+                ["Completed", projectGroups.completed],
+              ] as const).map(([label, projects]) => (
+                <section key={label} className={styles.projectGroup} aria-label={`${label} projects`}>
+                  <Typography.Title level={4} className={styles.groupTitle}>
+                    {label} ({projects.length})
+                  </Typography.Title>
+                  {projects.length ? (
+                    <div className={styles.projectList}>
+                      {projects.map((project) => (
+                        <Link key={project.id} href={`/app/projects/${project.id}`} className={styles.projectRow}>
+                          <div>
+                            <Typography.Text strong>{project.title}</Typography.Text>
+                            <Typography.Text type="secondary" className={styles.projectDescription}>
+                              {project.description || "No description yet."}
+                            </Typography.Text>
+                          </div>
+                          <div className={styles.projectMeta}>
+                            <Tag color={project.status === "completed" ? "green" : "blue"}>{project.status}</Tag>
+                            <Typography.Text type="secondary">{project.estimatedHoursPerWeek}h/week</Typography.Text>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <Typography.Text type="secondary">No {label.toLowerCase()} projects.</Typography.Text>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {!isCompanyTenant && activeTab === "learning" ? (
+        <section className={styles.learningTab} aria-label="Learning path">
+          <div>
+            <Typography.Title level={3} className={styles.tabTitle}>Learning Path</Typography.Title>
+            <Typography.Text type="secondary">Your next steps, progress, and earned badges.</Typography.Text>
+          </div>
+          <div className={styles.learningLayout}>
+            <div className={styles.learningPanel} data-ai-section="gamification">
+              <Typography.Title level={4}>Progress & Badges</Typography.Title>
+              {isGamificationPending ? <div className={styles.learningPathLoading}><Loader2 size={16} className={styles.spinIcon} /><Typography.Text type="secondary">Updating progression...</Typography.Text></div> : null}
+              <div className={styles.gamificationHeader}><Typography.Text strong>Level {gamificationSummary?.level ?? 1}</Typography.Text><Typography.Text>{gamificationSummary?.totalPoints ?? 0} pts</Typography.Text></div>
+              <Progress percent={Math.round(gamificationSummary?.progressPercent ?? 0)} showInfo={false} />
+              <Typography.Text type="secondary">Next level at {gamificationSummary?.nextLevelPoints ?? 100} pts</Typography.Text>
+              {gamificationSummary?.badges?.length ? <div className={styles.badgeGrid}>{gamificationSummary.badges.slice(0, 6).map((badge) => <Tag key={badge.code} color="gold">{badge.name}</Tag>)}</div> : <Typography.Text type="secondary">Complete reviews and projects to unlock badges.</Typography.Text>}
+            </div>
+            <div className={styles.learningPanel} data-ai-section="learning-path">
+              <Typography.Title level={4}>AI Learning Path</Typography.Title>
+              {isLearningPathPending ? <div className={styles.learningPathLoading}><Loader2 size={16} className={styles.spinIcon} /><Typography.Text type="secondary">Generating recommendations...</Typography.Text></div> : null}
+              {learningPath?.summary ? <Typography.Text>{learningPath.summary}</Typography.Text> : <Typography.Text type="secondary">Save your profile with skills and goals to unlock recommendations.</Typography.Text>}
+              {learningPath?.marketSignals?.length ? <div className={styles.marketSignals}>{learningPath.marketSignals.slice(0, 3).map((signal) => <Tag key={signal} color="blue">{signal}</Tag>)}</div> : null}
+              {learningPath?.recommendations?.slice(0, 3).map((recommendation) => <div key={`${recommendation.goal}-${recommendation.priority}`} className={styles.learningPathItem}><div className={styles.learningPathHeader}><Typography.Text strong>{recommendation.goal}</Typography.Text><Tag color={recommendation.priority === "high" ? "red" : "gold"}>{recommendation.priority} - {recommendation.estimatedWeeks}w</Tag></div><Typography.Text type="secondary">{recommendation.gapSummary}</Typography.Text>{recommendation.recommendedSkills.length > 0 ? <div className={styles.marketSignals}>{recommendation.recommendedSkills.map((skill) => <Tag key={`${recommendation.goal}-${skill}`}>{skill}</Tag>)}</div> : null}{recommendation.suggestedActions.length > 0 ? <ul className={styles.insights}>{recommendation.suggestedActions.slice(0, 3).map((action) => <li key={`${recommendation.goal}-${action}`}>{action}</li>)}</ul> : null}</div>)}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 };
