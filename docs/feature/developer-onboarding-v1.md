@@ -1,6 +1,6 @@
 # Developer Onboarding V1
 
-Tracking issue: [#94](https://github.com/lethabomaepa11/mosaic-talent/issues/94). Branch: `feature/94-developer-onboarding`. The user explicitly requested immediate commit/push during validation, overriding the skill's functional-review gate for this delivery. The manual database migration, live-backend review, and browser validation remain outstanding. This does not declare the v1 release ready.
+Tracking issue: [#94](https://github.com/lethabomaepa11/mosaic-talent/issues/94). Branch: `feature/94-developer-onboarding`. The user explicitly requested immediate commit/push during validation, overriding the skill's functional-review gate for this delivery. Fresh PostgreSQL migration, live-backend endpoint, and browser validation were subsequently completed. Release readiness still depends on target-environment configuration and the full MVP 1 queue.
 
 ## Account and onboarding flow
 
@@ -39,20 +39,15 @@ The callback connects the GitHub identity to that signed-in account even when Gi
 
 Deployment continues to require the existing GitHub OAuth configuration, callback URL, credentialed CORS, HTTPS cookie support, and a stable/shared ASP.NET Data Protection key ring when using multiple backend instances. Browser tests intercept external APIs; live OAuth still needs user testing.
 
-## Required manual database migration
+## Migration validation and deployment prerequisites
 
-The EF migration `20261011231642_DeveloperOnboardingV1` was generated and reviewed. It changes only the nullable GitHub username, the two onboarding columns, and the filtered GitHub identity index. It also safely converts blank legacy usernames to null and stops with a clear error if active duplicate usernames differ only by case. It has not been applied. The local migrator configuration points at a SQL Server style connection while this DbContext uses Npgsql, the Web.Host default connection is empty, and no PostgreSQL service is running on localhost. Before running the updated backend against an existing database, configure a known PostgreSQL target, audit its existing data, and apply this migration.
+The EF migration `20261011231642_DeveloperOnboardingV1` changes the nullable GitHub username, the two onboarding columns, and the filtered GitHub identity index. It is included in the repository migration sequence.
 
-- Nullable `Developers.GithubUsername`.
-- `DeveloperProfiles.HasCompletedOnboarding` (boolean, default false).
-- `DeveloperProfiles.OnboardingStep` (integer, default 0).
-- A unique `Developers.GithubUsername` index filtered to non-null, non-deleted records. New OAuth writes normalize usernames to lowercase.
+A disposable PostgreSQL 16 database was created from empty state and migrated successfully through the repository migrator, including seed data. The backend was then started against that migrated database and a live session endpoint plus Swagger responded successfully. The later project and work-evidence migrations were also validated through the same local migration workflow.
 
-Before applying the unique index, audit existing active GitHub identities case-insensitively, resolve duplicate ownership with the account owners, convert blank identities to null, and normalize retained usernames to lowercase. Do not discard duplicate accounts or tokens automatically. Review the generated PostgreSQL filter (`"GithubUsername" IS NOT NULL AND "IsDeleted" = false`).
+A deployment target still needs its own configured PostgreSQL connection and a migration run before the backend starts. Keep production credentials outside source control. Before applying the onboarding migration to an existing database, audit active GitHub usernames case-insensitively, resolve duplicate ownership with account owners, normalize retained identities to lowercase, and choose whether eligible existing profiles should be backfilled as onboarding-complete.
 
-Choose an explicit policy for existing profiles: leave completion false and require the short onboarding flow, or backfill completion only for active accounts with valid account details and at least one active nonblank skill. If backfilling, set their step to 3. A developer/profile row or GitHub link alone must not count as completed onboarding.
-
-Use the repository's established startup/project and verified PostgreSQL connection configuration when applying this migration. Do not use the staging address as a workaround for the missing local development database. Restart the backend only after schema and data preparation are complete.
+See [Fresh PostgreSQL Bootstrap](fresh-postgresql-bootstrap.md) for the local migration workflow and validated fresh-database result.
 
 ## Validation and user review
 
