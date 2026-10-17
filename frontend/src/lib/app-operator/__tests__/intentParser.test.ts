@@ -25,6 +25,15 @@ describe("parseOperatorCommand", () => {
     expect(intent.routeKey).toBe("dashboard");
   });
 
+  it("does not route retired simulator commands to a simulator action", () => {
+    const intent = parseOperatorCommand("navigate to the simulator");
+    expect(intent.routeKey).not.toBe("simulator");
+    expect(intent.params.route).not.toContain("simulator");
+
+    const startIntent = parseOperatorCommand("start simulation");
+    expect(startIntent.type).not.toBe("start_scenario");
+  });
+
   it("parses quick action commands", () => {
     const intent = parseOperatorCommand("Save email templates");
     expect(intent.type).toBe("save_email_templates");

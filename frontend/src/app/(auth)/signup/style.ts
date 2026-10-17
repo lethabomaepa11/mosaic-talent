@@ -9,9 +9,6 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   page: css`
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: ${token.padding}px;
     background: ${token.colorBgLayout};
     @media (min-width: 768px) {
@@ -20,10 +17,23 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   shell: css`
     width: 100%;
-    max-width: 520px;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: ${token.paddingXL}px 0;
+  `,
+  topRow: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginSM}px;
+    margin-bottom: ${token.marginXL}px;
+  `,
+  productName: css`
+    color: ${token.colorText};
+    font-weight: ${token.fontWeightStrong};
   `,
   heading: css`
-    text-align: center;
+    text-align: left;
     margin-bottom: ${token.marginLG}px;
   `,
   title: css`
@@ -39,19 +49,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: ${token.marginXXS}px 0 0;
     color: ${token.colorTextSecondary};
   `,
-  card: css`
-    border: 1px solid ${token.colorBorder};
-    border-radius: ${token.borderRadiusLG + 6}px;
-    padding: ${token.paddingLG}px;
-    background: color-mix(in srgb, ${token.colorFillAlter} 86%, transparent);
-
-    @media (min-width: 768px) {
-      padding: ${token.paddingXL}px;
-    }
-  `,
   form: css`
     display: grid;
     gap: ${token.margin}px;
+    max-width: 480px;
   `,
   row: css`
     display: grid;
@@ -84,7 +85,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     vertical-align: middle;
   `,
   helper: css`
-    text-align: center;
+    text-align: left;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
   `,

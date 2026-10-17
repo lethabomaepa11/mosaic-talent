@@ -2123,7 +2123,6 @@ namespace MosaicTalent.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GithubUsername")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
@@ -2149,6 +2148,10 @@ namespace MosaicTalent.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GithubUsername")
+                        .IsUnique()
+                        .HasFilter("\"GithubUsername\" IS NOT NULL AND \"IsDeleted\" = false");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -2181,6 +2184,9 @@ namespace MosaicTalent.Migrations
                     b.Property<Guid>("DeveloperId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("HasCompletedOnboarding")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -2193,6 +2199,9 @@ namespace MosaicTalent.Migrations
                     b.Property<string>("Location")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<int>("OnboardingStep")
+                        .HasColumnType("integer");
 
                     b.Property<double>("TeamworkRating")
                         .HasColumnType("double precision");
@@ -2777,6 +2786,9 @@ namespace MosaicTalent.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsMentor")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp with time zone");
 
@@ -2800,6 +2812,122 @@ namespace MosaicTalent.Migrations
                     b.HasIndex("TenantId", "DeveloperId");
 
                     b.ToTable("ProjectMembers");
+                });
+
+            modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectProgressEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CreatorUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("DeleterUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeveloperId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EvidenceUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastModifierUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SelfReview")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(3000)
+                        .HasColumnType("character varying(3000)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "CreationTime");
+
+                    b.HasIndex("TenantId", "DeveloperId", "ProjectId");
+
+                    b.ToTable("ProjectProgressEntries");
+                });
+
+            modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectProgressReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CreatorUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("DeleterUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastModifierUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ReviewerDeveloperId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntryId", "ReviewerDeveloperId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ReviewerDeveloperId");
+
+                    b.ToTable("ProjectProgressReviews");
                 });
 
             modelBuilder.Entity("MosaicTalent.Domains.Projects.ProjectSkill", b =>
@@ -3115,6 +3243,9 @@ namespace MosaicTalent.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsEarlyRequest")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp with time zone");
 
@@ -3142,8 +3273,7 @@ namespace MosaicTalent.Migrations
 
                     b.HasIndex("TenantId", "ReviewerDeveloperId");
 
-                    b.HasIndex("ProjectId", "ReviewerDeveloperId", "RevieweeDeveloperId")
-                        .IsUnique();
+                    b.HasIndex("ProjectId", "ReviewerDeveloperId", "RevieweeDeveloperId");
 
                     b.ToTable("PeerReviews");
                 });

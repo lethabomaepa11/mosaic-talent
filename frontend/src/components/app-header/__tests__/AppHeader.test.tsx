@@ -18,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   useAppearanceState: vi.fn(),
   useAppearanceAction: vi.fn(),
   useProjectState: vi.fn(),
-  useSimulationState: vi.fn(),
 }));
 
 vi.mock("@/providers/developer-provider", () => ({
@@ -41,10 +40,6 @@ vi.mock("@/providers/appearance-provider", () => ({
 
 vi.mock("@/providers/project-provider", () => ({
   useProjectState: mocks.useProjectState,
-}));
-
-vi.mock("@/providers/simulation-provider", () => ({
-  useSimulationState: mocks.useSimulationState,
 }));
 
 vi.mock("@/components/notification-center", () => ({
@@ -82,13 +77,6 @@ describe("AppHeader", () => {
       isError: false,
       selectedProject: undefined,
       lastMatch: undefined,
-    });
-    mocks.useSimulationState.mockReturnValue({
-      isPending: false,
-      isSuccess: true,
-      isError: false,
-      scenarios: [],
-      activeSession: undefined,
     });
   });
 
@@ -128,9 +116,8 @@ describe("AppHeader", () => {
     render(<AppHeader />);
 
     expect(
-      screen.getByPlaceholderText("Search projects, reviews, simulations..."),
+      screen.getByPlaceholderText("Search developers and projects..."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "User menu" })).toBeInTheDocument();

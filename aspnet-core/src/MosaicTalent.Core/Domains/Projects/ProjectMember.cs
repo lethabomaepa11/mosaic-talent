@@ -13,4 +13,6 @@ public class ProjectMember : FullAuditedEntity<Guid>, IMustHaveTenant
     public Guid DeveloperId { get; set; }
 
     public MemberRole Role { get; set; }
+
+    public bool IsMentor { get; set; }
 }

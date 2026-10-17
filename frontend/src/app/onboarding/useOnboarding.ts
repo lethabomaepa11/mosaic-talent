@@ -100,6 +100,7 @@ export const useOnboarding = () => {
 
   const changeValues = (field: "skills" | "goals", values: string[]) => {
     if (!draft) return;
+    setError("");
     const updated = { ...draft, [field]: values };
     setDraft(updated);
     if (user) storeDraft(user.userId, updated.skills, updated.goals);

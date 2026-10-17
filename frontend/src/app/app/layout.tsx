@@ -29,6 +29,7 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
     window.location.hash.includes("oauthAccessToken=");
   const isCompanyTenant = Boolean(tenancyName);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (isSessionRestored && !isAuthenticated && !hasToken && !hasOAuthBootstrap && !isPending) {
@@ -60,13 +61,17 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
   return (
     <div className={styles.shell}>
       <div className={styles.desktopSidebar}>
-        {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}
+        {isCompanyTenant ? (
+          <CompanySidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        ) : (
+          <AppSidebar collapsed={isSidebarCollapsed} onCollapseToggle={() => setIsSidebarCollapsed((value) => !value)} />
+        )}
       </div>
       <div className={styles.main}>
         {isCompanyTenant ? (
           <CompanyHeader onMenuClick={() => setIsMenuOpen(true)} />
         ) : (
-          <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+          <AppHeader />
         )}
         <main className={styles.content}><OnboardingGuard>{children}</OnboardingGuard></main>
         {!isCompanyTenant ? <MobileDeveloperNav /> : null}

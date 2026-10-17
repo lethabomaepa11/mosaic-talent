@@ -260,5 +260,28 @@ describe("AuthProvider", () => {
     });
 
     expect(mocks.removeAuthToken).toHaveBeenCalledTimes(1);
+    expect(mocks.post).toHaveBeenCalledWith("/api/TokenAuth/Logout", {}, { withCredentials: true });
+  });
+
+  it("still clears client auth state when backend logout fails", async () => {
+    mocks.getAuthToken.mockReturnValue("saved-token");
+    mocks.get.mockResolvedValueOnce({ data: { result: { user: { id: 99 } } } });
+    mocks.post.mockRejectedValueOnce(new Error("Backend unavailable"));
+
+    render(
+      <AuthProvider>
+        <Consumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("auth-state")).toHaveTextContent('"userId":99'));
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-state")).toHaveTextContent('"isAuthenticated":false');
+      expect(screen.getByTestId("auth-state")).toHaveTextContent('"isPending":false');
+    });
+    expect(mocks.removeAuthToken).toHaveBeenCalledTimes(1);
+    expect(mocks.post).toHaveBeenCalledWith("/api/TokenAuth/Logout", {}, { withCredentials: true });
   });
 });

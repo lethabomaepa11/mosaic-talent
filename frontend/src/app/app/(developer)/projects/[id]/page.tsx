@@ -50,6 +50,7 @@ import {
   useProjectState,
 } from "@/providers/project-provider";
 import { useAppearanceState } from "@/providers/appearance-provider";
+import ProjectProgress from "@/components/project-progress/ProjectProgress";
 import {
   IProjectJoinLoadWarning,
   IProjectInvite,
@@ -196,6 +197,7 @@ const ProjectDetailPage = () => {
     removeProjectMember,
     submitProjectComplaint,
     assignMemberRole,
+    setProjectMemberMentor,
     aiFillTeam,
     aiGenerateProjectTasks,
     addProjectTask,
@@ -852,6 +854,17 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleSetMentor = async (memberId: string, isMentor: boolean) => {
+    if (!projectId || !canManageMemberRoles) return;
+    setRoleUpdateMemberId(memberId);
+    try {
+      await setProjectMemberMentor(projectId, memberId, isMentor);
+      toast.success(isMentor ? "Mentor enabled" : "Mentor removed", "Project review permissions were updated.");
+    } catch (error) {
+      toast.error("Mentor update failed", error instanceof Error ? error.message : "Try again.");
+    } finally { setRoleUpdateMemberId(null); }
+  };
+
   const handleOpenSkillsEditor = () => {
     setSkillsInput(project!.skills.join(", "));
     setIsSkillsOpen(true);
@@ -1190,6 +1203,7 @@ const ProjectDetailPage = () => {
         items={[
           { key: "repo-safety", label: tabLabel(<SafetyOutlined />, "Repo Safety", "Safety") },
           { key: "team", label: tabLabel(<TeamOutlined />, "Team", "Team") },
+          { key: "progress", label: tabLabel(<FileTextOutlined />, "Progress", "Progress") },
           { key: "spec", label: tabLabel(<FileTextOutlined />, "Project Spec", "Spec") },
           { key: "analysis", label: tabLabel(<BarChartOutlined />, "Repo Analysis", "Analysis") },
           { key: "tasks", label: tabLabel(<CheckSquareOutlined />, "Tasks", "Tasks") },
@@ -1382,6 +1396,7 @@ const ProjectDetailPage = () => {
                     </Typography.Text>
                   </div>
                   {canManageMemberRoles ? (
+                    <>
                     <Select<"lead" | "member">
                       size="small"
                       value={member.role}
@@ -1396,6 +1411,8 @@ const ProjectDetailPage = () => {
                       ]}
                       className={styles.memberRoleSelect}
                     />
+                    <Button size="small" loading={roleUpdateMemberId === member.id} disabled={roleUpdateMemberId !== null} onClick={() => void handleSetMentor(member.id, !member.isMentor)}>{member.isMentor ? "Remove mentor" : "Set mentor"}</Button>
+                    </>
                   ) : null}
                   {canManageMemberRoles && !isYou && !isOwnerMember ? (
                     <Button
@@ -1475,6 +1492,14 @@ const ProjectDetailPage = () => {
             ) : null}
           </Space>
         </Card>
+      ) : null}
+
+      {activeTab === "progress" ? (
+        <ProjectProgress
+          projectId={project.id}
+          developerId={project.members.find((member) => member.userName?.toLowerCase() === currentUser?.userName?.toLowerCase())?.id}
+          canReview={isMember}
+        />
       ) : null}
 
       {activeTab === "spec" ? (

@@ -13,7 +13,6 @@ import {
   loginError,
   loginPending,
   loginSuccess,
-  logoutError,
   logoutPending,
   logoutSuccess,
   registerError,
@@ -209,10 +208,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     dispatch(logoutPending());
 
     try {
+      await instance.post("/api/TokenAuth/Logout", {}, { withCredentials: true });
+    } catch {
+      // Local session cleanup must still complete if the backend is unavailable.
+    } finally {
       removeAuthToken();
       dispatch(logoutSuccess());
-    } catch {
-      dispatch(logoutError());
     }
   };
 

@@ -1,6 +1,7 @@
 using Abp.Dependency;
 using Abp.Domain.Repositories;
 using Abp.Notifications;
+using Abp.UI;
 using Microsoft.EntityFrameworkCore;
 using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Developers;
@@ -22,6 +23,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
     private readonly IRepository<ProjectMember, Guid> _projectMemberRepository;
     private readonly IRepository<ProjectSkill, Guid> _projectSkillRepository;
     private readonly IRepository<ProjectTask, Guid> _projectTaskRepository;
+    private readonly IRepository<ProjectProgressEntry, Guid> _projectProgressEntryRepository;
     private readonly IRepository<Developer, Guid> _developerRepository;
     private readonly IRepository<User, long> _userRepository;
     private readonly IRepository<DeveloperProfile, Guid> _developerProfileRepository;
@@ -38,6 +40,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         IRepository<ProjectMember, Guid> projectMemberRepository,
         IRepository<ProjectSkill, Guid> projectSkillRepository,
         IRepository<ProjectTask, Guid> projectTaskRepository,
+        IRepository<ProjectProgressEntry, Guid> projectProgressEntryRepository,
         IRepository<Developer, Guid> developerRepository,
         IRepository<User, long> userRepository,
         IRepository<DeveloperProfile, Guid> developerProfileRepository,
@@ -53,6 +56,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         _projectMemberRepository = projectMemberRepository;
         _projectSkillRepository = projectSkillRepository;
         _projectTaskRepository = projectTaskRepository;
+        _projectProgressEntryRepository = projectProgressEntryRepository;
         _developerRepository = developerRepository;
         _userRepository = userRepository;
         _developerProfileRepository = developerProfileRepository;
@@ -63,6 +67,111 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         _feedbackRepository = feedbackRepository;
         _groqChatService = groqChatService;
         _notificationEventDispatcher = notificationEventDispatcher;
+    }
+
+    public async Task<int> RequestPeerReviewFromTeammates(
+        Guid projectId,
+        int tenantId,
+        Guid revieweeDeveloperId)
+    {
+        var project = await _projectRepository.FirstOrDefaultAsync(projectId)
+            ?? throw new UserFriendlyException("Project not found.");
+        var members = await _projectMemberRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .ToListAsync();
+        var membership = members.FirstOrDefault(x => x.DeveloperId == revieweeDeveloperId);
+        var now = DateTime.UtcNow;
+        var latestRequestReview = await _peerReviewRepository.GetAll()
+            .Where(x => x.ProjectId == projectId && x.RevieweeDeveloperId == revieweeDeveloperId && x.IsEarlyRequest)
+            .OrderByDescending(x => x.CreationTime)
+            .FirstOrDefaultAsync();
+        var eligibility = PeerReviewRequestPolicy.Evaluate(
+            project.Status,
+            membership != null,
+            members.Select(x => x.DeveloperId).Distinct().Count(),
+            membership?.CreationTime,
+            latestRequestReview?.CreationTime,
+            now);
+        if (!eligibility.CanRequest)
+        {
+            throw new UserFriendlyException(eligibility.Message);
+        }
+
+        var reviewerIds = members
+            .Select(x => x.DeveloperId)
+            .Where(x => x != revieweeDeveloperId)
+            .Distinct()
+            .ToList();
+        var projectSkills = await _projectSkillRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .Select(x => x.Name)
+            .ToListAsync();
+        var tasks = await _projectTaskRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .ToListAsync();
+        var progressEntries = await _projectProgressEntryRepository.GetAll()
+            .Where(x => x.ProjectId == projectId && x.DeveloperId == revieweeDeveloperId)
+            .OrderByDescending(x => x.CreationTime)
+            .Take(20)
+            .ToListAsync();
+        var reviewers = await _developerRepository.GetAll()
+            .Where(x => reviewerIds.Contains(x.Id))
+            .ToListAsync();
+
+        foreach (var reviewerId in reviewerIds)
+        {
+            var review = new PeerReview
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                ReviewerDeveloperId = reviewerId,
+                RevieweeDeveloperId = revieweeDeveloperId,
+                IsEarlyRequest = true,
+                Rating = 5,
+            };
+            await _peerReviewRepository.InsertAsync(review);
+
+            var questions = await GenerateQuestions(
+                project,
+                projectSkills,
+                tasks,
+                progressEntries,
+                reviewerId,
+                revieweeDeveloperId);
+            foreach (var question in questions)
+            {
+                await _questionRepository.InsertAsync(new AIReviewQuestion
+                {
+                    TenantId = tenantId,
+                    PeerReviewId = review.Id,
+                    Text = question.Text,
+                    Type = question.Type,
+                    RelatedGoal = question.RelatedGoal,
+                    Category = question.Category,
+                });
+            }
+        }
+
+        var reviewerUserIds = reviewers
+            .Where(x => x.UserId > 0)
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToArray();
+        if (reviewerUserIds.Length > 0)
+        {
+            var message = $"A teammate requested your anonymous peer review for \"{project.Title}\".";
+            await _notificationEventDispatcher.NotifyUsersAsync(
+                tenantId,
+                reviewerUserIds,
+                "MosaicTalent.PeerReviewAssigned",
+                message,
+                NotificationSeverity.Info,
+                "/app/reviews",
+                "Peer review requested",
+                message);
+        }
+
+        return reviewerIds.Count;
     }
 
     public async Task EnsureGeneratedForProject(Guid projectId, int tenantId)
@@ -99,13 +208,19 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         var tasks = await _projectTaskRepository.GetAll()
             .Where(x => x.ProjectId == projectId)
             .ToListAsync();
+        var progressEntries = await _projectProgressEntryRepository.GetAll()
+            .Where(x => x.ProjectId == projectId)
+            .OrderByDescending(x => x.CreationTime)
+            .ToListAsync();
 
         foreach (var reviewerId in memberIds)
         {
             foreach (var revieweeId in memberIds.Where(x => x != reviewerId))
             {
                 var exists = existingReviews.Any(x =>
-                    x.ReviewerDeveloperId == reviewerId && x.RevieweeDeveloperId == revieweeId);
+                    x.ReviewerDeveloperId == reviewerId &&
+                    x.RevieweeDeveloperId == revieweeId &&
+                    !x.IsEarlyRequest);
                 if (exists)
                 {
                     continue;
@@ -130,6 +245,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                     project,
                     projectSkills,
                     tasks,
+                    progressEntries.Where(x => x.DeveloperId == revieweeId).Take(20).ToList(),
                     reviewerId,
                     revieweeId);
 
@@ -143,7 +259,9 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                         Type = question.Type,
                         RelatedGoal = question.RelatedGoal,
                         Category = question.Category,
-                });
+                    });
+                }
+            }
         }
 
         if (newAssignmentsByReviewer.Count > 0)
@@ -168,9 +286,6 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
                     message);
             }
         }
-            }
-        }
-
         var feedback = await _feedbackRepository.GetAll()
             .FirstOrDefaultAsync(x => x.ProjectId == projectId);
         if (feedback == null)
@@ -210,6 +325,7 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
         Project project,
         List<string> projectSkills,
         List<ProjectTask> tasks,
+        List<ProjectProgressEntry> progressEntries,
         Guid reviewerId,
         Guid revieweeId)
     {
@@ -264,10 +380,16 @@ public class PeerReviewGenerationService : IPeerReviewGenerationService, ITransi
             reviewee = new
             {
                 skills = revieweeSkills,
+                documentedWork = progressEntries.Select(entry => new
+                {
+                    entry.Title,
+                    entry.Summary,
+                    entry.SelfReview,
+                }),
             },
         };
 
-        var systemPrompt = "Generate exactly 3 peer review questions as JSON: {\"questions\":[{\"text\":\"\",\"type\":\"open\",\"relatedGoal\":\"\",\"category\":\"\"}]}";
+        var systemPrompt = "Generate exactly 3 constructive peer review questions as JSON: {\"questions\":[{\"text\":\"\",\"type\":\"open\",\"relatedGoal\":\"\",\"category\":\"\"}]}. Use the reviewee's documented work, self-reflections, project context, and reviewer goals when available. Do not ask for information already present in the documented work.";
         var response = await _groqChatService.TryCompleteAsync(systemPrompt, JsonSerializer.Serialize(payload));
         if (string.IsNullOrWhiteSpace(response))
         {

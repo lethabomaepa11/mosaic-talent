@@ -5,6 +5,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-direction: column;
     gap: ${token.marginLG}px;
+    min-width: 0;
   `,
   header: css`
     display: flex;
@@ -35,35 +36,41 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   projectGrid: css`
     display: grid;
-    grid-template-columns: 1fr;
     gap: ${token.marginMD}px;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  `,
+  projectControls: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginMD}px;
+  `,
+  filters: css`
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    gap: ${token.marginSM}px;
+    min-width: 0;
 
-    @media (min-width: 992px) {
+    > * {
+      min-width: 0;
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    @media (max-width: 520px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
   `,
-  matchingOverlay: css`
-    position: fixed;
-    inset: 0;
-    z-index: 1200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, ${token.colorBgBase} 88%, transparent);
-    backdrop-filter: blur(2px);
+  loading: css`
+    display: grid;
+    place-items: center;
+    min-height: 220px;
   `,
-  matchingContent: css`
-    text-align: center;
-  `,
-  matchingDot: css`
-    width: 72px;
-    height: 72px;
-    margin: 0 auto ${token.marginSM}px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, ${token.colorPrimary} 24%, transparent);
+  resultCount: css`
+    align-self: flex-end;
   `,
   formGrid: css`
     display: grid;

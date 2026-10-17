@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppOperatorPanel } from "@/components/app-operator";
 import { AppOperatorProvider } from "@/providers/app-operator-provider";
@@ -35,7 +35,7 @@ describe("AppOperatorPanel", () => {
   });
 
   afterEach(() => {
-    document.body.innerHTML = "";
+    cleanup();
   });
 
   it("prompts for missing fields when required fields are absent", async () => {
@@ -46,7 +46,7 @@ describe("AppOperatorPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
+    fireEvent.change(screen.getByPlaceholderText("Ask a question or type /help"), {
       target: { value: "Create a new user called Simon Manga" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -66,7 +66,7 @@ describe("AppOperatorPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
+    fireEvent.change(screen.getByPlaceholderText("Ask a question or type /help"), {
       target: { value: "Shortlist all candidates with React and teamwork above 8" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -95,7 +95,7 @@ describe("AppOperatorPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
+    fireEvent.change(screen.getByPlaceholderText("Ask a question or type /help"), {
       target: { value: "go home" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -130,7 +130,7 @@ describe("AppOperatorPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ask Moahi to do something..."), {
+    fireEvent.change(screen.getByPlaceholderText("Ask a question or type /help"), {
       target: { value: "How do I create a frontend role?" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
@@ -140,5 +140,24 @@ describe("AppOperatorPanel", () => {
       expect(screen.getByRole("button", { name: /run it now/i })).toBeInTheDocument();
       expect(screen.getByText("Open Jobs")).toBeInTheDocument();
     });
+  });
+
+  it("answers slash help without calling the remote planner", async () => {
+    render(
+      <AppOperatorProvider>
+        <AppOperatorPanel />
+      </AppOperatorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /ask moahi/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask a question or type /help"), {
+      target: { value: "/help" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send command" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/I can explain the next step/i)).toBeInTheDocument();
+    });
+    expect(mocks.plannerPost).not.toHaveBeenCalled();
   });
 });

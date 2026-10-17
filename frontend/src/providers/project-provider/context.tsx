@@ -8,6 +8,7 @@ export interface IProjectMember {
   userName?: string;
   avatar: string;
   role: "lead" | "member";
+  isMentor?: boolean;
 }
 
 export interface IProjectTask {
@@ -244,7 +245,7 @@ export interface IProjectStateContext {
 
 export interface IProjectActionContext {
   fetchMyProjects: () => Promise<void>;
-  fetchOpenProjects: () => Promise<void>;
+  fetchOpenProjects: () => Promise<IProject[]>;
   fetchProjectById: (projectId: string) => Promise<IProject | undefined>;
   getGithubConnectionStatus: () => Promise<IGithubConnectionStatus>;
   getMyGithubRepositories: () => Promise<IGithubRepository[]>;
@@ -279,6 +280,11 @@ export interface IProjectActionContext {
     projectId: string,
     memberId: string,
     role: "lead" | "member",
+  ) => Promise<IProject | undefined>;
+  setProjectMemberMentor: (
+    projectId: string,
+    memberId: string,
+    isMentor: boolean,
   ) => Promise<IProject | undefined>;
   aiMatchProject: () => Promise<IProject | undefined>;
   aiFillTeam: (projectId: string) => Promise<IProject | undefined>;
@@ -368,7 +374,7 @@ export const ProjectStateContext =
 
 export const ProjectActionContext = createContext<IProjectActionContext>({
   fetchMyProjects: async () => undefined,
-  fetchOpenProjects: async () => undefined,
+  fetchOpenProjects: async () => [],
   fetchProjectById: async () => undefined,
   getGithubConnectionStatus: async () => ({
     isConnected: false,
@@ -386,6 +392,7 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   removeProjectMember: async () => undefined,
   submitProjectComplaint: async () => undefined,
   assignMemberRole: async () => undefined,
+  setProjectMemberMentor: async () => undefined,
   aiMatchProject: async () => undefined,
   aiFillTeam: async () => undefined,
   aiGenerateProjectTasks: async () => [],

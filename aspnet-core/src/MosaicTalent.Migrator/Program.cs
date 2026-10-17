@@ -13,6 +13,8 @@ public class Program
 
     public static void Main(string[] args)
     {
+        // Match the web host's timestamp handling while seeding ABP entities.
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
         ParseArgs(args);
 
         using (var bootstrapper = AbpBootstrapper.Create<MosaicTalentMigratorModule>())

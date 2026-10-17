@@ -5,6 +5,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: flex;
     flex-direction: column;
     gap: ${token.marginLG}px;
+    min-width: 0;
+    max-width: 100%;
   `,
   header: css`
     display: flex;
@@ -24,10 +26,72 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: ${token.marginXXS}px 0 0;
     color: ${token.colorTextSecondary};
   `,
+  discoveryModes: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginMD}px;
+    padding: ${token.paddingSM}px ${token.paddingMD}px;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+    background: ${token.colorBgContainer};
+
+    @media (max-width: 767px) {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  `,
+  modeCopy: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+  `,
   actionRow: css`
     display: flex;
     flex-wrap: wrap;
     gap: ${token.marginXS}px;
+  `,
+  browseSection: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginLG}px;
+    min-width: 0;
+    max-width: 100%;
+  `,
+  filters: css`
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    gap: ${token.marginSM}px;
+    min-width: 0;
+
+    > * {
+      min-width: 0;
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 520px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  `,
+  projectGrid: css`
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: ${token.marginLG}px;
+
+    > * {
+      min-width: 0;
+    }
+  `,
+  loading: css`
+    display: grid;
+    place-items: center;
+    min-height: 220px;
+  `,
+  resultCount: css`
+    align-self: flex-end;
   `,
   swipeBoard: css`
     position: relative;
@@ -54,6 +118,37 @@ export const useStyles = createStyles(({ token, css }) => ({
     @media (min-width: 768px) {
       padding: ${token.paddingLG}px;
     }
+  `,
+  swipeIntro: css`
+    text-align: center;
+    margin-bottom: ${token.marginSM}px;
+  `,
+  swipeProgress: css`
+    margin: 0;
+    color: ${token.colorPrimary};
+    font-weight: ${token.fontWeightStrong};
+  `,
+  swipeActionBar: css`
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: ${token.marginSM}px;
+    margin-top: ${token.marginMD}px;
+
+    @media (max-width: 520px) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      > button {
+        min-width: 0;
+      }
+    }
+  `,
+  swipeEmpty: css`
+    min-height: 340px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
   `,
   swipeStack: css`
     position: relative;

@@ -29,7 +29,6 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
-        userId: 99, hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
@@ -42,14 +41,6 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperProject/GetMyProjects", async (route) => {
     await route.fulfill(jsonOk([]));
   });
-};
-
-const waitForWorkspaceReady = async (page: Page) => {
-  const guard = page.locator("[data-ai-guard-loading='developer']");
-  if (await guard.count()) {
-    await guard.waitFor({ state: "detached" });
-  }
-  await page.waitForSelector("[data-ai-page='projects-open']", { state: "attached" });
 };
 
 test.beforeEach(async ({ page }) => {
@@ -84,51 +75,31 @@ test.beforeEach(async ({ page }) => {
   await setupCoreRoutes(page);
 });
 
-test("scans repo safety from open projects", async ({ page }) => {
-  await page.route("**/api/services/app/DeveloperProject/GetOpenProjects", async (route) => {
-    await route.fulfill(
-      jsonOk([
-        {
-          id: "project-1",
-          title: "Repo Shield",
-          description: "Check repo safety",
-          maxMembers: 4,
-          githubRepo: "https://github.com/octocat/alpha",
-          skills: ["C#"],
-          type: "group",
-          status: "open",
-          ownerId: "owner-1",
-          createdAt: "2026-03-30T00:00:00.000Z",
-          members: [],
-          tasks: [],
-        },
-      ]),
-    );
+test("scans a selected repository and blocks the form until the result arrives", async ({ page }) => {
+  await page.route("**/api/services/app/DeveloperProject/GetGithubConnectionStatus", async (route) => {
+    await route.fulfill(jsonOk({ isConnected: true, githubUsername: "octocat" }));
+  });
+  await page.route("**/api/services/app/DeveloperProject/GetMyGithubRepositories", async (route) => {
+    await route.fulfill(jsonOk([{
+      name: "alpha", fullName: "octocat/alpha", htmlUrl: "https://github.com/octocat/alpha",
+      isPrivate: false, defaultBranch: "main",
+    }]));
   });
 
-  await page.route("**/api/services/app/DeveloperProject/ScanRepoSafety", async (route) => {
-    await route.fulfill(
-      jsonOk({
-        progress: [
-          { step: "Checking cache...", progress: 5 },
-          { step: "Done!", progress: 100 },
-        ],
-        result: {
-          repoUrl: "https://github.com/octocat/alpha",
-          riskScore: 12,
-          riskLevel: "low",
-          categories: [],
-          findings: [],
-          badges: [],
-        },
-      }),
-    );
+  await page.route("**/api/services/app/DeveloperProject/ScanRepoSafetyByUrl", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await route.fulfill(jsonOk({
+      progress: [{ step: "Checking cache...", progress: 5 }, { step: "Done!", progress: 100 }],
+      result: { repoUrl: "https://github.com/octocat/alpha", riskScore: 12, riskLevel: "low", categories: [], findings: [], badges: [] },
+    }));
   });
 
-  await page.goto("/app/projects/open");
-
-  await waitForWorkspaceReady(page);
-  await page.getByText("Repo Shield").waitFor();
-  await page.getByRole("button", { name: "Check Repo Safety" }).click();
-  await expect(page.getByText("Safe")).toBeVisible();
+  await page.goto("/app/projects/create");
+  await page.waitForSelector("[data-ai-page='projects-create']", { state: "attached" });
+  const createButton = page.getByRole("button", { name: "Create Project", exact: true });
+  await expect(createButton).toBeEnabled();
+  await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/alpha");
+  await expect(page.getByText("Running repository safety scan...")).toBeVisible();
+  await expect(page.getByText("Repository passed safety checks")).toBeVisible();
+  await expect(createButton).toBeEnabled();
 });

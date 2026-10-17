@@ -26,9 +26,6 @@ const SUPPORTED_INTENT_TYPES: AppOperatorIntentType[] = [
   "save_email_templates",
   "publish_page_builder",
   "ask_ai_page_builder",
-  "start_scenario",
-  "contribute_scenario",
-  "end_simulation",
   "open_candidate_application",
   "shortlist_candidates",
   "reject_candidate",
@@ -103,7 +100,7 @@ const roleSpecificCapabilityHint = (role: AppOperatorUserRole) => {
     return "I can help with jobs, dashboard analytics, candidate workflows, and company settings.";
   }
 
-  return "I can help with projects, peer reviews, simulator actions, and profile updates.";
+  return "I can help with projects, peer reviews, and profile updates.";
 };
 
 const buildRoleRestrictedReply = (

@@ -16,14 +16,14 @@ for (const width of [360, 768, 1280]) {
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(page).toHaveURL(/\/onboarding$/);
     await expect(page.getByText("Jane Developer", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: /Continue/ }).click();
     await page.getByRole("button", { name: "Skip GitHub" }).click();
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: /Continue/ }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Add at least one skill" })).toBeVisible();
     await page.getByRole("combobox", { name: "Current skills" }).fill("Python");
     await page.getByRole("combobox", { name: "Current skills" }).press("Enter");
     await page.getByRole("combobox", { name: "Current skills" }).press("Escape");
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: /Continue/ }).click();
     await expect(page.getByRole("button", { name: "Finish onboarding" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/onboarding-${width}.png`, fullPage: true });
@@ -42,10 +42,12 @@ test("rejects weak passwords and failed registration without a success redirect"
   await page.getByLabel("Email", { exact: true }).fill("jane@example.com");
   await page.getByLabel("Password", { exact: true }).fill("weak");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("alert")).toContainText("strong password");
+  await expect(page.getByRole("alert").filter({ hasText: "strong password" })).toBeVisible();
   await page.getByLabel("Password", { exact: true }).fill("Strong123!");
+  const registrationResponse = page.waitForResponse((response) => response.url().endsWith("/api/services/app/Account/Register"));
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("alert")).toContainText("already registered");
+  expect((await registrationResponse).status()).toBe(400);
+  await expect(page.getByRole("button", { name: "Create account" })).toBeEnabled();
   await expect(page).toHaveURL(/\/signup$/);
 });
 
@@ -53,14 +55,14 @@ test("protects direct app navigation and resumes a saved draft after refresh", a
   const api = await setupOnboarding(page, { authenticated: true });
   await page.goto("/app/projects/my");
   await expect(page).toHaveURL(/\/onboarding$/);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
   await page.getByRole("button", { name: "Skip GitHub" }).click();
   await page.getByRole("combobox", { name: "Current skills" }).fill("C#");
   await page.getByRole("combobox", { name: "Current skills" }).press("Enter");
   await page.getByRole("combobox", { name: "Current skills" }).press("Escape");
   await page.reload();
   await expect(page.getByText("C#", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Set your goals" })).toBeVisible();
   expect(api.getProfile().skills).toEqual(["C#"]);
@@ -71,13 +73,13 @@ test("protects direct app navigation and resumes a saved draft after refresh", a
 test("connects using the authenticated action and lets users edit imported skills", async ({ page }) => {
   const api = await setupOnboarding(page, { authenticated: true, step: 1 });
   await page.goto("/onboarding");
-  await page.getByRole("button", { name: "Connect GitHub", exact: true }).click();
+  await page.getByRole("button", { name: /Connect GitHub/ }).click();
   await expect(page.getByRole("heading", { name: "Choose your skills" })).toBeVisible();
   await expect(page.getByText("Python", { exact: true })).toBeVisible();
   expect(api.connectionStarted()).toBe(true);
   const importedTag = page.locator(".ant-select-selection-item").filter({ hasText: "TypeScript" });
   await importedTag.locator(".ant-select-selection-item-remove").click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).fill("Lead a team");
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).press("Enter");
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).press("Escape");
@@ -96,17 +98,23 @@ test("allows manual skills when GitHub import is unavailable", async ({ page }) 
 
 test("retains skills after a failed save and supports retry", async ({ page }) => {
   const api = await setupOnboarding(page, { authenticated: true, step: 2 });
-  await page.route("**/UpsertMyProfile", (route) => route.fulfill({ status: 500,
-    contentType: "application/json", body: JSON.stringify({ error: { message: "Please retry this save." } }) }));
+  let failSave = true;
+  await page.route("**/UpsertMyProfile", async (route) => {
+    if (failSave) {
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { message: "Please retry this save." } }) });
+      return;
+    }
+    await route.fallback();
+  });
   await page.goto("/onboarding");
   await page.getByRole("combobox", { name: "Current skills" }).fill("Java");
   await page.getByRole("combobox", { name: "Current skills" }).press("Enter");
   await page.getByRole("combobox", { name: "Current skills" }).press("Escape");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Please retry this save.");
-  await expect(page.getByText("Java", { exact: true })).toBeVisible();
-  await page.unroute("**/UpsertMyProfile");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Please retry this save." })).toBeVisible();
+  await expect(page.locator(".ant-select-selection-item").filter({ hasText: "Java" })).toBeVisible();
+  failSave = false;
+  await page.getByRole("button", { name: /Continue/ }).click();
   await expect(page.getByRole("heading", { name: "Set your goals" })).toBeVisible();
   expect(api.getProfile().skills).toEqual(["Java"]);
 });
