@@ -6,6 +6,13 @@ const makeInstance = (post: AxiosInstance["post"]) =>
   ({ post } as unknown as AxiosInstance);
 
 describe("planOperatorIntent", () => {
+  it("excludes retired simulator routes and actions from planner capabilities", async () => {
+    const post = vi.fn().mockRejectedValue(new Error("network"));
+    await planOperatorIntent(makeInstance(post), "show projects", "/app", "developer");
+    const payload = post.mock.calls[0][1];
+    expect(payload.routes).not.toContainEqual(expect.objectContaining({ path: "/app/simulator" }));
+    expect(payload.actions).not.toContainEqual(expect.objectContaining({ id: "start_scenario" }));
+  });
   it("returns Groq plan when backend returns a valid action", async () => {
     const post = vi.fn().mockResolvedValue({
       data: {

@@ -38,6 +38,8 @@ describe("AppSidebar", () => {
     expect(screen.getByText("My Projects")).toBeInTheDocument();
     expect(screen.getByText("My Profile")).toBeInTheDocument();
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
+    expect(screen.queryByText("AI Simulator")).not.toBeInTheDocument();
+    expect(screen.queryByText("+ Start Simulation")).not.toBeInTheDocument();
   });
 
   it("keeps developer navigation regardless of non-developer path", () => {
@@ -49,6 +51,19 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Candidates")).not.toBeInTheDocument();
     expect(screen.queryByText("Reports")).not.toBeInTheDocument();
     expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
+  });
+
+  it("shows icon-only navigation and an accessible expand control when collapsed", () => {
+    mocks.usePathname.mockReturnValue("/app/projects/open");
+    const onCollapseToggle = vi.fn();
+
+    render(<AppSidebar collapsed onCollapseToggle={onCollapseToggle} />);
+
+    expect(screen.queryByText("Discover")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Discover" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Create Project" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(onCollapseToggle).toHaveBeenCalledOnce();
   });
 
   it("calls logout and redirects when sign out is clicked", async () => {

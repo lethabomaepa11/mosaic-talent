@@ -227,27 +227,26 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         var developer = await GetCurrentDeveloper();
         var tenantId = AbpSession.TenantId ?? throw new UserFriendlyException("Tenant context is required.");
         var selectedRepo = (input.GithubRepo ?? string.Empty).Trim();
+        string selectedRepoUrl = null;
 
-        if (string.IsNullOrWhiteSpace(selectedRepo))
+        if (!string.IsNullOrWhiteSpace(selectedRepo))
         {
-            throw new UserFriendlyException("Select a GitHub repository before creating a project.");
-        }
+            var availableRepos = await FetchGithubRepositories(developer);
+            var selectedRepoEntry = ResolveSelectedRepository(availableRepos, selectedRepo)
+                ?? throw new UserFriendlyException("Selected GitHub repository was not found in your connected account.");
+            selectedRepoUrl = NormalizeGithubRepoUrl(
+                selectedRepoEntry.HtmlUrl?.Trim() ?? $"https://github.com/{selectedRepoEntry.FullName}");
+            if (string.IsNullOrWhiteSpace(selectedRepoUrl))
+            {
+                throw new UserFriendlyException("Selected GitHub repository URL is invalid.");
+            }
 
-        var availableRepos = await FetchGithubRepositories(developer);
-        var selectedRepoEntry = ResolveSelectedRepository(availableRepos, selectedRepo)
-            ?? throw new UserFriendlyException("Selected GitHub repository was not found in your connected account.");
-        var selectedRepoUrl = NormalizeGithubRepoUrl(
-            selectedRepoEntry.HtmlUrl?.Trim() ?? $"https://github.com/{selectedRepoEntry.FullName}");
-        if (string.IsNullOrWhiteSpace(selectedRepoUrl))
-        {
-            throw new UserFriendlyException("Selected GitHub repository URL is invalid.");
-        }
-
-        var scanResult = await PerformRepoSafetyScan(selectedRepoUrl);
-        if (!IsRepoSafe(scanResult))
-        {
-            throw new UserFriendlyException(
-                "Repository safety scan detected potentially malicious code. Select a safer repository before creating a project.");
+            var scanResult = await PerformRepoSafetyScan(selectedRepoUrl);
+            if (!IsRepoSafe(scanResult))
+            {
+                throw new UserFriendlyException(
+                    "Repository safety scan detected potentially malicious code. Select a safer repository before creating a project.");
+            }
         }
 
         var normalizedSkills = (input.Skills ?? new List<string>())

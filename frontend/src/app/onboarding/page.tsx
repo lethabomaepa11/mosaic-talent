@@ -1,296 +1,97 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
-import { Button, Input, InputNumber, Select, Upload } from "antd";
-import { toast } from "@/components/providers";
-import {
-  useDeveloperAction,
-  useDeveloperState,
-} from "@/providers/developer-provider";
-import { useAuthState } from "@/providers/auth-provider";
-import { uploadFile } from "@/utils/fileUpload";
+import { Alert, Button, Progress, Select } from "antd";
+import { GithubOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { useOnboarding } from "./useOnboarding";
 import { useStyles } from "./style";
 
+const TITLES = ["Your account", "Connect GitHub", "Choose your skills", "Set your goals"];
+
 const OnboardingPage = () => {
-  const [githubUsername, setGithubUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [yearsOfExperience, setYearsOfExperience] = useState<
-    number | undefined
-  >(undefined);
-  const [yearOfStudy, setYearOfStudy] = useState<number | undefined>(undefined);
-  const [studyLevel, setStudyLevel] = useState(0);
-  const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [goals, setGoals] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-
-  const router = useRouter();
   const { styles } = useStyles();
-  const { isAuthenticated } = useAuthState();
-  const { isError, isSuccess, isPending, profile, studyLevels } =
-    useDeveloperState();
-  const { fetchMyProfile, fetchStudyLevels, upsertMyProfile } =
-    useDeveloperAction();
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    fetchMyProfile();
-    fetchStudyLevels();
-  }, []);
-
-  useEffect(() => {
-    setGithubUsername(profile.githubUsername ?? "");
-    setAvatarUrl(profile.avatarUrl ?? "");
-    setYearsOfExperience(profile.yearsOfExperience);
-    setYearOfStudy(profile.yearOfStudy);
-    setStudyLevel(profile.studyLevel ?? 0);
-    setBio(profile.bio ?? "");
-    setLocation(profile.location ?? "");
-    setSkills(profile.skills ?? []);
-    setGoals(profile.goals ?? []);
-  }, [profile]);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!githubUsername) {
-      toast.error(
-        "GitHub connection required",
-        "Sign in with GitHub to continue onboarding.",
-      );
-      return;
-    }
-
-    if (yearOfStudy !== undefined && yearOfStudy >= 10) {
-      toast.error("Invalid year of study", "Year of study must be below 10.");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await upsertMyProfile({
-        githubUsername,
-        avatarUrl,
-        yearsOfExperience,
-        yearOfStudy,
-        studyLevel,
-        bio,
-        location,
-        skills,
-        goals,
-      });
-      toast.success("Profile saved", "Your onboarding details are updated.");
-      router.push("/");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAvatarUpload = async (file: File) => {
-    setIsUploadingAvatar(true);
-
-    try {
-      const uploaded = await uploadFile(file, "avatars");
-      setAvatarUrl(uploaded.url);
-      toast.success("Avatar uploaded", "Avatar image has been attached.");
-    } catch {
-      toast.error("Upload failed", "Unable to upload avatar right now.");
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
+  const flow = useOnboarding();
+  const { draft, step, busy, loading, error, notice } = flow;
 
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
-        <div className={styles.heading}>
-          <h1 className={styles.title}>Developer Onboarding</h1>
-          <p className={styles.subtitle}>
-            Complete your profile to personalize your experience.
-          </p>
-        </div>
-
+        <header className={styles.heading}>
+          <p className={styles.eyebrow}>A FEW STEPS TO YOUR NEXT TEAM</p>
+          <h1 className={styles.title}>Make room for growth</h1>
+          <p className={styles.subtitle}>Help us find projects and teammates that fit you.</p>
+        </header>
         <div className={styles.card}>
-          <form onSubmit={handleSubmit} className={styles.form}>
-            <div className={styles.row}>
-              <div className={styles.field}>
-                <label htmlFor="githubUsername" className={styles.label}>
-                  GitHub Username
-                </label>
-                <Input
-                  id="githubUsername"
-                  value={githubUsername}
-                  disabled
-                  readOnly
-                  className={styles.input}
-                  required
-                />
-                <span className={styles.fieldHint}>
-                  This is synced from your connected GitHub account and cannot be edited.
-                </span>
+          {loading ? <p role="status">Loading your profile...</p> : !draft ? (
+            <Alert title={error || "Unable to load your profile"} type="error" showIcon
+              action={<Button onClick={flow.retry}>Try again</Button>} />
+          ) : (
+            <>
+              <div className={styles.progress}>
+                <span className={styles.fieldHint}>Step {step + 1} of 4</span>
+                <Progress percent={(step + 1) * 25} showInfo={false} />
+                <ol className={styles.steps} aria-label="Onboarding progress">
+                  {TITLES.map((title, index) => <li key={title} aria-current={step === index ? "step" : undefined}
+                    className={step === index ? styles.currentStep : styles.step}>{title}</li>)}
+                </ol>
               </div>
-              <div className={styles.field}>
-                <label className={styles.label}>
-                  Avatar
-                </label>
-                <div className={styles.uploadActions}>
-                  <Upload
-                    accept="image/*"
-                    showUploadList={false}
-                    beforeUpload={(file) => {
-                      handleAvatarUpload(file);
-                      return false;
-                    }}
-                  >
-                    <Button loading={isUploadingAvatar} block>
-                      Upload Avatar
+              <div className={styles.form}>
+                <h2 className={styles.stepTitle}>{TITLES[step]}</h2>
+                {step === 0 && (
+                  <>
+                    <p className={styles.subtitle}>Your account is ready. Next, tell us what you enjoy building.</p>
+                    <dl className={styles.accountDetails}>
+                      <dt>Full name</dt><dd>{draft.fullName}</dd>
+                      <dt>Email</dt><dd>{draft.emailAddress}</dd>
+                    </dl>
+                    <p className={styles.fieldHint}>A skill is required to get started. GitHub and learning goals are optional.</p>
+                  </>
+                )}
+                {step === 1 && (
+                  <>
+                    <p className={styles.subtitle}>Import skills from repositories you own. You can edit every suggestion.</p>
+                    {draft.githubUsername && <Alert title={`Connected as ${draft.githubUsername}`} type="success" icon={<CheckCircleOutlined />} showIcon />}
+                    <Button icon={<GithubOutlined />} onClick={flow.connectGithub} loading={busy} size="large">
+                      {draft.githubUsername ? "Reconnect GitHub" : "Connect GitHub"}
                     </Button>
-                  </Upload>
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar preview" className={styles.avatarPreview} />
-                  ) : null}
-                </div>
+                    <p className={styles.fieldHint}>Prefer to do this later? Continue without connecting an account.</p>
+                  </>
+                )}
+                {step === 2 && (
+                  <div className={styles.field}>
+                    <label htmlFor="skills" className={styles.label}>Current skills</label>
+                    <p id="skills-hint" className={styles.fieldHint}>Add at least one skill. Type a skill and press Enter; use the remove button to edit suggestions.</p>
+                    <Select id="skills" mode="tags" value={draft.skills} onChange={(values) => flow.changeValues("skills", values)}
+                      placeholder="For example, Python or teamwork" aria-describedby="skills-hint" size="large" className={styles.fullWidth}
+                      tokenSeparators={[","]} maxTagTextLength={30} disabled={busy} />
+                    {flow.importing && <p role="status">Loading GitHub skills...</p>}
+                  </div>
+                )}
+                {step === 3 && (
+                  <div className={styles.field}>
+                    <label htmlFor="goals" className={styles.label}>Learning goals (optional)</label>
+                    <p className={styles.fieldHint}>Choose skills to learn or aspects of your career to develop. You can change these later.</p>
+                    <Select id="goals" mode="tags" value={draft.goals} onChange={(values) => flow.changeValues("goals", values)}
+                      placeholder="For example, learn C# or lead a team" size="large" className={styles.fullWidth} tokenSeparators={[","]} maxTagTextLength={30} disabled={busy} />
+                  </div>
+                )}
+                {notice && <Alert title={notice} type="info" showIcon />}
+                {error && <Alert title={error} type="error" showIcon role="alert" />}
               </div>
-            </div>
-
-            <div className={styles.row}>
-              <div className={styles.field}>
-                <label htmlFor="experience" className={styles.label}>
-                  Years of Experience
-                </label>
-                <InputNumber
-                  id="experience"
-                  min={0}
-                  max={80}
-                  value={yearsOfExperience}
-                  onChange={(value) => setYearsOfExperience(value ?? undefined)}
-                  className={`${styles.input} ${styles.fullWidthInputNumber}`}
-                />
+              <div className={styles.actions}>
+                {step > 0 && <Button onClick={flow.back} disabled={busy}>Back</Button>}
+                {step === 3 ? (
+                  <>
+                    <Button onClick={() => void flow.finish(true)} disabled={busy}>Skip goals and finish</Button>
+                    <Button type="primary" onClick={() => void flow.finish()} loading={busy} size="large">Finish onboarding</Button>
+                  </>
+                ) : (
+                  <Button type="primary" onClick={() => void flow.next()} loading={busy} disabled={flow.importing} size="large">
+                    {step === 1 && !draft.githubUsername ? "Skip GitHub" : "Continue"}
+                  </Button>
+                )}
               </div>
-              <div className={styles.field}>
-                <label htmlFor="studyYear" className={styles.label}>
-                  Year of Study (&lt; 10)
-                </label>
-                <InputNumber
-                  id="studyYear"
-                  min={0}
-                  max={9}
-                  value={yearOfStudy}
-                  onChange={(value) => setYearOfStudy(value ?? undefined)}
-                  className={`${styles.input} ${styles.fullWidthInputNumber}`}
-                />
-              </div>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="studyLevel" className={styles.label}>
-                Study Level
-              </label>
-              <Select
-                id="studyLevel"
-                options={studyLevels.map((item) => ({
-                  label: item.label,
-                  value: item.value,
-                }))}
-                value={studyLevel}
-                onChange={setStudyLevel}
-                className={styles.input}
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="bio" className={styles.label}>
-                Bio
-              </label>
-              <Input.TextArea
-                id="bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                className={styles.input}
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="location" className={styles.label}>
-                Location
-              </label>
-              <Input
-                id="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className={styles.input}
-              />
-            </div>
-
-            <div className={styles.systemRatingNotice}>
-              Teamwork rating is system-calculated from AI simulation performance and peer reviews.
-              You can view it in your profile stats after onboarding.
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="skills" className={styles.label}>
-                Skills
-              </label>
-              <Select
-                id="skills"
-                mode="tags"
-                value={skills}
-                onChange={setSkills}
-                className={styles.input}
-                placeholder="Add skills"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="goals" className={styles.label}>
-                Goals
-              </label>
-              <Select
-                id="goals"
-                mode="tags"
-                value={goals}
-                onChange={setGoals}
-                className={styles.input}
-                placeholder="Add learning goals"
-              />
-            </div>
-
-            {isError ? (
-              <div className={styles.statusError}>
-                Unable to save profile right now.
-              </div>
-            ) : null}
-            {isSuccess ? (
-              <div className={styles.statusSuccess}>
-                Profile synced successfully.
-              </div>
-            ) : null}
-
-            <div className={styles.actions}>
-              <Button htmlType="button" onClick={() => router.push("/")}>
-                Skip for now
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={isSubmitting || isPending}
-              >
-                Save and Continue
-                <ArrowRight size={16} className={styles.buttonIconEnd} />
-              </Button>
-            </div>
-          </form>
+            </>
+          )}
         </div>
       </div>
     </div>

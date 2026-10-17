@@ -2,13 +2,15 @@
 
 ## Summary
 
-Agent workflow rules now require issue creation to follow repository issue templates before code changes begin.
+Agent workflow rules require a tracked issue before application code changes begin. Reuse an existing user-written issue when it covers the work. Only new issues must follow repository issue templates.
 
 ## Rules Added
 
-- Use `.github/ISSUE_TEMPLATE/bug_report.md` for bug-fix work.
-- Use `.github/ISSUE_TEMPLATE/feature_request.md` for feature, refactor, and chore work.
-- Keep issue body sections aligned with the selected template.
+- Reuse existing issues without creating duplicates or requiring the user to reformat them.
+- For new issues, use `.github/ISSUE_TEMPLATE/bug_report.md` for bug-fix work.
+- For new issues, use `.github/ISSUE_TEMPLATE/feature_request.md` for feature, refactor, and chore work.
+- Keep new issue body sections aligned with the selected template.
+- See [Issue-Driven V1 Workflow](issue-driven-v1-workflow.md) for priority selection, discovered issues, and approval boundaries.
 
 ## CLI Guidance
 
@@ -21,4 +23,4 @@ If non-interactive CLI mode blocks `--template` with `--body`, issue creation ma
 
 ## Why
 
-This enforces consistent issue quality and improves traceability from issue to branch to PR.
+This preserves the user's backlog, keeps new issue reports consistent, and improves traceability from issue to branch to PR.

@@ -24,7 +24,7 @@ using Abp.Runtime.Security;
 
 namespace MosaicTalent.Authentication.External
 {
-    public class GitHubOAuthService : AbpServiceBase, ITransientDependency
+    public partial class GitHubOAuthService : AbpServiceBase, ITransientDependency
     {
         private readonly UserManager _userManager;
         private readonly RoleManager _roleManager;
@@ -62,193 +62,6 @@ namespace MosaicTalent.Authentication.External
         {
             var clientRootAddress = (_appConfiguration["App:ClientRootAddress"] ?? string.Empty).TrimEnd('/');
             return clientRootAddress + "/app";
-        }
-
-        public string BuildAuthorizationUrl(string state, bool includeRepositoryScope = false)
-        {
-            var clientId = _appConfiguration["GitHubOAuth:ClientId"];
-            var redirectUri = _appConfiguration["GitHubOAuth:RedirectUri"];
-            var scope = includeRepositoryScope
-                ? "read:user user:email repo"
-                : "read:user user:email";
-
-            return
-                "https://github.com/login/oauth/authorize" +
-                "?client_id=" + Uri.EscapeDataString(clientId) +
-                "&redirect_uri=" + Uri.EscapeDataString(redirectUri) +
-                "&scope=" + Uri.EscapeDataString(scope) +
-                "&state=" + Uri.EscapeDataString(state);
-        }
-
-        public async Task<string> ExchangeCodeForTokenAsync(string code)
-        {
-            var clientId = _appConfiguration["GitHubOAuth:ClientId"];
-            var clientSecret = _appConfiguration["GitHubOAuth:ClientSecret"];
-            var redirectUri = _appConfiguration["GitHubOAuth:RedirectUri"];
-
-            var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token")
-            {
-                Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    { "client_id", clientId },
-                    { "client_secret", clientSecret },
-                    { "code", code },
-                    { "redirect_uri", redirectUri }
-                })
-            };
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            using (var response = await httpClient.SendAsync(request))
-            {
-                if (!response.IsSuccessStatusCode)
-                {
-                    return null;
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                return ExtractAccessToken(content);
-            }
-        }
-
-        public async Task<GitHubOAuthUserResponse> GetUserAsync(string accessToken)
-        {
-            var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.UserAgent.ParseAdd("MosaicTalent");
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-            using (var response = await httpClient.SendAsync(request))
-            {
-                if (!response.IsSuccessStatusCode)
-                {
-                    return null;
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<GitHubOAuthUserResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-        }
-
-        public async Task<string> ResolveEmailAsync(string accessToken, GitHubOAuthUserResponse user)
-        {
-            if (!string.IsNullOrWhiteSpace(user?.Email))
-            {
-                return user.Email;
-            }
-
-            var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.UserAgent.ParseAdd("MosaicTalent");
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-            using (var response = await httpClient.SendAsync(request))
-            {
-                if (!response.IsSuccessStatusCode)
-                {
-                    return null;
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                var emails = JsonSerializer.Deserialize<List<GitHubOAuthUserEmailResponse>>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<GitHubOAuthUserEmailResponse>();
-                var primaryVerifiedEmail = emails.FirstOrDefault(e => e.Primary && e.Verified);
-                if (primaryVerifiedEmail != null && !string.IsNullOrWhiteSpace(primaryVerifiedEmail.Email))
-                {
-                    return primaryVerifiedEmail.Email;
-                }
-
-                var anyVerifiedEmail = emails.FirstOrDefault(e => e.Verified);
-                return anyVerifiedEmail?.Email;
-            }
-        }
-
-        [UnitOfWork]
-        public async Task<User> FindOrCreateTenantUserAsync(GitHubOAuthUserResponse gitHubUser, string emailAddress, string accessToken)
-        {
-            var tenantId = _abpSession.TenantId ?? 1;
-            var normalizedEmail = emailAddress?.Trim().ToUpperInvariant();
-            var normalizedGithubLogin = gitHubUser?.Login?.Trim().ToUpperInvariant();
-
-            using (CurrentUnitOfWork.SetTenantId(tenantId))
-            {
-                if (!string.IsNullOrWhiteSpace(normalizedGithubLogin))
-                {
-                    var existingDeveloper = await _developerRepository.GetAll()
-                        .Where(d => d.GithubUsername != null && d.GithubUsername.ToUpper() == normalizedGithubLogin)
-                        .FirstOrDefaultAsync();
-
-                    var existingUserByGithub = existingDeveloper == null
-                        ? null
-                        : await _userManager.Users
-                            .Where(u => u.Id == existingDeveloper.UserId && u.TenantId == tenantId)
-                            .FirstOrDefaultAsync();
-
-                    if (existingUserByGithub != null)
-                    {
-                        await UpsertDeveloperAsync(existingUserByGithub.Id, gitHubUser, accessToken);
-                        return existingUserByGithub;
-                    }
-                }
-
-                var existingUser = await _userManager.Users
-                    .Where(u => u.TenantId == tenantId
-                                && (
-                                    u.NormalizedEmailAddress == normalizedEmail
-                                    || (u.EmailAddress != null && u.EmailAddress.ToUpper() == normalizedEmail)
-                                ))
-                    .FirstOrDefaultAsync();
-                if (existingUser != null)
-                {
-                    await UpsertDeveloperAsync(existingUser.Id, gitHubUser, accessToken);
-                    return existingUser;
-                }
-
-                var loginName = !string.IsNullOrWhiteSpace(gitHubUser?.Login)
-                    ? gitHubUser.Login
-                    : Regex.Replace(emailAddress.Split('@')[0], "[^a-zA-Z0-9_.-]", string.Empty);
-
-                if (string.IsNullOrWhiteSpace(loginName))
-                {
-                    loginName = "githubuser";
-                }
-
-                var uniqueUserName = await EnsureUniqueUserNameAsync(loginName);
-                var names = ResolveNames(gitHubUser?.Name);
-
-                var user = new User
-                {
-                    TenantId = tenantId,
-                    Name = names.Item1,
-                    Surname = names.Item2,
-                    EmailAddress = emailAddress,
-                    AvatarUrl = gitHubUser?.AvatarUrl,
-                    IsActive = true,
-                    UserName = uniqueUserName,
-                    IsEmailConfirmed = true,
-                    Roles = new List<UserRole>()
-                };
-
-                user.SetNormalizedNames();
-
-                var defaultRoles = await _roleManager.Roles
-                    .Where(r => r.IsDefault && r.TenantId == tenantId)
-                    .ToListAsync();
-
-                foreach (var defaultRole in defaultRoles)
-                {
-                    user.Roles.Add(new UserRole(tenantId, user.Id, defaultRole.Id));
-                }
-
-                await _userManager.InitializeOptionsAsync(tenantId);
-                var createResult = await _userManager.CreateAsync(user, User.CreateRandomPassword());
-                createResult.CheckErrors(LocalizationManager);
-
-                await UpsertDeveloperAsync(user.Id, gitHubUser, accessToken);
-
-                return user;
-            }
         }
 
         public string BuildClientRedirect(string suffix)
@@ -331,7 +144,7 @@ namespace MosaicTalent.Authentication.External
 
         private async Task UpsertDeveloperAsync(long userId, GitHubOAuthUserResponse gitHubUser, string accessToken)
         {
-            var githubUsername = gitHubUser?.Login;
+            var githubUsername = gitHubUser?.Login?.ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(githubUsername))
             {
                 return;
