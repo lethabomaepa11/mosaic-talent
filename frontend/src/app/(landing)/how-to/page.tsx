@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Button, Typography } from "antd";
 import { ArrowRight, Compass, Lightbulb, UsersRound } from "lucide-react";
