@@ -1,10 +1,11 @@
 # MVP 1 release queue
 
-Snapshot: 2026-10-12. Recheck GitHub issue and PR state before choosing the next task.
+Snapshot: 2026-10-17. Recheck GitHub issue and PR state before choosing the next task.
 
 | Order | Issue | Why it is next | State |
 | --- | --- | --- | --- |
-| 1 | [#94 Developer onboarding](https://github.com/lethabomaepa11/mosaic-talent/issues/94) | Required account and profile flow | [PR #103](https://github.com/lethabomaepa11/mosaic-talent/pull/103) open; CI green; migration prepared, not applied |
+| 1 | [#119 First-use clarity](https://github.com/lethabomaepa11/mosaic-talent/issues/119) | Simplifies the account and onboarding path before new users enter the workspace | In progress |
+| 2 | [#94 Developer onboarding](https://github.com/lethabomaepa11/mosaic-talent/issues/94) | Required account and profile flow | Merged to `dev`; fresh PostgreSQL migration and seed validation passed |
 | 2 | [#102 OAuth logout](https://github.com/lethabomaepa11/mosaic-talent/issues/102) | Reliable sign out and account switching | [PR #104](https://github.com/lethabomaepa11/mosaic-talent/pull/104) open |
 | 3 | [#98 Project creation](https://github.com/lethabomaepa11/mosaic-talent/issues/98) | Lets a new developer start a project without GitHub | [PR #105](https://github.com/lethabomaepa11/mosaic-talent/pull/105) open |
 | 4 | [#97 Open project browser](https://github.com/lethabomaepa11/mosaic-talent/issues/97) | Lets new users find a team | [PR #106](https://github.com/lethabomaepa11/mosaic-talent/pull/106) open |

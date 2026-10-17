@@ -185,6 +185,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Agent Issue Template Workflow](docs/feature/agent-issue-template-workflow.md)
 - [Issue-Driven V1 Workflow](docs/feature/issue-driven-v1-workflow.md)
 - [Developer Onboarding V1](docs/feature/developer-onboarding-v1.md)
+- [First-use Clarity](docs/feature/first-use-clarity.md)
 - [Fresh PostgreSQL Bootstrap](docs/feature/fresh-postgresql-bootstrap.md)
 - [OAuth Logout Issue #102](docs/feature/oauth-logout-issue-draft.md)
 - [GitHub OAuth Production Cookie Domain Fix](docs/feature/github-oauth-prod-cookie-domain-fix.md)

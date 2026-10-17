@@ -3,37 +3,31 @@ import { createStyles } from "antd-style";
 export const useStyles = createStyles(({ token, css }) => ({
   page: css`
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: ${token.padding}px;
     background: ${token.colorBgLayout};
-    position: relative;
-    overflow: hidden;
     @media (min-width: 768px) {
       padding: ${token.paddingLG}px;
     }
   `,
-  glow: css`
-    position: absolute;
-    top: 22%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(640px, 90vw);
-    height: 420px;
-    border-radius: 999px;
-    background: color-mix(in srgb, ${token.colorPrimary} 14%, transparent);
-    filter: blur(100px);
-    pointer-events: none;
-  `,
   shell: css`
     width: 100%;
-    max-width: 460px;
-    position: relative;
-    z-index: 1;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: ${token.paddingXL}px 0;
+  `,
+  topRow: css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginSM}px;
+    margin-bottom: ${token.marginXL}px;
+  `,
+  productName: css`
+    color: ${token.colorText};
+    font-weight: ${token.fontWeightStrong};
   `,
   logoWrap: css`
-    text-align: center;
+    text-align: left;
     margin-bottom: ${token.marginXL}px;
   `,
   companyLogo: css`
@@ -65,29 +59,10 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextSecondary};
     margin: 0;
   `,
-  card: css`
-    border: 1px solid ${token.colorBorder};
-    border-radius: ${token.borderRadiusLG + 6}px;
-    background: color-mix(in srgb, ${token.colorFillAlter} 86%, transparent);
-    padding: ${token.paddingLG}px;
-    position: relative;
-
-    &::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 16px;
-      right: 16px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, ${token.colorPrimary}, transparent);
-    }
-    @media (min-width: 768px) {
-      padding: ${token.paddingXL}px;
-    }
-  `,
   form: css`
     display: grid;
     gap: ${token.margin}px;
+    max-width: 480px;
   `,
   field: css`
     display: grid;
@@ -117,7 +92,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginSM}px;
   `,
   helper: css`
-    text-align: center;
+    text-align: left;
     color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
   `,
@@ -135,7 +110,7 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   footer: css`
     margin-top: ${token.marginLG}px;
-    text-align: center;
+    text-align: left;
     color: color-mix(in srgb, ${token.colorText} 45%, transparent);
     font-size: 12px;
     line-height: 1.6;

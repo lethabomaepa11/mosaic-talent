@@ -5,10 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Moon, Sun } from "lucide-react";
 import { Button, Divider, Input } from "antd";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
-import { useAppearanceState } from "@/providers/appearance-provider";
+import { useAppearanceAction, useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { toast } from "@/components/providers";
 import { useStyles } from "./style";
@@ -22,6 +22,7 @@ const LoginPage = () => {
   const router = useRouter();
   const { styles } = useStyles();
   const { mode } = useAppearanceState();
+  const { toggleMode } = useAppearanceAction();
   const { login } = useAuthAction();
   const { isAuthenticated, isError, isPending } = useAuthState();
   const {
@@ -92,14 +93,23 @@ const LoginPage = () => {
 
   return (
     <div className={styles.page}>
-      <div className={styles.glow} />
-
       <motion.div
         className={styles.shell}
         initial={false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
+        <div className={styles.topRow}>
+          <span className={styles.productName}>Mosaic Talent</span>
+          <Button
+            type="text"
+            onClick={toggleMode}
+            icon={mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {mode === "dark" ? "Light mode" : "Dark mode"}
+          </Button>
+        </div>
         <div className={styles.logoWrap}>
           {companyLogoUrl ? (
             <img
@@ -128,8 +138,7 @@ const LoginPage = () => {
           </p>
         </div>
 
-        <div className={styles.card}>
-          <form onSubmit={handleSubmit} className={styles.form}>
+        <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.field}>
               <label htmlFor="email" className={styles.label}>
                 Email or Username
@@ -210,8 +219,7 @@ const LoginPage = () => {
                 </>
               ) : null}
             </div>
-          </form>
-        </div>
+        </form>
 
         <p className={styles.footer}>
           By continuing, you agree to our Terms of Service and Privacy Policy.

@@ -2,6 +2,7 @@
 
 import { Alert, Button, Progress, Select } from "antd";
 import { GithubOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { AppOperatorPanel } from "@/components/app-operator";
 import { useOnboarding } from "./useOnboarding";
 import { useStyles } from "./style";
 
@@ -20,7 +21,7 @@ const OnboardingPage = () => {
           <h1 className={styles.title}>Make room for growth</h1>
           <p className={styles.subtitle}>Help us find projects and teammates that fit you.</p>
         </header>
-        <div className={styles.card}>
+        <main className={styles.content}>
           {loading ? <p role="status">Loading your profile...</p> : !draft ? (
             <Alert title={error || "Unable to load your profile"} type="error" showIcon
               action={<Button onClick={flow.retry}>Try again</Button>} />
@@ -92,8 +93,9 @@ const OnboardingPage = () => {
               </div>
             </>
           )}
-        </div>
+        </main>
       </div>
+      <AppOperatorPanel />
     </div>
   );
 };
