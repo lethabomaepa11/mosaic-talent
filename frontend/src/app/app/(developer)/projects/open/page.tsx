@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Button, Empty, Input, Modal, Select, Spin, Typography } from "antd";
@@ -128,12 +127,15 @@ const OpenProjectsPage = () => {
             Find a team project where you can contribute, grow your skills, and work with other developers.
           </Typography.Paragraph>
         </div>
-        <div className={styles.actionRow}>
-          <Button type={view === "browse" ? "primary" : "default"} onClick={() => setView("browse")}>Browse all</Button>
-          <Button type={view === "swipe" ? "primary" : "default"} onClick={() => setView("swipe")}>Swipe view</Button>
-          <Link href="/app/projects/my">
-            <Button>Go to My Projects</Button>
-          </Link>
+        <div className={styles.discoveryModes} aria-label="Choose how to explore projects">
+          <div className={styles.modeCopy}>
+            <Typography.Text strong>{openProjects.length} open {openProjects.length === 1 ? "project" : "projects"}</Typography.Text>
+            <Typography.Text type="secondary">Choose a list for filtering, or review one project at a time.</Typography.Text>
+          </div>
+          <div className={styles.actionRow}>
+            <Button type={view === "browse" ? "primary" : "default"} onClick={() => setView("browse")}>Browse projects</Button>
+            <Button type={view === "swipe" ? "primary" : "default"} onClick={() => setView("swipe")}>Swipe one at a time</Button>
+          </div>
         </div>
       </motion.div>
 
