@@ -59,7 +59,7 @@ const LandingPage = () => {
             </Link>
             <div className={styles.navLinks}>
               <a href="#benefits">Why join</a>
-              <a href="#how-it-works">How it works</a>
+              <Link href="/how-to">How to use</Link>
             </div>
             <div className={styles.navActions}>
               <Link href="/login" className={styles.signIn}>Sign in</Link>

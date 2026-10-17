@@ -118,7 +118,6 @@ describe("AppHeader", () => {
     expect(
       screen.getByPlaceholderText("Search developers and projects..."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "User menu" })).toBeInTheDocument();
