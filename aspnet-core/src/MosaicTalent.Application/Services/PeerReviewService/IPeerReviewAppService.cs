@@ -10,6 +10,7 @@ public interface IPeerReviewAppService : IApplicationService
     Task<List<ProjectPeerReviewsDto>> GetMyProjectPeerReviews();
     Task<ProjectPeerReviewsDto> GetProjectPeerReviews(GetProjectPeerReviewsInput input);
     Task<ProjectPeerReviewsDto> GenerateProjectPeerReviews(GenerateProjectPeerReviewsInput input);
+    Task<ProjectPeerReviewsDto> RequestProjectPeerReview(GenerateProjectPeerReviewsInput input);
     Task<PeerReviewDto> SetPeerReviewRating(SetPeerReviewRatingInput input);
     Task<PeerReviewQuestionDto> SubmitReviewAnswer(SubmitReviewAnswerInput input);
 }

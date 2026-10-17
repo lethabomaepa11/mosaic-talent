@@ -44,6 +44,9 @@ export interface IAIReviewFeedback {
 export interface IProjectPeerReview {
   projectId: string;
   projectTitle: string;
+  projectStatus: string;
+  canRequestPeerReview: boolean;
+  peerReviewRequestMessage: string;
   assignedToMe: IPeerReview[];
   receivedByMe: IPeerReview[];
   feedback?: IAIReviewFeedback;
@@ -61,6 +64,7 @@ export interface IReviewActionContext {
   fetchMyProjectPeerReviews: () => Promise<void>;
   fetchProjectPeerReviews: (projectId: string) => Promise<IProjectPeerReview | undefined>;
   generateProjectPeerReviews: (projectId: string) => Promise<IProjectPeerReview | undefined>;
+  requestProjectPeerReview: (projectId: string) => Promise<IProjectPeerReview | undefined>;
   setPeerReviewRating: (reviewId: string, rating: number) => Promise<IPeerReview | undefined>;
   submitReviewAnswer: (questionId: string, text: string) => Promise<IReviewQuestion | undefined>;
 }
@@ -79,6 +83,7 @@ export const ReviewActionContext = createContext<IReviewActionContext>({
   fetchMyProjectPeerReviews: async () => undefined,
   fetchProjectPeerReviews: async () => undefined,
   generateProjectPeerReviews: async () => undefined,
+  requestProjectPeerReview: async () => undefined,
   setPeerReviewRating: async () => undefined,
   submitReviewAnswer: async () => undefined,
 });

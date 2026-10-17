@@ -9,6 +9,12 @@ public class ProjectPeerReviewsDto
 
     public string ProjectTitle { get; set; }
 
+    public string ProjectStatus { get; set; }
+
+    public bool CanRequestPeerReview { get; set; }
+
+    public string PeerReviewRequestMessage { get; set; }
+
     public List<PeerReviewDto> AssignedToMe { get; set; } = new List<PeerReviewDto>();
 
     public List<PeerReviewDto> ReceivedByMe { get; set; } = new List<PeerReviewDto>();
