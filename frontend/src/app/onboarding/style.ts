@@ -41,7 +41,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     }
   `,
   shell: css`
-    max-width: 860px;
+    max-width: 960px;
     margin: 0 auto;
   `,
   heading: css`
@@ -60,19 +60,15 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin: ${token.marginXXS}px 0 0;
     color: ${token.colorTextSecondary};
   `,
-  card: css`
-    border: 1px solid ${token.colorBorder};
-    border-radius: ${token.borderRadiusLG + 6}px;
-    padding: ${token.paddingLG}px;
-    background: color-mix(in srgb, ${token.colorFillAlter} 86%, transparent);
-
-    @media (min-width: 768px) {
-      padding: ${token.paddingXL}px;
-    }
+  content: css`
+    max-width: 700px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+    padding-top: ${token.paddingLG}px;
   `,
   form: css`
     display: grid;
     gap: ${token.margin}px;
+    max-width: 560px;
   `,
   row: css`
     display: grid;

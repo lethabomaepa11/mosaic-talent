@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { AppOperatorPanel } from "@/components/app-operator";
 import { Button, Divider, Input, Upload } from "antd";
 import { toast } from "@/components/providers";
 import {
@@ -107,8 +108,7 @@ const CompanySignupPage = () => {
           </p>
         </div>
 
-        <div className={styles.card}>
-          <form onSubmit={handleSubmit} className={styles.form}>
+        <form onSubmit={handleSubmit} className={styles.form}>
             <h2 className={styles.sectionTitle}>Company details</h2>
             <div className={styles.row}>
               <div className={styles.field}>
@@ -192,6 +192,7 @@ const CompanySignupPage = () => {
                   value={ownerName}
                   onChange={(event) => setOwnerName(event.target.value)}
                   className={styles.input}
+                  placeholder="For example, Lerato"
                 />
               </div>
               <div className={styles.field}>
@@ -203,6 +204,7 @@ const CompanySignupPage = () => {
                   value={ownerSurname}
                   onChange={(event) => setOwnerSurname(event.target.value)}
                   className={styles.input}
+                  placeholder="For example, Dlamini"
                 />
               </div>
             </div>
@@ -218,6 +220,7 @@ const CompanySignupPage = () => {
                   onChange={(event) => setOwnerUserName(event.target.value)}
                   className={styles.input}
                   autoComplete="username"
+                  placeholder="For example, lerato.dlamini"
                 />
               </div>
               <div className={styles.field}>
@@ -231,6 +234,7 @@ const CompanySignupPage = () => {
                   onChange={(event) => setOwnerEmail(event.target.value)}
                   className={styles.input}
                   autoComplete="email"
+                  placeholder="lerato@acmelabs.com"
                 />
               </div>
             </div>
@@ -245,6 +249,7 @@ const CompanySignupPage = () => {
                 onChange={(event) => setOwnerPassword(event.target.value)}
                 className={styles.input}
                 autoComplete="new-password"
+                placeholder="Choose a strong password"
               />
             </div>
 
@@ -277,9 +282,9 @@ const CompanySignupPage = () => {
                 Personal account? <Link href="/login">Go to developer sign in</Link>
               </div>
             </div>
-          </form>
-        </div>
+        </form>
       </div>
+      <AppOperatorPanel />
     </div>
   );
 };
