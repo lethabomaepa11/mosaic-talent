@@ -30,7 +30,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 2px;
+    gap: ${token.marginXXS}px;
     border-radius: ${token.borderRadiusSM}px;
     color: ${token.colorTextSecondary};
     text-decoration: none;
