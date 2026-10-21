@@ -7,6 +7,8 @@ const projectFixture: IProject = {
   id: "project-1",
   title: "Alpha Platform",
   description: "Build an internal collaboration dashboard.",
+  problemStatement: "Teams need a clearer way to share project work.",
+  isPublic: true,
   maxMembers: 5,
   difficulty: "intermediate",
   estimatedHoursPerWeek: 10,

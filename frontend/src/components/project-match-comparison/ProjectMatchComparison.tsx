@@ -106,7 +106,7 @@ export const ProjectMatchComparison = () => {
       ) : matches.length > 0 ? (
         <div className={styles.matchGrid} data-testid="ai-match-grid">
           {matches.map((project, index) => {
-            const isFull = project.members.length >= project.maxMembers;
+            const isFull = project.maxMembers != null && project.members.length >= project.maxMembers;
             return (
               <Card key={project.id} className={styles.matchCard}>
                 <div className={styles.cardHeading}>
@@ -130,7 +130,7 @@ export const ProjectMatchComparison = () => {
                   </div>
                 ) : null}
                 <Typography.Text type="secondary">
-                  {project.members.length}/{project.maxMembers} members · {project.estimatedHoursPerWeek} hrs/week · {project.difficulty}
+                  {project.maxMembers == null ? `${project.members.length} members` : `${project.members.length}/${project.maxMembers} members`} · {project.estimatedHoursPerWeek} hrs/week · {project.difficulty}
                 </Typography.Text>
                 <Space className={styles.actions} wrap>
                   <Link href={`/app/projects/${project.id}`}><Button>Compare details</Button></Link>
