@@ -4,6 +4,7 @@ using MosaicTalent.Authorization.Users;
 using MosaicTalent.Domains.Companies;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Domains.Gamification;
+using MosaicTalent.Domains.Ideas;
 using MosaicTalent.Domains.Notifications;
 using MosaicTalent.Domains.Projects;
 using MosaicTalent.Domains.Reviews;
@@ -35,6 +36,9 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
     public DbSet<ProjectMeeting> ProjectMeetings { get; set; }
     public DbSet<ProjectMeetingReminderPreference> ProjectMeetingReminderPreferences { get; set; }
     public DbSet<ProjectTeamInvite> ProjectTeamInvites { get; set; }
+    public DbSet<IdeaPost> IdeaPosts { get; set; }
+    public DbSet<IdeaReaction> IdeaReactions { get; set; }
+    public DbSet<IdeaComment> IdeaComments { get; set; }
     public DbSet<PeerReview> PeerReviews { get; set; }
     public DbSet<AIReviewQuestion> AIReviewQuestions { get; set; }
     public DbSet<AIReviewFeedback> AIReviewFeedbacks { get; set; }
@@ -131,6 +135,7 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
 
         modelBuilder.Entity<Project>(builder =>
         {
+            builder.Property(x => x.IsPublic).HasDefaultValue(true);
             builder.HasIndex(x => new { x.TenantId, x.OwnerDeveloperId });
             builder.HasIndex(x => new { x.TenantId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.Difficulty });
@@ -185,6 +190,24 @@ public class MosaicTalentDbContext : AbpZeroDbContext<Tenant, Role, User, Mosaic
             builder.HasIndex(x => new { x.ProjectId, x.DeveloperId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.ProjectId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.DeveloperId, x.Status });
+        });
+
+        modelBuilder.Entity<IdeaPost>(builder =>
+        {
+            builder.Property(x => x.IsPublic).HasDefaultValue(true);
+            builder.HasIndex(x => new { x.TenantId, x.IsArchived, x.CreationTime });
+            builder.HasIndex(x => x.ConvertedProjectId);
+        });
+
+        modelBuilder.Entity<IdeaReaction>(builder =>
+        {
+            builder.HasIndex(x => new { x.IdeaPostId, x.DeveloperId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.IdeaPostId, x.Type });
+        });
+
+        modelBuilder.Entity<IdeaComment>(builder =>
+        {
+            builder.HasIndex(x => new { x.TenantId, x.IdeaPostId, x.CreationTime });
         });
 
         modelBuilder.Entity<PeerReview>(builder =>

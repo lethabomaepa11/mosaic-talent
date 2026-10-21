@@ -21,6 +21,8 @@ public class Project : FullAuditedEntity<Guid>, IMustHaveTenant
 
     public ProjectStatus Status { get; set; }
 
+    public bool IsPublic { get; set; } = true;
+
     [Range(2, 8)]
     public int? MaxMembers { get; set; }
 

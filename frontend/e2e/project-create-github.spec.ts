@@ -29,6 +29,8 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
+        userId: 99,
+        hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
@@ -115,7 +117,7 @@ test("allows project creation without connecting GitHub", async ({ page }) => {
 
   await expect(page.getByText("Connect GitHub to create a project.")).toBeVisible();
   await expect(page.getByText(/create this project without a repository/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create Project", exact: true })).toBeEnabled();
+  await expect(page.getByRole("main").getByRole("button", { name: "Create Project", exact: true })).toBeEnabled();
 
   let createPayload: { githubRepo?: string } | undefined;
   await page.route("**/api/services/app/DeveloperProject/CreateProject", async (route) => {
@@ -124,7 +126,7 @@ test("allows project creation without connecting GitHub", async ({ page }) => {
   });
   await page.getByLabel("Project Title").fill("Study Group");
   await page.getByPlaceholder("Write markdown specs for your team.").fill("A repo-free project.");
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("");
 });
@@ -202,7 +204,7 @@ test("creates project using selected GitHub repository", async ({ page }) => {
   await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/beta");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
   await expect(page.getByLabel("Project Title")).toHaveValue("Alpha Delivery");
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
 
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("octocat/beta");
@@ -293,7 +295,7 @@ test("creates a new GitHub repository and auto-selects it for project creation",
   await page.getByLabel("Project Title").fill("Repo Build");
   await page.getByPlaceholder("Write markdown specs for your team.").fill("Project with created repo");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
 
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("octocat/new-repo");

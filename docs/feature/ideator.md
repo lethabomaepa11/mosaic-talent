@@ -1,0 +1,23 @@
+# Ideator (#129)
+
+Ideator gives signed-in developers a place to discuss an idea before forming a project. Each post requires a title, problem statement, and proposed solution, and the author can keep the idea private or share it publicly. Private ideas are visible only to their author. Public posts accept one reaction per developer: Interested signals willingness to hear about a team, Like supports the idea, and Dislike signals concern. Reactions can be changed or removed. Comments are intended for constructive suggestions.
+
+Only the post creator can remove their idea or convert it. Conversion creates a private group project whose description contains both the problem and proposed solution. If the creator chooses to invite interested people, the backend creates pending project invitations; it never adds those developers as members. Project invitations retain their existing accept/reject flow. Private projects are excluded from open-project discovery and public developer profiles.
+
+The authenticated route is `/app/ideator`, available in the developer sidebar and the mobile More menu. On mobile, the fixed primary navigation remains Discover, Reviews, Profile, and More. The feed and composer use the route's responsive `createStyles` file and keep form fields labelled with plain-language placeholders.
+
+## Storage and rollout
+
+The backend adds `IdeaPost`, `IdeaReaction`, and `IdeaComment`, with a uniqueness constraint allowing one reaction per developer per idea. It also adds `Project.IsPublic`, defaulting existing projects to public when the schema migration is applied. These fields and indexes are registered in the EF Core model. A database migration has **not** been generated or applied, and this feature is not deployable until the project owner runs and validates the migration under the repository's migration policy. No database migration command was run by the agent.
+
+Issue #130 remains responsible for the broader privacy controls, required problem statement field, wiki, boards, and shared resources in the project workspace. This issue's generated project is private by default as a conversion safeguard.
+
+## Release queue snapshot (2026-10-21)
+
+| Order | Issue | Rationale | State |
+| --- | --- | --- | --- |
+| 1 | [#127 Developer how-to guide](https://github.com/lethabomaepa11/mosaic-talent/issues/127) | The implementation merged via [PR #128](https://github.com/lethabomaepa11/mosaic-talent/pull/128); issue remains open and needs backlog cleanup. | Merged; issue open |
+| 2 | [#129 Ideator](https://github.com/lethabomaepa11/mosaic-talent/issues/129) | The user explicitly described idea discovery as the first idea-factory capability; conversion uses pending invitations. | Implemented and validated locally; migration and PR pending |
+| 3 | [#130 Private project workspace](https://github.com/lethabomaepa11/mosaic-talent/issues/130) | Adds broader privacy controls, required problem statements, wiki/boards/resources on top of the conversion safeguards in #129. | Open |
+
+There are no open labels, assignees, or milestones on these three issues as of this snapshot. GitHub CLI is unauthenticated in the current environment, so issue/PR writes are unavailable; public issue state was read from the GitHub REST API. The serial frontend E2E suite passes 23/23 after updating older fixtures for the current onboarding guard and navigation labels.

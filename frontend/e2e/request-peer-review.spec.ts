@@ -18,7 +18,7 @@ test("requests an early peer review for an eligible active project", async ({ pa
     route.fulfill(jsonOk({ user: { id: 99, userName: "octocat", name: "Octo", surname: "Cat" } })),
   );
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", (route) =>
-    route.fulfill(jsonOk({ githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
+    route.fulfill(jsonOk({ userId: 99, hasCompletedOnboarding: true, githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
   );
   await page.route("**/api/services/app/PeerReview/GetMyProjectPeerReviews", (route) => route.fulfill(jsonOk([])));
   const projectReview = {

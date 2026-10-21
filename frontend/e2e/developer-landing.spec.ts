@@ -14,7 +14,7 @@ for (const width of [360, 768, 1280]) {
     if (width === 360) {
       await page.getByRole("link", { name: /create your free account/i }).click();
       await expect(page).toHaveURL(/\/signup$/);
-      await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
     }
   });
 }

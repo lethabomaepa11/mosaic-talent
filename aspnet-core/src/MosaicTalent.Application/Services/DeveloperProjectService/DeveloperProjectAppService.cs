@@ -119,7 +119,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             .ToListAsync();
 
         var projects = await _projectRepository.GetAll()
-            .Where(x => x.Status == ProjectStatus.Open && !myProjectIds.Contains(x.Id))
+            .Where(x => x.Status == ProjectStatus.Open && x.IsPublic && !myProjectIds.Contains(x.Id))
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 
@@ -141,6 +141,19 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
     {
         var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
             ?? throw new UserFriendlyException("Project not found.");
+        if (!project.IsPublic)
+        {
+            var developer = await GetCurrentDeveloper();
+            var isOwner = project.OwnerDeveloperId == developer.Id;
+            var isMember = await _projectMemberRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id);
+            var hasPendingInvite = await _projectTeamInviteRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id && x.Status == ProjectTeamInviteStatus.Pending);
+            if (!ProjectVisibilityPolicy.CanView(project.IsPublic, isOwner, isMember, hasPendingInvite))
+            {
+                throw new UserFriendlyException("Project not found.");
+            }
+        }
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
     }
