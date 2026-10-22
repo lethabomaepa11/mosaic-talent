@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Lightbulb,
 } from "lucide-react";
 import { Button, Divider } from "antd";
 import { useAuthAction } from "@/providers/auth-provider";
@@ -27,6 +28,7 @@ interface INavItem {
 
 const developerNav: INavItem[] = [
   { href: "/app/projects/open", label: "Discover", icon: Compass },
+  { href: "/app/ideator", label: "Ideator", icon: Lightbulb },
   { href: "/app/profile", label: "My Profile", icon: User },
   { href: "/app/how-to", label: "How to use", icon: CircleHelp },
   { href: "/app/reviews", label: "Peer Reviews", icon: MessageSquare },

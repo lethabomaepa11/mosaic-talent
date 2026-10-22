@@ -7,7 +7,6 @@ import {
   Alert,
   AutoComplete,
   Button,
-  Card,
   Checkbox,
   Form,
   Input,
@@ -427,13 +426,12 @@ const CreateProjectPage = () => {
       const created = await createProject({
         title: values.title,
         description: values.description,
-        maxMembers: values.maxMembers,
+        problemStatement: values.problemStatement,
+        isPublic: Boolean(values.isPublic),
         githubRepo: selectedRepoUrl ? values.githubRepo : "",
         difficulty: Number(values.difficulty),
         estimatedHoursPerWeek: Number(values.estimatedHoursPerWeek),
         skills: normalizeSkills(String(values.skills ?? "")),
-        type: Number(values.type),
-        status: Number(values.status),
       });
 
       toast.success("Project created", "Your project has been created.");
@@ -467,7 +465,7 @@ const CreateProjectPage = () => {
         </Typography.Paragraph>
       </div>
 
-      <Card className={styles.aiCard}>
+      <section className={styles.aiCard}>
         <Typography.Title level={4} className={styles.aiTitle}>
           Create With AI
         </Typography.Title>
@@ -491,17 +489,15 @@ const CreateProjectPage = () => {
             Generate Project
           </Button>
         </div>
-      </Card>
+      </section>
 
-      <Card className={styles.card}>
+      <section className={styles.card}>
         <Form
           form={form}
           layout="vertical"
           className={styles.formGrid}
           initialValues={{
-            maxMembers: 4,
-            type: 1,
-            status: 1,
+            isPublic: false,
             difficulty: 1,
             estimatedHoursPerWeek: 6,
           }}
@@ -510,25 +506,33 @@ const CreateProjectPage = () => {
             <Input placeholder="AI Interview Preparation Workspace" />
           </Form.Item>
 
+          <Form.Item label="Problem statement" name="problemStatement" rules={[{ required: true, whitespace: true, message: "Explain the problem your team will solve." }]}>
+            <Input.TextArea placeholder="Who has this problem, and why is it hard to solve?" autoSize={{ minRows: 3, maxRows: 7 }} maxLength={4000} showCount />
+          </Form.Item>
+
+          <Form.Item name="isPublic" valuePropName="checked">
+            <Checkbox>List this project in Discover. Leave unchecked to keep it private.</Checkbox>
+          </Form.Item>
+
           <div className={styles.twoCol}>
             <Form.Item
               label="Project Difficulty"
               name="difficulty"
               rules={[{ required: true }]}
             >
-              <Select options={DIFFICULTY_OPTIONS} />
+              <Select placeholder="Choose the project difficulty" options={DIFFICULTY_OPTIONS} />
             </Form.Item>
             <Form.Item
               label="Estimated Hours / Week"
               name="estimatedHoursPerWeek"
               rules={[{ required: true }]}
             >
-              <InputNumber min={1} max={40} className={styles.fullWidth} />
+              <InputNumber placeholder="For example, 6 hours each week" min={1} max={40} className={styles.fullWidth} />
             </Form.Item>
           </div>
 
           <Form.Item
-            label="Description (Markdown)"
+            label="Project overview and solution"
             name="description"
             rules={[{ required: true }]}
           >
@@ -549,7 +553,7 @@ const CreateProjectPage = () => {
                 preview="live"
                 height={420}
                 textareaProps={{
-                  placeholder: "Write markdown specs for your team.",
+                  placeholder: "Describe the solution and what your team will build.",
                 }}
                 data-color-mode={mode}
                 className={styles.markdownEditor}
@@ -571,31 +575,6 @@ const CreateProjectPage = () => {
                 <Input placeholder="React, TypeScript, Node.js" />
               </Form.Item>
             </div>
-          </Form.Item>
-
-          <div className={styles.twoCol}>
-            <Form.Item label="Max Team Members" name="maxMembers" rules={[{ required: true }]}>
-              <InputNumber min={2} max={8} className={styles.fullWidth} />
-            </Form.Item>
-            <Form.Item label="Project Type" name="type">
-              <Select
-                options={[
-                  { label: "Personal", value: 0 },
-                  { label: "Group", value: 1 },
-                ]}
-              />
-            </Form.Item>
-          </div>
-
-          <Form.Item label="Initial Status" name="status">
-            <Select
-              options={[
-                { label: "Draft", value: 0 },
-                { label: "Open", value: 1 },
-                { label: "In-Progress", value: 2 },
-                { label: "Complete", value: 3 },
-              ]}
-            />
           </Form.Item>
 
           {isGithubStatusLoading ? (
@@ -706,7 +685,7 @@ const CreateProjectPage = () => {
             </Button>
           </div>
         </Form>
-      </Card>
+      </section>
 
       <Modal
         title="Create GitHub Repository"

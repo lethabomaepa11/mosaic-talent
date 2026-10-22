@@ -166,6 +166,7 @@ test("renders AI learning path recommendations from profile data", async ({ page
   await expect(page.getByText("280 pts")).toBeVisible();
   await expect(page.getByText("First Contribution")).toBeVisible();
 
+  await page.getByRole("tab", { name: "Learning Path" }).click();
   await expect(page.locator("[data-ai-section='learning-path']")).toBeVisible();
   await expect(page.getByText("Path built from your current profile and role targets.")).toBeVisible();
   await expect(

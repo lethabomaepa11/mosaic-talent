@@ -19,7 +19,7 @@ namespace MosaicTalent.Controllers
         [HttpPost("upload")]
         [AbpMvcAuthorize]
         [RequestSizeLimit(10 * 1024 * 1024)]
-        public async Task<ActionResult<FileUploadResultDto>> Upload([FromForm] IFormFile file, [FromForm] string folder = "general")
+        public async Task<ActionResult<FileUploadResultDto>> Upload(IFormFile file, [FromForm] string folder = "general")
         {
             var result = await _r2StorageService.UploadAsync(file, folder);
             return Ok(result);
@@ -27,7 +27,7 @@ namespace MosaicTalent.Controllers
 
         [HttpPost("upload-public")]
         [RequestSizeLimit(10 * 1024 * 1024)]
-        public async Task<ActionResult<FileUploadResultDto>> UploadPublic([FromForm] IFormFile file, [FromForm] string folder = "public")
+        public async Task<ActionResult<FileUploadResultDto>> UploadPublic(IFormFile file, [FromForm] string folder = "public")
         {
             var result = await _r2StorageService.UploadAsync(file, folder);
             return Ok(result);

@@ -20,12 +20,16 @@ export const useStyles = createStyles(({ token, css }) => ({
     max-width: 860px;
   `,
   card: css`
-    border-radius: ${token.borderRadiusLG}px;
-  `,
-  aiCard: css`
-    border-radius: ${token.borderRadiusLG}px;
     display: grid;
     gap: ${token.marginSM}px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+    padding-top: ${token.paddingLG}px;
+  `,
+  aiCard: css`
+    display: grid;
+    gap: ${token.marginSM}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+    padding-bottom: ${token.paddingLG}px;
   `,
   aiTitle: css`
     margin: 0 !important;

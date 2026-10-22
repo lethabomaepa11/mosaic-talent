@@ -119,7 +119,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             .ToListAsync();
 
         var projects = await _projectRepository.GetAll()
-            .Where(x => x.Status == ProjectStatus.Open && !myProjectIds.Contains(x.Id))
+            .Where(x => x.Status == ProjectStatus.Open && x.IsPublic && !myProjectIds.Contains(x.Id))
             .OrderByDescending(x => x.CreationTime)
             .ToListAsync();
 
@@ -141,6 +141,19 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
     {
         var project = await _projectRepository.FirstOrDefaultAsync(input.ProjectId)
             ?? throw new UserFriendlyException("Project not found.");
+        if (!project.IsPublic)
+        {
+            var developer = await GetCurrentDeveloper();
+            var isOwner = project.OwnerDeveloperId == developer.Id;
+            var isMember = await _projectMemberRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id);
+            var hasPendingInvite = await _projectTeamInviteRepository.GetAll()
+                .AnyAsync(x => x.ProjectId == project.Id && x.DeveloperId == developer.Id && x.Status == ProjectTeamInviteStatus.Pending);
+            if (!ProjectVisibilityPolicy.CanView(project.IsPublic, isOwner, isMember, hasPendingInvite))
+            {
+                throw new UserFriendlyException("Project not found.");
+            }
+        }
         var mapped = await MapProjects(new List<Project> { project });
         return mapped.First();
     }
@@ -261,7 +274,9 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             OwnerDeveloperId = developer.Id,
             Title = input.Title.Trim(),
             Description = input.Description.Trim(),
-            MaxMembers = input.MaxMembers ?? 4,
+            ProblemStatement = input.ProblemStatement.Trim(),
+            IsPublic = input.IsPublic,
+            MaxMembers = input.MaxMembers,
             Difficulty = input.Difficulty,
             EstimatedHoursPerWeek = Math.Clamp(input.EstimatedHoursPerWeek, 1, 40),
             GithubRepo = selectedRepoUrl,
@@ -330,7 +345,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         var memberCount = await _projectMemberRepository.GetAll()
             .CountAsync(x => x.ProjectId == project.Id);
 
-        if (memberCount >= (project.MaxMembers ?? 4))
+        if (project.MaxMembers.HasValue && memberCount >= project.MaxMembers.Value)
         {
             throw new UserFriendlyException("Project is already full.");
         }
@@ -823,7 +838,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
             throw new UserFriendlyException("Completed projects cannot be updated.");
         }
 
-        var maxMembers = project.MaxMembers ?? 4;
+        var maxMembers = project.MaxMembers ?? 8;
 
         var currentMembers = await _projectMemberRepository.GetAll()
             .Where(x => x.ProjectId == project.Id)
@@ -1003,7 +1018,7 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
         {
             var memberCount = await _projectMemberRepository.GetAll()
                 .CountAsync(x => x.ProjectId == project.Id);
-            if (memberCount >= (project.MaxMembers ?? 4))
+            if (project.MaxMembers.HasValue && memberCount >= project.MaxMembers.Value)
             {
                 throw new UserFriendlyException("Project is already full.");
             }
@@ -2077,6 +2092,8 @@ public partial class DeveloperProjectAppService : MosaicTalentAppServiceBase, ID
                 Id = project.Id,
                 Title = project.Title,
                 Description = project.Description,
+                ProblemStatement = project.ProblemStatement,
+                IsPublic = project.IsPublic,
                 MaxMembers = project.MaxMembers,
                 Difficulty = project.Difficulty.ToString().ToLowerInvariant(),
                 EstimatedHoursPerWeek = project.EstimatedHoursPerWeek,

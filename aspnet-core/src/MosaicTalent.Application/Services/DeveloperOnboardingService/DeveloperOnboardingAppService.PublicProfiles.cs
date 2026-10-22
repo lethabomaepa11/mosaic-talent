@@ -83,7 +83,7 @@ public partial class DeveloperOnboardingAppService
         var projects = memberProjectIds.Count == 0
             ? new List<Project>()
             : await _projectRepository.GetAll()
-                .Where(x => memberProjectIds.Contains(x.Id))
+                .Where(x => memberProjectIds.Contains(x.Id) && x.IsPublic)
                 .OrderByDescending(x => x.CreationTime)
                 .ToListAsync();
 

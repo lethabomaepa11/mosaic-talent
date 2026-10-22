@@ -14,8 +14,14 @@ public class CreateDeveloperProjectInput
     [MaxLength(8000)]
     public string Description { get; set; }
 
+    [Required]
+    [MaxLength(4000)]
+    public string ProblemStatement { get; set; }
+
+    public bool IsPublic { get; set; }
+
     [Range(2, 8)]
-    public int? MaxMembers { get; set; } = 4;
+    public int? MaxMembers { get; set; }
 
     [MaxLength(256)]
     public string GithubRepo { get; set; }

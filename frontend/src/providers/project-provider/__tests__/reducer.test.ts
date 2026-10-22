@@ -15,6 +15,8 @@ const project: IProject = {
   id: "1",
   title: "Project A",
   description: "Desc",
+  problemStatement: "A clear problem statement.",
+  isPublic: true,
   maxMembers: 4,
   difficulty: "intermediate",
   estimatedHoursPerWeek: 8,

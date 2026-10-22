@@ -19,7 +19,13 @@ public class Project : FullAuditedEntity<Guid>, IMustHaveTenant
     [MaxLength(8000)]
     public string Description { get; set; }
 
+    [Required]
+    [MaxLength(4000)]
+    public string ProblemStatement { get; set; }
+
     public ProjectStatus Status { get; set; }
+
+    public bool IsPublic { get; set; } = true;
 
     [Range(2, 8)]
     public int? MaxMembers { get; set; }

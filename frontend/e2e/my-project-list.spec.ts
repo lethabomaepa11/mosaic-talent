@@ -18,7 +18,7 @@ test("filters, sorts, and switches active and past projects", async ({ page, bas
     route.fulfill(jsonOk({ user: { id: 99, userName: "octocat", name: "Octo", surname: "Cat" } })),
   );
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", (route) =>
-    route.fulfill(jsonOk({ githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
+    route.fulfill(jsonOk({ userId: 99, hasCompletedOnboarding: true, githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
   );
   await page.route("**/api/services/app/DeveloperProject/GetMyProjects", (route) => route.fulfill(jsonOk([
     { id: "active-zeta", title: "Zeta Frontend", description: "Build a React app", maxMembers: 4, estimatedHoursPerWeek: 8, difficulty: "beginner", skills: ["React"], type: "group", status: "in-progress", ownerId: "owner-1", createdAt: "2026-05-01T00:00:00.000Z", members: [], tasks: [] },
