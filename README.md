@@ -187,6 +187,8 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
 - [Developer Onboarding V1](docs/feature/developer-onboarding-v1.md)
 - [First-use Clarity](docs/feature/first-use-clarity.md)
 - [Developer How-to Guide](docs/feature/developer-how-to-guide.md)
+- [Ideator social idea discovery (#129)](docs/feature/ideator.md)
+- [Private project workspace (#130)](docs/feature/private-project-workspace.md)
 - [Swagger file uploads (#133)](docs/feature/swagger-file-uploads.md)
 - [Profile Projects and Learning Tabs](docs/feature/profile-projects-tab.md)
 - [Fresh PostgreSQL Bootstrap](docs/feature/fresh-postgresql-bootstrap.md)

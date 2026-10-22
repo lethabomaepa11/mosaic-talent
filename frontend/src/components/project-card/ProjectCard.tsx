@@ -138,7 +138,7 @@ export const ProjectCard = ({
             ))}
           </div>
           <Typography.Text type="secondary">
-            {project.members.length}/{project.maxMembers}
+            {project.maxMembers == null ? `${project.members.length} members` : `${project.members.length}/${project.maxMembers}`}
           </Typography.Text>
         </div>
 

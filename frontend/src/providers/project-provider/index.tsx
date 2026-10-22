@@ -80,6 +80,8 @@ import {
 } from "./context";
 import { ProjectReducer } from "./reducer";
 
+export type { IProjectResource, IProjectWikiPage } from "./context";
+
 const ENDPOINT = "/api/services/app/DeveloperProject";
 const REPO_GUARDIAN_ENDPOINT =
   "https://fullstackproject-api.onrender.com/api/services/app/RepoGuardian/QuickScan";
@@ -125,7 +127,9 @@ const normalizeProject = (input: Partial<IProject>): IProject => ({
   id: String(input.id ?? ""),
   title: input.title ?? "",
   description: input.description ?? "",
-  maxMembers: Number(input.maxMembers ?? 4),
+  problemStatement: input.problemStatement ?? "",
+  isPublic: Boolean(input.isPublic),
+  maxMembers: input.maxMembers == null ? undefined : Number(input.maxMembers),
   difficulty: normalizeDifficulty(input.difficulty),
   estimatedHoursPerWeek: Number(input.estimatedHoursPerWeek ?? 6),
   workloadScore: Number(input.workloadScore ?? 0),
@@ -492,6 +496,34 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
       dispatch(createProjectError());
       throw new Error(readApiErrorMessage(error, "Failed to create project."));
     }
+  };
+
+  const getProjectWikiPages = async (projectId: string) => {
+    const response = await instance.get("/api/services/app/ProjectWorkspace/GetWikiPages", { params: { projectId } });
+    return (response.data?.result ?? []) as import("./context").IProjectWikiPage[];
+  };
+
+  const saveProjectWikiPage = async (input: { projectId: string; id?: string; title: string; contentMarkdown: string }) => {
+    const response = await instance.post("/api/services/app/ProjectWorkspace/SaveWikiPage", input);
+    return response.data?.result as import("./context").IProjectWikiPage;
+  };
+
+  const removeProjectWikiPage = async (projectId: string, id: string) => {
+    await instance.delete("/api/services/app/ProjectWorkspace/RemoveWikiPage", { params: { projectId, id } });
+  };
+
+  const getProjectResources = async (projectId: string) => {
+    const response = await instance.get("/api/services/app/ProjectWorkspace/GetResources", { params: { projectId } });
+    return (response.data?.result ?? []) as import("./context").IProjectResource[];
+  };
+
+  const addProjectResource = async (input: { projectId: string; name: string; description?: string; url: string }) => {
+    const response = await instance.post("/api/services/app/ProjectWorkspace/AddResource", input);
+    return response.data?.result as import("./context").IProjectResource;
+  };
+
+  const removeProjectResource = async (projectId: string, id: string) => {
+    await instance.delete("/api/services/app/ProjectWorkspace/RemoveResource", { params: { projectId, id } });
   };
 
   const getJoinProjectLoadWarning = async (projectId: string) => {
@@ -981,6 +1013,12 @@ export const ProjectProvider = ({ children }: PropsWithChildren) => {
           getRepositoryReadme,
           aiGenerateProjectSpec,
           createProject,
+          getProjectWikiPages,
+          saveProjectWikiPage,
+          removeProjectWikiPage,
+          getProjectResources,
+          addProjectResource,
+          removeProjectResource,
           getJoinProjectLoadWarning,
           joinProject,
           leaveProject,

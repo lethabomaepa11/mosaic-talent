@@ -51,6 +51,7 @@ import {
 } from "@/providers/project-provider";
 import { useAppearanceState } from "@/providers/appearance-provider";
 import ProjectProgress from "@/components/project-progress/ProjectProgress";
+import { ProjectKnowledgeWorkspace } from "./ProjectKnowledgeWorkspace";
 import {
   IProjectJoinLoadWarning,
   IProjectInvite,
@@ -354,7 +355,7 @@ const ProjectDetailPage = () => {
     }
 
     return Math.max(
-      (project.maxMembers ?? 4) - (project.members.length + pendingInvites.length),
+      (project.maxMembers ?? 8) - (project.members.length + pendingInvites.length),
       0,
     );
   }, [project, pendingInvites.length]);
@@ -1195,7 +1196,7 @@ const ProjectDetailPage = () => {
       </motion.div>
 
       <Tabs
-        type="card"
+        type="line"
         className={styles.tabs}
         activeKey={activeTab}
         onChange={setActiveTab}
@@ -1207,9 +1208,14 @@ const ProjectDetailPage = () => {
           { key: "spec", label: tabLabel(<FileTextOutlined />, "Project Spec", "Spec") },
           { key: "analysis", label: tabLabel(<BarChartOutlined />, "Repo Analysis", "Analysis") },
           { key: "tasks", label: tabLabel(<CheckSquareOutlined />, "Tasks", "Tasks") },
+          ...(isMember ? [{ key: "knowledge", label: tabLabel(<FileTextOutlined />, "Wiki & resources", "Shared") }] : []),
           { key: "meetings", label: tabLabel(<VideoCameraOutlined />, "Meetings (Jitsi)", "Meetings") },
         ]}
       />
+
+      {activeTab === "knowledge" && isMember ? (
+        <ProjectKnowledgeWorkspace projectId={projectId} canEdit={isMember} />
+      ) : null}
 
       {activeTab === "repo-safety" ? (
         <Card
@@ -1335,7 +1341,7 @@ const ProjectDetailPage = () => {
             <div className={styles.teamHeader}>
               <Space>
                 <Users size={16} />
-                Team ({project.members.length}/{project.maxMembers})
+                Team ({project.members.length}{project.maxMembers == null ? "" : `/${project.maxMembers}`})
               </Space>
               {project.status !== "completed" ? (
                 <Space wrap>

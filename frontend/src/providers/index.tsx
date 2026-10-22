@@ -33,6 +33,7 @@ export {
   useProjectAction,
   useProjectState,
 } from "./project-provider";
+export { IdeatorProvider, useIdeatorAction, useIdeatorState } from "./ideator-provider";
 export {
   ReviewProvider,
   useReviewAction,

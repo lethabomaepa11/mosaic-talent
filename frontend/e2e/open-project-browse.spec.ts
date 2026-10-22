@@ -21,7 +21,7 @@ test("searches, filters, and sorts the open project list", async ({ page }) => {
     route.fulfill(jsonOk({ user: { id: 99, userName: "octocat", name: "Octo", surname: "Cat" } })),
   );
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", (route) =>
-    route.fulfill(jsonOk({ githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
+    route.fulfill(jsonOk({ userId: 99, hasCompletedOnboarding: true, githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: [], goals: [] })),
   );
   await page.route("**/api/services/app/DeveloperProject/GetMyProjects", (route) => route.fulfill(jsonOk([])));
   await page.route("**/api/services/app/DeveloperProject/GetOpenProjects", (route) => route.fulfill(jsonOk([
@@ -59,7 +59,7 @@ test("searches, filters, and sorts the open project list", async ({ page }) => {
     expect(overflow.hasOverflow, `Unexpected horizontal overflow at ${width}px: ${overflow.elements.join(", ")}`).toBe(false);
   }
 
-  await page.getByRole("button", { name: "Swipe view" }).click();
+  await page.getByRole("button", { name: "Swipe one at a time" }).click();
   await page.setViewportSize({ width: 360, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Project 1 of 2")).toBeVisible();

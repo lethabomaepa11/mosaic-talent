@@ -29,6 +29,8 @@ const setupCoreRoutes = async (page: Page) => {
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", async (route) => {
     await route.fulfill(
       jsonOk({
+        userId: 99,
+        hasCompletedOnboarding: true,
         githubUsername: "octocat",
         studyLevel: 1,
         teamworkRating: 8,
@@ -96,7 +98,7 @@ test.beforeEach(async ({ page }) => {
   await setupCoreRoutes(page);
 });
 
-test("allows project creation without connecting GitHub", async ({ page }) => {
+test("creates a private project with a required problem statement and no GitHub connection", async ({ page }) => {
   await page.route(
     "**/api/services/app/DeveloperProject/GetGithubConnectionStatus",
     async (route) => {
@@ -115,18 +117,34 @@ test("allows project creation without connecting GitHub", async ({ page }) => {
 
   await expect(page.getByText("Connect GitHub to create a project.")).toBeVisible();
   await expect(page.getByText(/create this project without a repository/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create Project", exact: true })).toBeEnabled();
+  await expect(page.getByRole("main").getByRole("button", { name: "Create Project", exact: true })).toBeEnabled();
+  const discoverToggle = page.getByRole("checkbox", { name: /List this project in Discover/ });
+  await expect(discoverToggle).not.toBeChecked();
+  await expect(page.getByText("Project type")).toHaveCount(0);
+  await expect(page.getByText("Initial status")).toHaveCount(0);
+  await expect(page.getByText("Maximum team members")).toHaveCount(0);
 
-  let createPayload: { githubRepo?: string } | undefined;
+  let createPayload: { githubRepo?: string; problemStatement?: string; isPublic?: boolean; maxMembers?: number; type?: string; status?: string } | undefined;
   await page.route("**/api/services/app/DeveloperProject/CreateProject", async (route) => {
     createPayload = route.request().postDataJSON() as { githubRepo?: string };
     await route.fulfill(jsonOk({ id: "project-without-repo", title: "Study Group", githubRepo: null }));
   });
   await page.getByLabel("Project Title").fill("Study Group");
-  await page.getByPlaceholder("Write markdown specs for your team.").fill("A repo-free project.");
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("textbox", { name: "Problem statement" }).fill("Students need one private place to organize their group work.");
+  await page.getByPlaceholder("Describe the solution and what your team will build.").fill("A repo-free project.");
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("");
+  expect(createPayload?.problemStatement).toBe("Students need one private place to organize their group work.");
+  expect(createPayload?.isPublic).toBe(false);
+  expect(createPayload).not.toHaveProperty("maxMembers");
+  expect(createPayload).not.toHaveProperty("type");
+  expect(createPayload).not.toHaveProperty("status");
+
+  for (const width of [360, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
 });
 
 test("creates project using selected GitHub repository", async ({ page }) => {
@@ -193,16 +211,17 @@ test("creates project using selected GitHub repository", async ({ page }) => {
 
   await waitForWorkspaceReady(page);
   await expect(page.getByLabel("Project Title")).toHaveValue("");
-  await expect(page.getByPlaceholder("Write markdown specs for your team.")).toHaveValue("");
+  await expect(page.getByPlaceholder("Describe the solution and what your team will build.")).toHaveValue("");
   await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/alpha");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
   await expect(page.getByLabel("Project Title")).toHaveValue("alpha");
   await page.getByLabel("Project Title").fill("Alpha Delivery");
-  await page.getByPlaceholder("Write markdown specs for your team.").fill("Project created from test");
+  await page.getByRole("textbox", { name: "Problem statement" }).fill("Teams need a clear way to coordinate project work.");
+  await page.getByPlaceholder("Describe the solution and what your team will build.").fill("Project created from test");
   await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/beta");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
   await expect(page.getByLabel("Project Title")).toHaveValue("Alpha Delivery");
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
 
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("octocat/beta");
@@ -291,9 +310,10 @@ test("creates a new GitHub repository and auto-selects it for project creation",
 
   await expect(page.getByLabel("Project Title")).toHaveValue("new-repo");
   await page.getByLabel("Project Title").fill("Repo Build");
-  await page.getByPlaceholder("Write markdown specs for your team.").fill("Project with created repo");
+  await page.getByRole("textbox", { name: "Problem statement" }).fill("Teams need a clear way to coordinate project work.");
+  await page.getByPlaceholder("Describe the solution and what your team will build.").fill("Project with created repo");
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();
-  await page.getByRole("button", { name: "Create Project", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Create Project", exact: true }).click();
 
   await expect.poll(() => createPayload).toBeDefined();
   expect(createPayload?.githubRepo).toBe("octocat/new-repo");

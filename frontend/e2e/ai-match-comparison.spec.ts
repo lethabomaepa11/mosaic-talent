@@ -25,7 +25,7 @@ test("shows and compares three AI project matches on the post-login Discover pag
     route.fulfill(jsonOk({ user: { id: 99, userName: "octocat", name: "Octo", surname: "Cat" } })),
   );
   await page.route("**/api/services/app/DeveloperOnboarding/GetMyProfile", (route) =>
-    route.fulfill(jsonOk({ githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: ["React"], goals: [] })),
+    route.fulfill(jsonOk({ userId: 99, hasCompletedOnboarding: true, githubUsername: "octocat", studyLevel: 1, teamworkRating: 8, skills: ["React"], goals: [] })),
   );
   await page.route("**/api/services/app/DeveloperProject/GetMyProjects", (route) => route.fulfill(jsonOk([])));
   await page.route("**/api/services/app/DeveloperProject/GetOpenProjects", (route) => route.fulfill(jsonOk(projects)));

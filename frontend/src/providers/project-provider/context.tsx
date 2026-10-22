@@ -24,7 +24,9 @@ export interface IProject {
   id: string;
   title: string;
   description: string;
-  maxMembers: number;
+  problemStatement: string;
+  isPublic: boolean;
+  maxMembers?: number;
   difficulty: "beginner" | "intermediate" | "advanced" | "expert";
   estimatedHoursPerWeek: number;
   workloadScore: number;
@@ -172,14 +174,17 @@ export interface ICreateGithubRepositoryInput {
 export interface ICreateProjectInput {
   title: string;
   description: string;
+  problemStatement: string;
+  isPublic: boolean;
   maxMembers?: number;
   githubRepo?: string;
   difficulty: number;
   estimatedHoursPerWeek: number;
   skills: string[];
-  type: number;
-  status: number;
 }
+
+export interface IProjectWikiPage { id: string; projectId: string; createdByDeveloperId: string; title: string; contentMarkdown: string; creationTime: string; lastModificationTime?: string; }
+export interface IProjectResource { id: string; projectId: string; addedByDeveloperId: string; name: string; description?: string; url: string; creationTime: string; }
 
 export interface IProjectJoinLoadWarning {
   shouldWarn: boolean;
@@ -258,6 +263,12 @@ export interface IProjectActionContext {
     repoNameHint?: string,
   ) => Promise<IAiGeneratedProjectSpec | undefined>;
   createProject: (input: ICreateProjectInput) => Promise<IProject | undefined>;
+  getProjectWikiPages: (projectId: string) => Promise<IProjectWikiPage[]>;
+  saveProjectWikiPage: (input: { projectId: string; id?: string; title: string; contentMarkdown: string }) => Promise<IProjectWikiPage>;
+  removeProjectWikiPage: (projectId: string, id: string) => Promise<void>;
+  getProjectResources: (projectId: string) => Promise<IProjectResource[]>;
+  addProjectResource: (input: { projectId: string; name: string; description?: string; url: string }) => Promise<IProjectResource>;
+  removeProjectResource: (projectId: string, id: string) => Promise<void>;
   getJoinProjectLoadWarning: (
     projectId: string,
   ) => Promise<IProjectJoinLoadWarning | undefined>;
@@ -385,6 +396,12 @@ export const ProjectActionContext = createContext<IProjectActionContext>({
   getRepositoryReadme: async () => undefined,
   aiGenerateProjectSpec: async () => undefined,
   createProject: async () => undefined,
+  getProjectWikiPages: async () => [],
+  saveProjectWikiPage: async () => ({ id: "", projectId: "", createdByDeveloperId: "", title: "", contentMarkdown: "", creationTime: "" }),
+  removeProjectWikiPage: async () => undefined,
+  getProjectResources: async () => [],
+  addProjectResource: async () => ({ id: "", projectId: "", addedByDeveloperId: "", name: "", url: "", creationTime: "" }),
+  removeProjectResource: async () => undefined,
   getJoinProjectLoadWarning: async () => undefined,
   joinProject: async () => undefined,
   leaveProject: async () => undefined,

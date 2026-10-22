@@ -8,6 +8,8 @@ public class DeveloperProjectDto
     public Guid Id { get; set; }
     public string Title { get; set; }
     public string Description { get; set; }
+    public string ProblemStatement { get; set; }
+    public bool IsPublic { get; set; }
     public int? MaxMembers { get; set; }
     public string Difficulty { get; set; }
     public int EstimatedHoursPerWeek { get; set; }

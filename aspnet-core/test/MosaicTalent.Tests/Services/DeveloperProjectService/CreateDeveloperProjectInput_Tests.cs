@@ -15,6 +15,7 @@ public class CreateDeveloperProjectInput_Tests
         {
             Title = "Study Group",
             Description = "A project that does not need a repository.",
+            ProblemStatement = "Study groups need a shared place to coordinate their work.",
             GithubRepo = null,
         };
         var results = new List<ValidationResult>();
