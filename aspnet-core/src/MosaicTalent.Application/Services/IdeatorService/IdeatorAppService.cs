@@ -106,7 +106,8 @@ public class IdeatorAppService : MosaicTalentAppServiceBase, IIdeatorAppService
         var project = new Project
         {
             TenantId = tenantId, OwnerDeveloperId = creator.Id, Title = idea.Title,
-            Description = $"Problem statement\n{idea.ProblemStatement}\n\nProposed solution\n{idea.ProposedSolution}",
+            ProblemStatement = idea.ProblemStatement,
+            Description = idea.ProposedSolution,
             Status = ProjectStatus.Open, Type = ProjectType.Group, Difficulty = ProjectDifficulty.Intermediate,
             EstimatedHoursPerWeek = 6, MaxMembers = 8, IsPublic = false
         };
