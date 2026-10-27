@@ -2,35 +2,23 @@ import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
   card: css`
-    border: 1px solid ${token.colorBorderSecondary};
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingLG}px 0;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
     background: ${token.colorBgContainer};
-    box-shadow: ${token.boxShadowTertiary};
-    transition: transform 0.2s ease, border-color 0.2s ease;
     overflow: hidden;
-
-    :global(.ant-card-body) {
-      background: ${token.colorBgContainer};
-    }
-
-    &:hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in srgb, ${token.colorPrimary} 40%, ${token.colorBorderSecondary});
-    }
   `,
   cardSwipe: css`
     height: 100%;
-    border-radius: 28px;
-    border-color: color-mix(in srgb, ${token.colorPrimary} 28%, ${token.colorBorderSecondary});
+    padding: ${token.paddingLG}px;
+    border: 1px solid color-mix(in srgb, ${token.colorPrimary} 28%, ${token.colorBorderSecondary});
+    border-radius: ${token.borderRadiusLG}px;
     background: ${token.colorBgContainer};
-    box-shadow: ${token.boxShadowSecondary};
-
-    :global(.ant-card-body) {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: ${token.marginSM}px;
-      background: ${token.colorBgContainer};
-    }
+  `,
+  title: css`
+    margin: 0 !important;
   `,
   cardTitleRow: css`
     display: flex;
@@ -40,7 +28,22 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   description: css`
     color: ${token.colorTextSecondary};
-    margin-top: ${token.marginXXS}px;
+    margin: ${token.marginXXS}px 0 0 !important;
+  `,
+  statusGroup: css`
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: ${token.marginXS}px;
+  `,
+  problem: css`
+    border-left: 3px solid ${token.colorPrimary};
+    padding-left: ${token.paddingSM}px;
+  `,
+  problemLabel: css`
+    color: ${token.colorText};
+    font-size: ${token.fontSizeSM}px;
   `,
   repoLink: css`
     display: inline-block;
@@ -117,7 +120,6 @@ export const useStyles = createStyles(({ token, css }) => ({
     margin-top: auto;
   `,
   footerRowCompact: css`
-    border-top: 1px solid ${token.colorBorderSecondary};
     padding-top: ${token.paddingSM}px;
   `,
   dateText: css`

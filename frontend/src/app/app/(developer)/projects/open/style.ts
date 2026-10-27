@@ -31,10 +31,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     align-items: center;
     justify-content: space-between;
     gap: ${token.marginMD}px;
-    padding: ${token.paddingSM}px ${token.paddingMD}px;
-    border: 1px solid ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadiusLG}px;
-    background: ${token.colorBgContainer};
+    padding: ${token.paddingSM}px 0;
+    border-block: 1px solid ${token.colorBorderSecondary};
 
     @media (max-width: 767px) {
       align-items: flex-start;
@@ -78,8 +76,10 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   projectGrid: css`
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-    gap: ${token.marginLG}px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    width: 100%;
+    max-width: 960px;
 
     > * {
       min-width: 0;

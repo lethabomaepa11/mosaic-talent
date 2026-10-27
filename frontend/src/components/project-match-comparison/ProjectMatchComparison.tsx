@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Card, Empty, Modal, Space, Spin, Tag, Typography } from "antd";
+import { Button, Empty, Modal, Space, Spin, Tag, Typography } from "antd";
 import { Sparkles } from "lucide-react";
 import { toast } from "@/components/providers";
 import { useProjectAction } from "@/providers/project-provider";
@@ -108,7 +108,7 @@ export const ProjectMatchComparison = () => {
           {matches.map((project, index) => {
             const isFull = project.maxMembers != null && project.members.length >= project.maxMembers;
             return (
-              <Card key={project.id} className={styles.matchCard}>
+              <article key={project.id} className={styles.matchCard} data-testid="project-match">
                 <div className={styles.cardHeading}>
                   <Typography.Title level={4} className={styles.projectTitle}>{project.title}</Typography.Title>
                   {index === 0 ? <Tag color="gold">AI pick</Tag> : <Tag color="blue">{project.matchScore ?? 0}% fit</Tag>}
@@ -116,6 +116,12 @@ export const ProjectMatchComparison = () => {
                 <Typography.Paragraph className={styles.insight}>
                   {project.matchInsight || `${project.matchScore ?? 0}% fit based on your skills and goals.`}
                 </Typography.Paragraph>
+                <div className={styles.problem}>
+                  <Typography.Text strong>Problem to solve</Typography.Text>
+                  <Typography.Paragraph className={styles.problemText}>
+                    {project.problemStatement?.trim() || "This older project does not have a problem statement yet."}
+                  </Typography.Paragraph>
+                </div>
                 <Typography.Text type="secondary">Skills</Typography.Text>
                 <div className={styles.tags}>
                   {project.skills.slice(0, 5).map((skill) => <Tag key={skill}>{skill}</Tag>)}
@@ -143,7 +149,7 @@ export const ProjectMatchComparison = () => {
                     {isFull ? "Team full" : "Join project"}
                   </Button>
                 </Space>
-              </Card>
+              </article>
             );
           })}
         </div>
