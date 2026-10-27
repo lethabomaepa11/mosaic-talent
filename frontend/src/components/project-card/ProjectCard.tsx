@@ -5,7 +5,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Card,
   Progress,
   Space,
   Spin,
@@ -72,10 +71,13 @@ export const ProjectCard = ({
   const riskLabel = riskLevel ? (riskLevel === "low" ? "Safe" : `Risk: ${riskLevel}`) : "";
 
   return (
-    <Card className={cx(styles.card, isSwipeVariant && styles.cardSwipe)}>
+    <article
+      className={cx(styles.card, isSwipeVariant && styles.cardSwipe)}
+      data-testid="project-card"
+    >
       <div className={styles.cardTitleRow}>
         <div>
-          <Typography.Title level={5} style={{ margin: 0 }}>
+          <Typography.Title level={5} className={styles.title}>
             {project.title}
           </Typography.Title>
           {project.githubRepo ? (
@@ -91,17 +93,26 @@ export const ProjectCard = ({
               </Space>
             </a>
           ) : null}
-          <Typography.Paragraph
-            ellipsis={{ rows: isSwipeVariant ? 3 : 2 }}
-            className={styles.description}
-          >
-            {project.description}
-          </Typography.Paragraph>
         </div>
-        <Badge
-          color={statusColors[project.status] ?? "default"}
-          text={project.status}
-        />
+        <div className={styles.statusGroup}>
+          <Tag color={project.isPublic ? "blue" : "default"}>
+            {project.isPublic ? "Discover" : "Private"}
+          </Tag>
+          <Badge
+            color={statusColors[project.status] ?? "default"}
+            text={project.status}
+          />
+        </div>
+      </div>
+
+      <div className={styles.problem}>
+        <Typography.Text strong className={styles.problemLabel}>Problem to solve</Typography.Text>
+        <Typography.Paragraph
+          ellipsis={{ rows: isSwipeVariant ? 4 : 3 }}
+          className={styles.description}
+        >
+          {project.problemStatement?.trim() || "This older project does not have a problem statement yet."}
+        </Typography.Paragraph>
       </div>
 
       {project.githubRepo &&
@@ -212,6 +223,6 @@ export const ProjectCard = ({
           )}
         </div>
       )}
-    </Card>
+    </article>
   );
 };

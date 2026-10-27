@@ -25,8 +25,8 @@ test("searches, filters, and sorts the open project list", async ({ page }) => {
   );
   await page.route("**/api/services/app/DeveloperProject/GetMyProjects", (route) => route.fulfill(jsonOk([])));
   await page.route("**/api/services/app/DeveloperProject/GetOpenProjects", (route) => route.fulfill(jsonOk([
-    { id: "react-project", title: "React Dashboard", description: "Build a data dashboard", maxMembers: 4, estimatedHoursPerWeek: 6, difficulty: "beginner", skills: ["React", "TypeScript"], type: "group", status: "open", ownerId: "owner-1", createdAt: "2026-05-01T00:00:00.000Z", members: [], tasks: [] },
-    { id: "python-project", title: "Python API", description: "Design a service API", maxMembers: 4, estimatedHoursPerWeek: 10, difficulty: "advanced", skills: ["Python"], type: "group", status: "open", ownerId: "owner-2", createdAt: "2026-06-01T00:00:00.000Z", members: [], tasks: [] },
+    { id: "react-project", title: "React Dashboard", description: "Build a data dashboard", problemStatement: "Community clinics cannot compare local health trends.", isPublic: true, maxMembers: 4, estimatedHoursPerWeek: 6, difficulty: "beginner", skills: ["React", "TypeScript"], type: "group", status: "open", ownerId: "owner-1", createdAt: "2026-05-01T00:00:00.000Z", members: [], tasks: [] },
+    { id: "python-project", title: "Python API", description: "Design a service API", problemStatement: "Student teams struggle to share reliable study data.", isPublic: true, maxMembers: 4, estimatedHoursPerWeek: 10, difficulty: "advanced", skills: ["Python"], type: "group", status: "open", ownerId: "owner-2", createdAt: "2026-06-01T00:00:00.000Z", members: [], tasks: [] },
   ])));
 
   await page.goto("/app/projects/open");
@@ -39,7 +39,12 @@ test("searches, filters, and sorts the open project list", async ({ page }) => {
   await page.getByRole("textbox", { name: "Search open projects" }).clear();
   await page.getByRole("combobox", { name: "Sort open projects" }).click();
   await page.getByText("Name A–Z", { exact: true }).click();
-  await expect(page.locator(".ant-card").first().getByText("Python API")).toBeVisible();
+  await expect(page.getByTestId("project-card").first().getByText("Python API")).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Search open projects" }).fill("community clinics");
+  await expect(page.getByText("React Dashboard")).toBeVisible();
+  await expect(page.getByText("Python API")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Search open projects" }).clear();
 
   await page.getByRole("combobox", { name: "Filter by difficulty" }).click();
   await page.getByText("advanced", { exact: true }).last().click();

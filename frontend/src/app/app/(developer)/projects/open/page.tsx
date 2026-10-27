@@ -60,7 +60,7 @@ const OpenProjectsPage = () => {
   const visibleProjects = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     const filtered = openProjects.filter((project) => {
-      const searchableText = [project.title, project.description, project.type, project.githubRepo, ...project.skills]
+      const searchableText = [project.title, project.problemStatement, project.description, project.type, project.githubRepo, ...project.skills]
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase();

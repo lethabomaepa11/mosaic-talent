@@ -46,6 +46,22 @@ export const useStyles = createStyles(({ token, css }) => ({
     flex-wrap: wrap;
     gap: ${token.marginSM}px;
   `,
+  projectTitle: css`
+    margin: 0 !important;
+  `,
+  problemStatement: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+    margin-top: ${token.marginSM}px;
+    max-width: 860px;
+    border-left: 3px solid ${token.colorPrimary};
+    padding-left: ${token.paddingSM}px;
+  `,
+  problemStatementText: css`
+    margin: 0 !important;
+    color: ${token.colorTextSecondary};
+    overflow-wrap: anywhere;
+  `,
   contentGrid: css`
     display: grid;
     grid-template-columns: 1fr;

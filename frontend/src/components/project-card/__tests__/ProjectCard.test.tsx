@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ProjectCard } from "../ProjectCard";
 import type { IProject } from "@/providers/project-provider/context";
@@ -39,5 +39,15 @@ describe("ProjectCard", () => {
     render(<ProjectCard project={projectFixture} hideActions variant="swipe" />);
 
     expect(screen.getByRole("button", { name: /view project/i })).toBeInTheDocument();
+  });
+
+  it("puts the project problem and visibility before delivery details", () => {
+    const view = render(<ProjectCard project={projectFixture} isMember />);
+    const card = within(view.container);
+
+    expect(card.getByText("Problem to solve")).toBeInTheDocument();
+    expect(card.getByText(projectFixture.problemStatement)).toBeInTheDocument();
+    expect(card.getByText("Discover")).toBeInTheDocument();
+    expect(card.getByTestId("project-card").tagName).toBe("ARTICLE");
   });
 });
