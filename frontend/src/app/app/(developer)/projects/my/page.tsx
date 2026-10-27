@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Button, Card, Empty, Input, Segmented, Select, Spin, Typography } from "antd";
+import { Button, Empty, Input, Segmented, Select, Spin, Typography } from "antd";
 import { FolderKanban, Plus } from "lucide-react";
 import { ProjectCard } from "@/components/project-card/ProjectCard";
 import { ProjectMatchComparison } from "@/components/project-match-comparison/ProjectMatchComparison";
@@ -34,7 +34,7 @@ const MyProjectsPage = () => {
     .filter((project) => {
       const isPast = ["complete", "completed"].includes(project.status.toLocaleLowerCase());
       const query = searchText.trim().toLocaleLowerCase();
-      const searchableText = [project.title, project.description, ...project.skills].join(" ").toLocaleLowerCase();
+      const searchableText = [project.title, project.problemStatement, project.description, ...project.skills].join(" ").toLocaleLowerCase();
       return isPast === (projectPeriod === "past")
         && (!query || searchableText.includes(query))
         && selectedSkills.every((skill) => project.skills.some((projectSkill) => projectSkill.toLocaleLowerCase() === skill.toLocaleLowerCase()))
@@ -87,9 +87,9 @@ const MyProjectsPage = () => {
       {isPending && myProjects.length === 0 ? (
         <div className={styles.loading}><Spin /></div>
       ) : myProjects.length === 0 ? (
-        <Card className={styles.emptyCard}><Empty image={<FolderKanban size={48} />} description="No projects yet. Create one or let AI match you." /></Card>
+        <div className={styles.emptyCard}><Empty image={<FolderKanban size={48} />} description="No projects yet. Create one or let AI match you." /></div>
       ) : visibleProjects.length === 0 ? (
-        <Card className={styles.emptyCard}><Empty description={projectPeriod === "past" ? "No past projects found." : "No active projects match these filters."} /></Card>
+        <div className={styles.emptyCard}><Empty description={projectPeriod === "past" ? "No past projects found." : "No active projects match these filters."} /></div>
       ) : (
         <div className={styles.projectGrid}>{visibleProjects.map((project) => <ProjectCard key={project.id} project={project} isMember />)}</div>
       )}

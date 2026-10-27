@@ -40,6 +40,8 @@ test("project members can share wiki notes and resource links across mobile and 
   });
 
   await page.goto("/app/projects/project-1");
+  await expect(page.getByText("Private workspace")).toBeVisible();
+  await expect(page.getByText("Students need a shared place to organize their work.")).toBeVisible();
   await page.getByRole("tab", { name: /Wiki & resources/ }).click();
   await expect(page.getByRole("heading", { name: "Project wiki" })).toBeVisible();
   await page.getByPlaceholder("Page title, for example: Setup guide").fill("Getting started");

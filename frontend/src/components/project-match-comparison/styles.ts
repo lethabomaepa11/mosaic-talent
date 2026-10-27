@@ -44,16 +44,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     }
   `,
   matchCard: css`
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: ${token.marginSM}px;
     min-width: 0;
     height: 100%;
-
-    :global(.ant-card-body) {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: ${token.marginSM}px;
-      height: 100%;
-    }
+    padding: ${token.paddingLG}px 0;
+    border-block: 1px solid ${token.colorBorderSecondary};
   `,
   cardHeading: css`
     display: flex;
@@ -70,6 +68,16 @@ export const useStyles = createStyles(({ token, css }) => ({
   insight: css`
     min-height: 3em;
     margin: 0 !important;
+  `,
+  problem: css`
+    display: grid;
+    gap: ${token.marginXXS}px;
+    border-left: 3px solid ${token.colorPrimary};
+    padding-left: ${token.paddingSM}px;
+  `,
+  problemText: css`
+    margin: 0 !important;
+    color: ${token.colorTextSecondary};
   `,
   tags: css`
     display: flex;

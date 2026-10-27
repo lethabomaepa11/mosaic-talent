@@ -1089,10 +1089,13 @@ const ProjectDetailPage = () => {
             </div>
           ) : null}
           <div className={styles.titleRow}>
-            <Typography.Title level={2} style={{ margin: 0 }}>
+            <Typography.Title level={2} className={styles.projectTitle}>
               {project.title}
             </Typography.Title>
             <Tag color={statusColor(project.status)}>{project.status}</Tag>
+            <Tag color={project.isPublic ? "blue" : "default"}>
+              {project.isPublic ? "Public in Discover" : "Private workspace"}
+            </Tag>
           </div>
           {project.githubRepo ? (
             <a
@@ -1105,6 +1108,12 @@ const ProjectDetailPage = () => {
               <span>{project.githubRepo}</span>
             </a>
           ) : null}
+          <section className={styles.problemStatement} aria-labelledby="project-problem-heading">
+            <Typography.Text strong id="project-problem-heading">Problem to solve</Typography.Text>
+            <Typography.Paragraph className={styles.problemStatementText}>
+              {project.problemStatement?.trim() || "This older project does not have a problem statement yet."}
+            </Typography.Paragraph>
+          </section>
           <div className={styles.skillPitch}>
             <span className={styles.skillTitle}>
               You&apos;re a match if you have these skills or willing to learn:
