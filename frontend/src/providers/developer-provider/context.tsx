@@ -9,6 +9,9 @@ export interface IStudyLevelOption {
 
 export interface IDeveloperProfile {
   userId?: number;
+  collaborationIntent?: number;
+  weeklyHours?: number;
+  timeZone?: string;
   fullName?: string;
   emailAddress?: string;
   hasCompletedOnboarding?: boolean;

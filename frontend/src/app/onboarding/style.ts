@@ -2,11 +2,11 @@ import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
   eyebrow: css`
-    color: ${token.colorPrimary};
+    color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
     font-weight: ${token.fontWeightStrong};
   `,
-  progress: css`margin-bottom: ${token.marginLG}px;`,
+  progress: css`margin-bottom: ${token.marginLG}px;.ant-progress-track{transition:none;}`,
   steps: css`
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -17,7 +17,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     font-size: ${token.fontSizeSM}px;
   `,
   step: css`color: ${token.colorTextSecondary}; overflow-wrap: anywhere;`,
-  currentStep: css`color: ${token.colorPrimary}; font-weight: ${token.fontWeightStrong};`,
+  currentStep: css`color: ${token.colorText}; font-weight: ${token.fontWeightStrong};text-decoration:underline;text-underline-offset:4px;`,
   stepTitle: css`
     margin: 0;
     font-size: ${token.fontSizeHeading4}px;
@@ -25,6 +25,7 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   accountDetails: css`
     display: grid;
+    grid-template-columns: 90px minmax(0,1fr);
     gap: ${token.marginXS}px;
     margin: 0;
     dt { color: ${token.colorTextSecondary}; font-size: ${token.fontSizeSM}px; }
@@ -41,7 +42,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     }
   `,
   shell: css`
-    max-width: 960px;
+    max-width: 700px;
     margin: 0 auto;
   `,
   heading: css`
@@ -49,11 +50,11 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   title: css`
     margin: 0;
-    font-family: var(--font-syne), ${token.fontFamily};
+    font-family: ${token.fontFamily};
     font-size: ${token.fontSizeHeading3}px;
 
     @media (min-width: 768px) {
-      font-size: ${token.fontSizeHeading2}px;
+      font-size: ${token.fontSizeHeading3}px;
     }
   `,
   subtitle: css`
@@ -121,13 +122,12 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   actions: css`
     margin-top: ${token.marginSM}px;
-    display: grid;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: ${token.marginSM}px;
-
-    @media (min-width: 768px) {
-      display: flex;
-      justify-content: flex-end;
-    }
+    .ant-btn-primary{margin-left:auto;min-width:140px;}
   `,
   buttonIconEnd: css`
     margin-left: ${token.marginXXS}px;

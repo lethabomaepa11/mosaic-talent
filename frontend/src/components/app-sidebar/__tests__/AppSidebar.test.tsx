@@ -22,6 +22,11 @@ vi.mock("@/providers/auth-provider", () => ({
 }));
 
 describe("AppSidebar", () => {
+  it("keeps My projects active inside the shared workspace", () => {
+    mocks.usePathname.mockReturnValue("/app/build/project-id");
+    render(<AppSidebar/>);
+    expect(screen.getByRole("link",{name:"My projects"})).toHaveAttribute("aria-current","page");
+  });
   beforeEach(() => {
     cleanup();
     mocks.usePathname.mockReset();
@@ -34,11 +39,11 @@ describe("AppSidebar", () => {
 
     render(<AppSidebar />);
 
-    expect(screen.getByText("Discover")).toBeInTheDocument();
+    expect(screen.getByText("Find a project")).toBeInTheDocument();
     expect(screen.queryByText("My Projects")).not.toBeInTheDocument();
-    expect(screen.getByText("My Profile")).toBeInTheDocument();
-    expect(screen.getByText("How to use")).toBeInTheDocument();
-    expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
+    expect(screen.getByText("My projects")).toBeInTheDocument();
+    expect(screen.getByText("Getting started")).toBeInTheDocument();
+    expect(screen.getAllByText("Create project").length).toBeGreaterThan(0);
     expect(screen.queryByText("AI Simulator")).not.toBeInTheDocument();
     expect(screen.queryByText("+ Start Simulation")).not.toBeInTheDocument();
   });
@@ -51,7 +56,7 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Job Postings")).not.toBeInTheDocument();
     expect(screen.queryByText("Candidates")).not.toBeInTheDocument();
     expect(screen.queryByText("Reports")).not.toBeInTheDocument();
-    expect(screen.getAllByText("+ Create Project").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Create project").length).toBeGreaterThan(0);
   });
 
   it("shows icon-only navigation and an accessible expand control when collapsed", () => {
@@ -60,9 +65,9 @@ describe("AppSidebar", () => {
 
     render(<AppSidebar collapsed onCollapseToggle={onCollapseToggle} />);
 
-    expect(screen.queryByText("Discover")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Discover" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Create Project" })).toBeInTheDocument();
+    expect(screen.queryByText("Find a project")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Find a project" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Create project" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
     expect(onCollapseToggle).toHaveBeenCalledOnce();
   });

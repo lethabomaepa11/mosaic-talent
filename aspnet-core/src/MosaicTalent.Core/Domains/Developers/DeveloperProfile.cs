@@ -8,6 +8,14 @@ public class DeveloperProfile : FullAuditedEntity<Guid>
 {
     public Guid DeveloperId { get; set; }
 
+    public CollaborationIntent CollaborationIntent { get; set; }
+
+    [Range(1, 40)]
+    public int? WeeklyHours { get; set; }
+
+    [MaxLength(64)]
+    public string TimeZone { get; set; }
+
     public bool HasCompletedOnboarding { get; set; }
 
     [Range(0, 3)]

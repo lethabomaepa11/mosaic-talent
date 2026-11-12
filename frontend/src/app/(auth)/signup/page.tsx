@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Input } from "antd";
 import { Moon, Sun } from "lucide-react";
+import { Brand } from "@/components/journey/Brand";
 import { useAuthAction, useAuthState } from "@/providers/auth-provider";
 import { useAppearanceAction, useAppearanceState } from "@/providers/appearance-provider";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
-import { isStrongPassword, PASSWORD_HINT } from "./validation";
+import { isStrongPassword, MAX_PASSWORD_LENGTH, PASSWORD_HINT } from "./validation";
 import { useStyles } from "./style";
 
 const SignupPage = () => {
@@ -51,7 +52,7 @@ const SignupPage = () => {
     <div className={styles.page}>
       <div className={styles.shell}>
         <div className={styles.topRow}>
-          <span className={styles.productName}>Mosaic Talent</span>
+          <Brand/>
           <Button
             type="text"
             onClick={toggleMode}
@@ -62,8 +63,7 @@ const SignupPage = () => {
           </Button>
         </div>
         <div className={styles.heading}>
-          <p className={styles.eyebrow}>BUILD TOGETHER. GROW TOGETHER.</p>
-          <h1 className={styles.title}>Your next chapter starts here</h1>
+          <h1 className={styles.title}>Create account</h1>
           <p className={styles.subtitle}>Find a team, build real projects, and grow your skills.</p>
         </div>
         <form onSubmit={handleSubmit} className={styles.form}>
@@ -79,7 +79,7 @@ const SignupPage = () => {
             </div>
             <div className={styles.field}>
               <label htmlFor="password" className={styles.label}>Password</label>
-              <Input.Password id="password" autoComplete="new-password" maxLength={128} required value={password}
+              <Input.Password id="password" autoComplete="new-password" maxLength={MAX_PASSWORD_LENGTH} required value={password}
                 onChange={(event) => setPassword(event.target.value)} placeholder="Choose a strong password" aria-describedby="password-hint" size="large" />
               <span id="password-hint" className={styles.helper}>{PASSWORD_HINT}</span>
             </div>

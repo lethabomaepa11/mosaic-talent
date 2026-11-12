@@ -1,6 +1,6 @@
 {
   "appId": "com.mosaictalent.app",
-  "appName": "Mosaic Talent",
+  "appName": "mosaic.talent",
   "webDir": "out",
   "server": {
     "url": "https://mosaictalent.co.za/app",

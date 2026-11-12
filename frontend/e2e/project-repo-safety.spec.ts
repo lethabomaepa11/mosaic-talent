@@ -98,8 +98,9 @@ test("scans a selected repository and blocks the form until the result arrives",
 
   await page.goto("/app/projects/create");
   await page.waitForSelector("[data-ai-page='projects-create']", { state: "attached" });
-  const createButton = page.getByRole("main").getByRole("button", { name: "Create Project", exact: true });
+  const createButton = page.getByRole("main").getByRole("button", { name: "Create project", exact: true });
   await expect(createButton).toBeEnabled();
+  await page.getByRole("button", { name: "Link a GitHub repository (optional)" }).click();
   await page.getByRole("combobox", { name: /GitHub Repository/ }).fill("octocat/alpha");
   await expect(page.getByText("Running repository safety scan...")).toBeVisible();
   await expect(page.getByText("Repository passed safety checks")).toBeVisible();

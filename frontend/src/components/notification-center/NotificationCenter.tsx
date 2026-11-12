@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Divider, Drawer, Empty, List, Tag, Typography } from "antd";
-import { Bell, BellOff, CheckCheck, Download } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Badge, Button, Divider, Drawer, Typography } from "antd";
+import { Bell, CheckCheck, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/providers/antd-toast";
 import { useAuthState } from "@/providers/auth-provider";
 import {
-  readApiError,
   useNotificationAction,
   useNotificationState,
 } from "@/providers/notification-provider";
 import { useStyles } from "./styles";
+import { NotificationList } from "./NotificationList";
+import { detectStandalone, getPushButton, toErrorMessage } from "./helpers";
 
 type DeferredPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -23,85 +24,6 @@ type DeferredPromptEvent = Event & {
 
 type INotificationCenterProps = {
   buttonAriaLabel: string;
-};
-
-const formatDate = (isoValue: string) => {
-  const value = new Date(isoValue);
-  if (!Number.isFinite(value.getTime())) {
-    return "Unknown date";
-  }
-
-  return value.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-};
-
-const severityColor = (severity: string) => {
-  const normalized = severity.trim().toLowerCase();
-  switch (normalized) {
-    case "success":
-      return "green";
-    case "warn":
-    case "warning":
-      return "gold";
-    case "error":
-      return "red";
-    default:
-      return "blue";
-  }
-};
-
-const detectStandalone = () => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
-  const navigatorStandalone = Boolean(
-    (window.navigator as Navigator & { standalone?: boolean }).standalone,
-  );
-
-  return mediaStandalone || navigatorStandalone;
-};
-
-const toErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return readApiError(error, fallback);
-};
-
-const getNotificationUrl = (jsonData?: string) => {
-  if (!jsonData || !jsonData.trim()) {
-    return "";
-  }
-
-  const readUrlValue = (value: unknown) => {
-    if (typeof value !== "string") {
-      return "";
-    }
-    return value.trim();
-  };
-
-  try {
-    const parsed = JSON.parse(jsonData) as Record<string, unknown>;
-    const directUrl = readUrlValue(parsed.url) || readUrlValue(parsed.Url);
-    if (directUrl) {
-      return directUrl;
-    }
-
-    const nested = parsed.properties;
-    if (nested && typeof nested === "object") {
-      const nestedRecord = nested as Record<string, unknown>;
-      return readUrlValue(nestedRecord.url) || readUrlValue(nestedRecord.Url);
-    }
-
-    return "";
-  } catch {
-    return "";
-  }
 };
 
 export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps) => {
@@ -155,7 +77,7 @@ export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setIsStandalone(true);
-      toast.success("App installed", "Mosaic Talent is now installed on this device.");
+      toast.success("App installed", "mosaic.talent is now installed on this device.");
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -167,37 +89,7 @@ export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps
     };
   }, []);
 
-  const pushButton = useMemo(() => {
-    if (!state.pushSupported) {
-      return {
-        label: "Push unsupported",
-        disabled: true,
-        icon: <BellOff size={14} />,
-      };
-    }
-
-    if (!state.isPushConfigured) {
-      return {
-        label: "Push unavailable",
-        disabled: true,
-        icon: <BellOff size={14} />,
-      };
-    }
-
-    if (state.isPushSubscribed) {
-      return {
-        label: "Disable push",
-        disabled: false,
-        icon: <BellOff size={14} />,
-      };
-    }
-
-    return {
-      label: "Enable push",
-      disabled: false,
-      icon: <Bell size={14} />,
-    };
-  }, [state.isPushConfigured, state.isPushSubscribed, state.pushSupported]);
+  const pushButton = getPushButton(state);
 
   const openDrawer = () => {
     setOpen(true);
@@ -266,78 +158,6 @@ export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps
     }
 
     window.location.assign(url);
-  };
-
-  const renderContent = () => {
-    if (!state.hasLoaded && state.isPending) {
-      return <Typography.Paragraph className={styles.hintText}>Loading notifications...</Typography.Paragraph>;
-    }
-
-    if (state.items.length === 0) {
-      return <Empty description="No notifications yet." />;
-    }
-
-    return (
-      <List
-        dataSource={state.items}
-        renderItem={(item) => {
-          const url = getNotificationUrl(item.data);
-          return (
-            <List.Item
-              key={item.id}
-              actions={[
-                !item.isRead ? (
-                  <Button
-                    key={`read-${item.id}`}
-                    type="link"
-                    size="small"
-                    onClick={async () => {
-                      try {
-                        await markNotificationAsRead(item.id);
-                      } catch (error) {
-                        toast.error(toErrorMessage(error, "Unable to mark notification as read."));
-                      }
-                    }}
-                  >
-                    Mark read
-                  </Button>
-                ) : null,
-                url ? (
-                  <Button
-                    key={`open-${item.id}`}
-                    type="link"
-                    size="small"
-                    onClick={() => {
-                      void handleOpenNotification(item.id, item.isRead, url);
-                    }}
-                  >
-                    Open
-                  </Button>
-                ) : null,
-              ].filter(Boolean)}
-            >
-              <List.Item.Meta
-                title={
-                  <Typography.Paragraph className={styles.itemMessage}>
-                    {item.message}
-                  </Typography.Paragraph>
-                }
-                description={
-                  <div className={styles.itemActions}>
-                    <Tag className={styles.severityTag} color={severityColor(item.severity)}>
-                      {item.severity}
-                    </Tag>
-                    <Typography.Paragraph className={styles.itemMeta}>
-                      {formatDate(item.creationTime)}
-                    </Typography.Paragraph>
-                  </div>
-                }
-              />
-            </List.Item>
-          );
-        }}
-      />
-    );
   };
 
   return (
@@ -415,7 +235,7 @@ export const NotificationCenter = ({ buttonAriaLabel }: INotificationCenterProps
           ) : null}
 
           <Divider />
-          {renderContent()}
+          <NotificationList onOpen={handleOpenNotification}/>
         </div>
       </Drawer>
     </>

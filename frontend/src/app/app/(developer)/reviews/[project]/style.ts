@@ -1,6 +1,7 @@
 import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
+  feedbackDetails: css`summary{cursor:pointer;padding:${token.paddingSM}px 0;color:${token.colorTextSecondary};font-size:${token.fontSizeSM}px;}`,
   page: css`
     display: flex;
     flex-direction: column;
@@ -26,10 +27,16 @@ export const useStyles = createStyles(({ token, css }) => ({
   `,
   reviewCard: css`
     border: 1px solid ${token.colorBorderSecondary};
+    @media(max-width:767px){>.ant-card-body{padding:${token.paddingMD}px;}}
   `,
   reviewItem: css`
     border: 1px solid ${token.colorBorderSecondary};
     margin-top: ${token.marginSM}px;
+    min-width:0;
+    @media(max-width:767px){
+      >.ant-card-body{padding:${token.paddingSM}px;}
+      .ant-rate-star:not(:last-child){margin-inline-end:${token.marginXXS}px;}
+    }
   `,
   fullWidth: css`
     width: 100%;

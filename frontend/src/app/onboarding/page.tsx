@@ -1,14 +1,18 @@
 ﻿"use client";
 
-import { Alert, Button, Progress, Select } from "antd";
+import { useState } from "react";
+import { Alert, Button, Collapse, Progress, Select } from "antd";
 import { GithubOutlined, CheckCircleOutlined } from "@ant-design/icons";
-import { AppOperatorPanel } from "@/components/app-operator";
 import { useOnboarding } from "./useOnboarding";
 import { useStyles } from "./style";
+import { BuildPreferences } from "@/components/journey/BuildPreferences";
 
 const TITLES = ["Your account", "Connect GitHub", "Choose your skills", "Set your goals"];
+const STEP_LABELS = ["Account", "GitHub", "Skills", "Goals"];
 
 const OnboardingPage = () => {
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   const { styles } = useStyles();
   const flow = useOnboarding();
   const { draft, step, busy, loading, error, notice } = flow;
@@ -17,9 +21,8 @@ const OnboardingPage = () => {
     <div className={styles.page}>
       <div className={styles.shell}>
         <header className={styles.heading}>
-          <p className={styles.eyebrow}>A FEW STEPS TO YOUR NEXT TEAM</p>
-          <h1 className={styles.title}>Make room for growth</h1>
-          <p className={styles.subtitle}>Help us find projects and teammates that fit you.</p>
+          <h1 className={styles.title}>Set up your profile</h1>
+          <p className={styles.subtitle}>Add your skills to get started. GitHub and learning goals are optional.</p>
         </header>
         <main className={styles.content}>
           {loading ? <p role="status">Loading your profile...</p> : !draft ? (
@@ -31,7 +34,7 @@ const OnboardingPage = () => {
                 <span className={styles.fieldHint}>Step {step + 1} of 4</span>
                 <Progress percent={(step + 1) * 25} showInfo={false} />
                 <ol className={styles.steps} aria-label="Onboarding progress">
-                  {TITLES.map((title, index) => <li key={title} aria-current={step === index ? "step" : undefined}
+                  {STEP_LABELS.map((title, index) => <li key={title} aria-current={step === index ? "step" : undefined}
                     className={step === index ? styles.currentStep : styles.step}>{title}</li>)}
                 </ol>
               </div>
@@ -39,12 +42,12 @@ const OnboardingPage = () => {
                 <h2 className={styles.stepTitle}>{TITLES[step]}</h2>
                 {step === 0 && (
                   <>
-                    <p className={styles.subtitle}>Your account is ready. Next, tell us what you enjoy building.</p>
+                    <p className={styles.subtitle}>Your account is ready.</p>
                     <dl className={styles.accountDetails}>
                       <dt>Full name</dt><dd>{draft.fullName}</dd>
                       <dt>Email</dt><dd>{draft.emailAddress}</dd>
                     </dl>
-                    <p className={styles.fieldHint}>A skill is required to get started. GitHub and learning goals are optional.</p>
+                    <Collapse items={[{key:"preferences",label:"Team preferences (optional)",children:<BuildPreferences value={draft} onChange={flow.changePreferences}/>}]}/>
                   </>
                 )}
                 {step === 1 && (
@@ -62,6 +65,7 @@ const OnboardingPage = () => {
                     <label htmlFor="skills" className={styles.label}>Current skills</label>
                     <p id="skills-hint" className={styles.fieldHint}>Add at least one skill. Type a skill and press Enter; use the remove button to edit suggestions.</p>
                     <Select id="skills" mode="tags" value={draft.skills} onChange={(values) => flow.changeValues("skills", values)}
+                      open={skillsOpen} onOpenChange={setSkillsOpen} onSelect={() => setSkillsOpen(false)}
                       placeholder="For example, Python or teamwork" aria-describedby="skills-hint" size="large" className={styles.fullWidth}
                       tokenSeparators={[","]} maxTagTextLength={30} disabled={busy} />
                     {flow.importing && <p role="status">Loading GitHub skills...</p>}
@@ -72,6 +76,7 @@ const OnboardingPage = () => {
                     <label htmlFor="goals" className={styles.label}>Learning goals (optional)</label>
                     <p className={styles.fieldHint}>Choose skills to learn or aspects of your career to develop. You can change these later.</p>
                     <Select id="goals" mode="tags" value={draft.goals} onChange={(values) => flow.changeValues("goals", values)}
+                      open={goalsOpen} onOpenChange={setGoalsOpen} onSelect={() => setGoalsOpen(false)}
                       placeholder="For example, learn C# or lead a team" size="large" className={styles.fullWidth} tokenSeparators={[","]} maxTagTextLength={30} disabled={busy} />
                   </div>
                 )}
@@ -81,10 +86,7 @@ const OnboardingPage = () => {
               <div className={styles.actions}>
                 {step > 0 && <Button onClick={flow.back} disabled={busy}>Back</Button>}
                 {step === 3 ? (
-                  <>
-                    <Button onClick={() => void flow.finish(true)} disabled={busy}>Skip goals and finish</Button>
-                    <Button type="primary" onClick={() => void flow.finish()} loading={busy} size="large">Finish onboarding</Button>
-                  </>
+                  <Button type="primary" onClick={() => void flow.finish()} loading={busy} size="large">Finish setup</Button>
                 ) : (
                   <Button type="primary" onClick={() => void flow.next()} loading={busy} disabled={flow.importing} size="large">
                     {step === 1 && !draft.githubUsername ? "Skip GitHub" : "Continue"}
@@ -95,7 +97,6 @@ const OnboardingPage = () => {
           )}
         </main>
       </div>
-      <AppOperatorPanel />
     </div>
   );
 };

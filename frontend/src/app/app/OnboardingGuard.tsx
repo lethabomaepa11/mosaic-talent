@@ -17,7 +17,8 @@ export const OnboardingGuard = ({ children }: PropsWithChildren) => {
   const { fetchMyProfile } = useDeveloperAction();
   const fetchProfileRef = useRef(fetchMyProfile);
   const isCompany = Boolean(tenancyName);
-  const isCurrentProfile = profileStatus === "ready" && profile.userId === user?.userId;
+  // A background refresh must not remount pages that requested that refresh.
+  const isCurrentProfile = (profileStatus === "ready" || profileStatus === "loading") && profile.userId === user?.userId;
 
   useEffect(() => {
     fetchProfileRef.current = fetchMyProfile;

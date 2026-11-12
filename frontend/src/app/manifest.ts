@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Mosaic Talent",
-    short_name: "Mosaic",
+    name: "mosaic.talent",
+    short_name: "mosaic.talent",
     description:
-      "AI-powered hiring intelligence and developer growth platform.",
+      "Build projects with other developers, find teammates, and share your work.",
     start_url: "/app",
     scope: "/app",
     display: "standalone",

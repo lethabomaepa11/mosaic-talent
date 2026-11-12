@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, DM_Sans, DM_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers";
 import "./globals.css";
+import { siteDescription, siteOrigin } from "@/lib/seo";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -23,20 +24,20 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "mosaictalent | AI-Powered Hiring Intelligence",
-  description:
-    "Discover the full picture of developer talent. AI-driven soft skill assessment, peer reviews, and team simulation for smarter hiring.",
+  metadataBase: new URL(siteOrigin),
+  title: { default: "mosaic.talent", template: "%s | mosaic.talent" },
+  description: siteDescription,
   icons: {
     icon: "/logo.svg",
     shortcut: "/logo.svg",
   },
   keywords: [
-    "hiring",
-    "developer assessment",
-    "AI",
-    "soft skills",
+    "developer collaboration",
+    "learn by building",
+    "cofounders",
+    "team projects",
     "peer reviews",
-    "team simulation",
+    "developer growth",
   ],
 };
 
@@ -52,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="light">
       <body className={`${syne.variable} ${dmSans.variable} ${dmMono.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>

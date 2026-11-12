@@ -100,7 +100,7 @@ const LoginPage = () => {
         transition={{ duration: 0.45 }}
       >
         <div className={styles.topRow}>
-          <span className={styles.productName}>Mosaic Talent</span>
+          <span className={styles.productName}>mosaic.talent</span>
           <Button
             type="text"
             onClick={toggleMode}
@@ -121,11 +121,11 @@ const LoginPage = () => {
             <div className={styles.logoRow}>
               <Image
                 src={defaultLogoSrc}
-                alt="Mosaic Talent"
+                alt="mosaic.talent"
                 width={168}
                 height={32}
                 className={styles.logoImage}
-                priority
+                fetchPriority="high"
               />
             </div>
           )}

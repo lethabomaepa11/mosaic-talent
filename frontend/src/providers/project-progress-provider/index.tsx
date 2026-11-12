@@ -12,7 +12,7 @@ import {
   ProjectProgressStateContext,
 } from "./context";
 import { ProjectProgressReducer } from "./reducer";
-import { fetchError, fetchPending, fetchSuccess, saveError, savePending } from "./actions";
+import { fetchError, fetchPending, fetchSuccess, saveError, savePending, saveSuccess } from "./actions";
 
 const ENDPOINT = "/api/services/app/ProjectProgress";
 
@@ -66,7 +66,8 @@ export const ProjectProgressProvider = ({ children }: PropsWithChildren) => {
     try {
       const response = await instance.post(`${ENDPOINT}/CreateProjectProgressEntry`, input);
       const entry = normalizeEntry((response.data?.result ?? {}) as Partial<IProjectProgressEntry>);
-      await fetchProjectEntries(input.projectId);
+      try { await fetchProjectEntries(input.projectId); }
+      catch { dispatch(saveSuccess([entry, ...state.entries.filter(item => item.projectId === input.projectId && item.id !== entry.id)])); }
       return entry;
     } catch (error) {
       dispatch(saveError());
@@ -79,7 +80,8 @@ export const ProjectProgressProvider = ({ children }: PropsWithChildren) => {
     try {
       const response = await instance.post(`${ENDPOINT}/ReviewProjectProgressEntry`, { entryId, comment });
       const entry = normalizeEntry((response.data?.result ?? {}) as Partial<IProjectProgressEntry>);
-      await fetchProjectEntries(entry.projectId);
+      try { await fetchProjectEntries(entry.projectId); }
+      catch { dispatch(saveSuccess([entry, ...state.entries.filter(item => item.projectId === entry.projectId && item.id !== entry.id)])); }
       return entry;
     } catch (error) {
       dispatch(saveError());

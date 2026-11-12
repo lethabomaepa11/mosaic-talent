@@ -94,6 +94,12 @@ public partial class DeveloperOnboardingAppService
             await _profileRepository.UpdateAsync(profile);
         }
 
+        if (input.CollaborationIntent.HasValue)
+        {
+            profile.CollaborationIntent = input.CollaborationIntent.Value;
+            profile.WeeklyHours = input.WeeklyHours;
+            profile.TimeZone = input.TimeZone?.Trim();
+        }
         profile.HasCompletedOnboarding = profile.HasCompletedOnboarding || input.CompleteOnboarding;
         profile.OnboardingStep = input.CompleteOnboarding ? 3 : input.OnboardingStep;
         await _profileRepository.UpdateAsync(profile);

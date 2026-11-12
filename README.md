@@ -1,6 +1,6 @@
-# Mosaic Talent
+# mosaic.talent
 
-MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
+mosaic.talent helps developers learn by building real projects together, find teammates, and meet potential cofounders. Shared workspaces and peer feedback make collaboration and growth visible.
 
 ## Design Links
 
@@ -105,7 +105,7 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - installable PWA manifest + service worker for push click routing
   - mobile wrapper scaffold (Capacitor) and desktop wrapper scaffold (Electron)
 - GitHub project repo picker:
-  - project creation requires connected GitHub account
+  - GitHub is optional for project creation; connect an account when you want to link a repository
   - repositories are fetched from GitHub and selected from dropdown
   - inline repository creation when no suitable repo exists
   - repository creation failure now returns reconnect guidance when GitHub token permissions are insufficient
@@ -139,6 +139,18 @@ MosaicTalent is an AI-powered hiring intelligence and developer growth platform.
   - join flow warns on high workload/overlap and supports explicit override
 
 ## Documentation
+
+- [Original mosaic.talent logo and product naming](docs/feature/original-branding.md)
+- [Developer journeys, invitations, draft recovery, and everyday automation](docs/feature/developer-journeys.md)
+- [Public SEO, crawl discovery, share cards, and accessibility basics](docs/feature/public-seo.md)
+
+- [Desktop sidebar scrolling fix](docs/feature/desktop-sidebar-scroll.md)
+
+- [Practical developer UI: tasks, projects, plain labels, and mobile checks](docs/feature/practical-developer-ui.md)
+
+- [Build together redesign: research, developer journey, and local validation](docs/feature/build-together.md)
+
+- [Developer usability, local preview, and Render migration rollout](docs/feature/developer-usability-and-render-readiness.md)
 
 - [MVP 1 release queue](docs/feature/mvp1-release-queue.md)
 - [Developer landing page](docs/feature/developer-landing.md)

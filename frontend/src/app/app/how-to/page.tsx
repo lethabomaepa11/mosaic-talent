@@ -6,11 +6,11 @@ import { ArrowRight, Compass, Lightbulb, MessageSquareHeart, NotebookTabs, Users
 import { useStyles } from "./style";
 
 const steps = [
-  { title: "Build your starting point", text: "Complete your profile with the skills you have and the goals you want to grow into.", href: "/app/profile", action: "Open my profile", icon: UsersRound },
-  { title: "Find a project that fits", text: "Browse teams by skills and difficulty, use AI Match Me, or review one project at a time.", href: "/app/projects/open", action: "Discover projects", icon: Compass },
-  { title: "Turn an idea into a team", text: "Use a project brief to explain the problem, then invite teammates who want to help solve it.", href: "/app/projects/create", action: "Create a project", icon: Lightbulb },
-  { title: "Do the work together", text: "Use the project workspace to share tasks, meetings, repository context, and documented progress.", href: "/app/projects/my", action: "Open my projects", icon: NotebookTabs },
-  { title: "Learn from feedback", text: "Request peer feedback, record what you contributed, and use the results to improve your next project.", href: "/app/reviews", action: "View peer reviews", icon: MessageSquareHeart },
+  { title: "Set up your profile", text: "Complete your profile with the skills you have and the goals you want to grow into.", href: "/app/build-profile", action: "Open my profile", icon: UsersRound },
+  { title: "Find a project", text: "Browse teams by purpose, skills, and weekly commitment. Read the fit explanations and agree on a realistic pace.", href: "/app/projects/open", action: "Discover projects", icon: Compass },
+  { title: "Create a project", text: "Use a project brief to explain the problem, then invite teammates who want to help solve it.", href: "/app/projects/create", action: "Create project", icon: Lightbulb },
+  { title: "Choose a task", text: "Pick up a starter task, agree what done looks like, share evidence, and ask for feedback. Tools and integrations stay available in each workspace.", href: "/app/work", action: "My projects", icon: NotebookTabs },
+  { title: "Get feedback", text: "Request peer feedback, record what you contributed, and use the results to improve your next project.", href: "/app/reviews", action: "View peer reviews", icon: MessageSquareHeart },
 ];
 
 const HowToPage = () => {
@@ -19,13 +19,13 @@ const HowToPage = () => {
   return (
     <div className={styles.page} data-ai-page="how-to">
       <header className={styles.header}>
-        <Typography.Text className={styles.eyebrow}>HOW TO USE MOSAIC TALENT</Typography.Text>
-        <Typography.Title level={1} className={styles.title}>From an idea to a team you can learn with.</Typography.Title>
-        <Typography.Paragraph className={styles.subtitle}>Start small. Pick one next action. Mosaic Talent helps you find people, work together, and show what you learned.</Typography.Paragraph>
+        <Typography.Text className={styles.eyebrow}>mosaic.talent</Typography.Text>
+        <Typography.Title level={1} className={styles.title}>Getting started</Typography.Title>
+        <Typography.Paragraph className={styles.subtitle}>Create a profile, join a project, and work on a task with your team.</Typography.Paragraph>
         <Link href="/app/projects/open"><Button type="primary" size="large" icon={<Compass size={16} />}>Find a project</Button></Link>
       </header>
 
-      <section className={styles.steps} aria-label="How to use Mosaic Talent">
+      <section className={styles.steps} aria-label="How to use mosaic.talent">
         {steps.map((step, index) => {
           const Icon = step.icon;
           return <article key={step.title} className={styles.step}>

@@ -1,4 +1,9 @@
 import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
+
+// Vitest globals are disabled; unmount React roots before jsdom tears down window.
+afterEach(cleanup);
 
 const storageFactory = () => {
   let store = new Map<string, string>();

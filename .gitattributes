@@ -1,2 +1,5 @@
 **/wwwroot/lib/** linguist-vendored
 **/wwwroot/css/** linguist-vendored
+
+# Linux container scripts must keep Unix line endings.
+*.sh text eol=lf

@@ -54,6 +54,21 @@ public class OnboardingCompletion_Tests : MosaicTalentTestBase
     }
 
     [Fact]
+    public async Task Developer_search_finds_the_full_display_name_used_in_team_invitations()
+    {
+        await UsingDbContextAsync(async db =>
+        {
+            var user = await db.Users.FindAsync(AbpSession.UserId.Value);
+            user.Name = "Casey"; user.Surname = "Developer";
+            await db.SaveChangesAsync();
+        });
+        var service = Resolve<IDeveloperOnboardingAppService>();
+        await service.UpsertMyProfile(new UpsertDeveloperOnboardingInput { CompleteOnboarding = true, Skills = new List<string> { "Python" } });
+        var found = await service.SearchPublicDevelopers(new GetPublicDeveloperSearchResultsInput { Query = "casey developer" });
+        found.ShouldContain(person => person.DisplayName == "Casey Developer");
+    }
+
+    [Fact]
     public async Task Manual_Github_Input_Must_Not_Create_An_Identity_Link()
     {
         var result = await Resolve<IDeveloperOnboardingAppService>().UpsertMyProfile(new UpsertDeveloperOnboardingInput

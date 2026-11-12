@@ -57,7 +57,7 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorText};
   `,
   itemActive: css`
-    color: ${token.colorPrimary};
+    color: ${token.colorText};
     background: color-mix(in srgb, ${token.colorPrimary} 12%, transparent);
   `,
 }));

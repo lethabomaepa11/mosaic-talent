@@ -6,4 +6,6 @@ describe("signup password validation", () => {
     expect(isStrongPassword(password)).toBe(false);
   });
   it("accepts a strong password", () => expect(isStrongPassword("Strong1!pass")).toBe(true));
+  it("accepts the API maximum of 32 characters", () => expect(isStrongPassword("Strong1!" + "x".repeat(24))).toBe(true));
+  it("rejects passwords above the API maximum", () => expect(isStrongPassword("Strong1!" + "x".repeat(25))).toBe(false));
 });

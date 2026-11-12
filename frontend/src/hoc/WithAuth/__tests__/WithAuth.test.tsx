@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WithAuth } from "../WithAuth";
 
 const mocks = vi.hoisted(() => ({
@@ -25,8 +25,10 @@ const ProtectedAuthPage = () => <div>auth page</div>;
 const GuardedAuthPage = WithAuth(ProtectedAuthPage);
 
 describe("WithAuth", () => {
+  afterEach(cleanup);
   beforeEach(() => {
     mocks.replace.mockReset();
+    mocks.useAuthState.mockReturnValue({ isAuthenticated: false, isSessionRestored: true, isPending: false });
     mocks.useRouter.mockReturnValue({
       replace: mocks.replace,
     });
@@ -54,6 +56,7 @@ describe("WithAuth", () => {
     });
     mocks.useAuthState.mockReturnValue({
       isAuthenticated: true,
+      isSessionRestored: true,
       isPending: false,
     });
 
@@ -71,6 +74,7 @@ describe("WithAuth", () => {
     });
     mocks.useAuthState.mockReturnValue({
       isAuthenticated: false,
+      isSessionRestored: true,
       isPending: false,
     });
 
@@ -78,5 +82,28 @@ describe("WithAuth", () => {
 
     expect(screen.getByText("auth page")).toBeInTheDocument();
     expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("keeps form values mounted during a submission and its failure", () => {
+    mocks.useTenantResolutionState.mockReturnValue({ isResolved: true, isPending: false });
+    const FormPage = WithAuth(() => <input aria-label="Email" />);
+    const { rerender } = render(<FormPage />);
+    const input = screen.getByRole("textbox", { name: "Email" });
+    fireEvent.change(input, { target: { value: "developer@example.com" } });
+    mocks.useAuthState.mockReturnValue({ isAuthenticated: false, isSessionRestored: true, isPending: true });
+    rerender(<FormPage />);
+    expect(screen.getByRole("textbox", { name: "Email" })).toBe(input);
+    expect(input).toHaveValue("developer@example.com");
+    mocks.useAuthState.mockReturnValue({ isAuthenticated: false, isSessionRestored: true, isPending: false, isError: true });
+    rerender(<FormPage />);
+    expect(screen.getByRole("textbox", { name: "Email" })).toBe(input);
+    expect(input).toHaveValue("developer@example.com");
+  });
+
+  it("waits for initial restoration even before its pending flag is set", () => {
+    mocks.useTenantResolutionState.mockReturnValue({ isResolved: true, isPending: false });
+    mocks.useAuthState.mockReturnValue({ isAuthenticated: false, isSessionRestored: false, isPending: false });
+    render(<GuardedAuthPage />);
+    expect(screen.getByTestId("with-auth-loader")).toBeInTheDocument();
   });
 });

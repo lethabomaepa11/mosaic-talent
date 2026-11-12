@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Abp.EntityFrameworkCore;
+using MosaicTalent.EntityFrameworkCore;
+using MosaicTalent.Domains.Gamification;
 using MosaicTalent.Domains.Developers;
 using MosaicTalent.Services.GamificationService;
 using MosaicTalent.Services.GamificationService.DTO;
@@ -13,6 +16,25 @@ namespace MosaicTalent.Tests.Gamification;
 public class DeveloperGamificationService_Tests : MosaicTalentTestBase
 {
     private const int TenantId = 1;
+
+    [Fact]
+    public async Task First_award_keeps_the_unsaved_profile_as_an_insert()
+    {
+        var developerId = await EnsureCurrentDeveloperAsync();
+        await WithUnitOfWorkAsync(async () =>
+        {
+            await Resolve<IDeveloperGamificationService>().AwardAsync(TenantId, developerId,
+                "project_completed_lead", "first-project-completion");
+            var db = Resolve<IDbContextProvider<MosaicTalentDbContext>>().GetDbContext();
+            var entry = db.ChangeTracker.Entries<DeveloperEngagementProfile>().Single(x => x.Entity.DeveloperId == developerId);
+            entry.State.ShouldBe(EntityState.Added);
+        });
+        await UsingDbContextAsync(async db =>
+        {
+            var saved = await db.DeveloperEngagementProfiles.SingleAsync(x => x.DeveloperId == developerId);
+            saved.TotalPoints.ShouldBeGreaterThan(0);
+        });
+    }
 
     [Fact]
     public async Task AwardAsync_Should_Unlock_ReviewCollaborator_Only_On_Third_Completion()

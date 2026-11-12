@@ -10,6 +10,7 @@ import { CompanyAccountProvider } from "@/providers/company-account-provider";
 import { CompanyProfileProvider } from "@/providers/company-profile-provider";
 import { DeveloperProvider } from "@/providers/developer-provider";
 import { ProjectProvider } from "@/providers/project-provider";
+import { BuildProvider } from "@/providers/build-provider";
 import { IdeatorProvider } from "@/providers/ideator-provider";
 import { ProjectProgressProvider } from "@/providers/project-progress-provider";
 import { JobProvider } from "@/providers/job-provider";
@@ -24,6 +25,7 @@ import {
 import { AntdProvider } from "./antd-provider";
 import { AntdToastViewport } from "./antd-toast";
 import { PageTransitionGate } from "@/components/page-transition";
+import { AccountBoundary } from "./AccountBoundary";
 import { ProgressProvider } from "@bprogress/next/app";
 
 export { toast } from "./antd-toast";
@@ -88,7 +90,7 @@ const FaviconSync = () => {
   return null;
 };
 
-export function AppProviders({ children }: PropsWithChildren) {
+export const AppProviders = ({ children }: PropsWithChildren) => {
   return (
     <TenantResolutionProvider>
       <TenantBootstrap>
@@ -96,10 +98,11 @@ export function AppProviders({ children }: PropsWithChildren) {
         <AuthProvider>
           <AppearanceProvider>
             <AppearanceBootstrap>
+              <AccountBoundary>
               <CompanyAccountProvider>
                 <CompanyProfileProvider>
                   <DeveloperProvider>
-                    <ProjectProvider>
+                    <ProjectProvider><BuildProvider>
                       <IdeatorProvider>
                       <ProjectProgressProvider>
                         <JobProvider>
@@ -119,14 +122,15 @@ export function AppProviders({ children }: PropsWithChildren) {
                         </JobProvider>
                       </ProjectProgressProvider>
                       </IdeatorProvider>
-                    </ProjectProvider>
+                    </BuildProvider></ProjectProvider>
                   </DeveloperProvider>
                 </CompanyProfileProvider>
               </CompanyAccountProvider>
+              </AccountBoundary>
             </AppearanceBootstrap>
           </AppearanceProvider>
         </AuthProvider>
       </TenantBootstrap>
     </TenantResolutionProvider>
   );
-}
+};

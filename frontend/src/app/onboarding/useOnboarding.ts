@@ -37,9 +37,11 @@ export const useOnboarding = () => {
         setLoading(false);
         return;
       }
-      if (loaded.hasCompletedOnboarding) { clearDraft(loaded.userId!); router.replace("/app/projects/my"); return; }
+      if (loaded.hasCompletedOnboarding) { clearDraft(loaded.userId!); router.replace("/app"); return; }
       const cached = readDraft(loaded.userId!);
-      const profile = { ...loaded, skills: cached.skills ?? loaded.skills, goals: cached.goals ?? loaded.goals };
+        const profile = { ...loaded, collaborationIntent: loaded.collaborationIntent ?? 0, weeklyHours: loaded.weeklyHours,
+        timeZone: loaded.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        skills: cached.skills ?? loaded.skills, goals: cached.goals ?? loaded.goals };
       const query = new URLSearchParams(window.location.search);
       const connected = query.get("githubConnected") === "1";
       if (query.get("githubConnected") === "0") setNotice("GitHub could not be connected. Try again or skip it and add skills manually.");
@@ -76,7 +78,7 @@ export const useOnboarding = () => {
       const saved = await upsertMyProfile({ ...draft, goals: skipGoals ? [] : draft.goals, onboardingStep: nextStep, completeOnboarding: complete });
       if (user) clearDraft(user.userId);
       setDraft(saved);
-      if (complete) router.replace("/app/projects/my");
+      if (complete) router.replace("/app");
       else setStep(nextStep);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Your details could not be saved. Try again.");
@@ -106,7 +108,8 @@ export const useOnboarding = () => {
     if (user) storeDraft(user.userId, updated.skills, updated.goals);
   };
 
-  return { draft, step, loading, busy, importing, error, notice, changeValues, connectGithub,
+  const changePreferences = (patch: Partial<IDeveloperProfile>) => setDraft((current) => current && ({...current,...patch}));
+  return { draft, step, loading, busy, importing, error, notice, changeValues, changePreferences, connectGithub,
     next: () => save(step + 1), finish: (skipGoals = false) => save(3, true, skipGoals),
     back: () => { setError(""); setStep((current) => Math.max(0, current - 1)); },
     retry: () => setReload((current) => current + 1) };

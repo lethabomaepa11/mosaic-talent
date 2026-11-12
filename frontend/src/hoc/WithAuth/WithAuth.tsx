@@ -12,10 +12,10 @@ const AUTHENTICATED_REDIRECT = "/app";
 export const WithAuth = <P extends object>(WrappedComponent: ComponentType<P>) => {
   const GuardedAuthRoute = (props: P) => {
     const router = useRouter();
-    const { isAuthenticated, isPending: isAuthPending } = useAuthState();
+    const { isAuthenticated, isSessionRestored } = useAuthState();
     const { isResolved, isPending: isTenantPending } = useTenantResolutionState();
 
-    const isBootstrappingAuth = !isResolved || isTenantPending || isAuthPending;
+    const isBootstrappingAuth = !isResolved || isTenantPending || !isSessionRestored;
 
     useEffect(() => {
       if (isBootstrappingAuth || !isAuthenticated) {

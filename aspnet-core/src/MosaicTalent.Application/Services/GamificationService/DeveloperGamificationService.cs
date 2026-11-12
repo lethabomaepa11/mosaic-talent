@@ -50,6 +50,7 @@ public class DeveloperGamificationService : IDeveloperGamificationService, ITran
 
         var profile = await _profileRepository.GetAll()
             .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.DeveloperId == developerId);
+        var isNewProfile = profile == null;
         if (profile == null)
         {
             profile = new DeveloperEngagementProfile
@@ -65,7 +66,9 @@ public class DeveloperGamificationService : IDeveloperGamificationService, ITran
         profile.TotalPoints += points;
         profile.Level = ResolveLevel(profile.TotalPoints);
         profile.LastRewardedAt = DateTime.UtcNow;
-        await _profileRepository.UpdateAsync(profile);
+        // Updating an unsaved inserted entity changes Added to Modified in EF Core.
+        // PostgreSQL then tries to update a row that does not yet exist.
+        if (!isNewProfile) await _profileRepository.UpdateAsync(profile);
 
         // Keep badge threshold checks deterministic by evaluating against persisted history
         // and explicitly adding the in-flight event type inside UnlockBadgesAsync.

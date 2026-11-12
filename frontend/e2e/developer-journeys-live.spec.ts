@@ -1,0 +1,182 @@
+import { expect, test, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+
+const api = process.env.LOCAL_LIVE_API_URL || "";
+test.skip(!api, "Requires the isolated local API and PostgreSQL.");
+const signup = async (page: Page, name: string, email: string, password: string) => {
+  page.setDefaultTimeout(20_000);
+  await page.goto("/signup");
+  await page.getByLabel("Full name", {exact:true}).fill(name);
+  await page.getByLabel("Email", {exact:true}).fill(email);
+  await page.getByLabel("Password", {exact:true}).fill(password);
+  await page.getByRole("button", {name:"Create account",exact:true}).click();
+  await expect(page).toHaveURL(/\/onboarding/);
+  await page.getByRole("button", {name:"Continue",exact:true}).click();
+  await page.getByRole("button", {name:"Skip GitHub",exact:true}).click();
+  await expect(page.getByRole("combobox", {name:"Current skills"})).toBeVisible();
+  await page.getByRole("combobox", {name:"Current skills"}).fill("TypeScript");
+  await page.getByRole("combobox", {name:"Current skills"}).press("Enter");
+  await page.getByRole("button", {name:"Continue",exact:true}).click();
+  await page.getByRole("button", {name:"Finish setup",exact:true}).click();
+  await expect(page).toHaveURL(/\/app$/);
+};
+const headersFor = async (page: Page) => ({"Abp-TenantId":"1",Authorization:`Bearer ${(await page.context().cookies()).find(cookie=>cookie.name==="mosaic-talent.access-token")!.value}`});
+
+test("two developers create, invite, contribute, review, finish and leave entirely through the UI", async ({page,browser,request},testInfo) => {
+  test.setTimeout(240_000);
+  expect(["127.0.0.1","localhost"]).toContain(new URL(api).hostname);
+  const suffix = randomUUID().slice(0,8);
+  const password = `Journey!${randomUUID().slice(0,12)}Aa2`;
+  const teammateName = `Journey Teammate ${suffix}`;
+  const teammateContext = await browser.newContext({baseURL:testInfo.project.use.baseURL,viewport:{width:360,height:900}});
+  const teammate = await teammateContext.newPage();
+  await signup(page,`Journey Owner ${suffix}`,`journey-owner-${suffix}@example.invalid`,password);
+  await signup(teammate,teammateName,`journey-mate-${suffix}@example.invalid`,password);
+  await page.goto("/app/projects/create");
+  const title = `Journey notebook ${suffix}`;
+  const milestone = "Publish a shared note";
+  await page.getByLabel("Project Title").fill(title);
+  await page.getByLabel("Problem statement",{exact:true}).fill("Developers need to practice building with teammates.");
+  await page.getByLabel("Description",{exact:true}).fill("A notebook for a small team to share what they learn.");
+  await page.getByLabel("First milestone",{exact:true}).fill(milestone);
+  await page.reload();
+  await expect(page.getByLabel("Project Title")).toHaveValue(title);
+  await expect(page.getByLabel("First milestone",{exact:true})).toHaveValue(milestone);
+  await expect(page.getByLabel("Skills to use or learn")).toHaveValue("TypeScript");
+  await expect(page.getByRole("checkbox",{name:"Create a first task from this milestone"})).toBeChecked();
+  await expect(page.getByRole("checkbox",{name:/Allow developers to find/})).not.toBeChecked();
+  await page.getByRole("button",{name:"Create project",exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/build\/[\w-]+$/);
+  await expect(page.getByRole("heading",{name:milestone,exact:true})).toBeVisible();
+  const projectId = new URL(page.url()).pathname.split("/").pop()!;
+  await page.getByRole("combobox",{name:`Assignee of ${milestone}`}).click();
+  await page.getByRole("option",{name:new RegExp(`Journey Owner ${suffix}`)}).click();
+  await expect(page.getByRole("button",{name:"Share work for this task",exact:true})).toBeVisible();
+  await page.getByRole("combobox",{name:`Assignee of ${milestone}`}).click();
+  await page.getByRole("option",{name:"Unassigned",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Assign to me",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Add task",exact:true}).click();
+  await page.getByLabel("Task title",{exact:true}).fill("An unfinished task draft");
+  await page.getByLabel("Acceptance criteria",{exact:true}).fill("A teammate can review this later.");
+  await page.reload();
+  await page.getByRole("button",{name:"Add task",exact:true}).click();
+  await expect(page.getByLabel("Task title",{exact:true})).toHaveValue("An unfinished task draft");
+  await page.getByRole("dialog",{name:"New task",exact:true}).getByRole("button",{name:"Cancel",exact:true}).click();
+  const ownerHeaders = await headersFor(page);
+  const mateHeaders = await headersFor(teammate);
+  const before = await request.get(`${api}/api/services/app/BuildJourney/GetBuild`,{headers:mateHeaders,params:{projectId}});
+  expect(before.ok()).toBe(false);
+  await page.getByRole("tab",{name:"Team",exact:true}).click();
+  await page.getByRole("combobox",{name:"Developer to invite"}).fill(teammateName);
+  await page.getByRole("option",{name:new RegExp(teammateName)}).click();
+  await page.getByRole("button",{name:"Send invitation",exact:true}).click();
+  await expect(page.getByText("Invitation sent",{exact:true})).toBeVisible();
+  await teammate.reload();
+  await expect(teammate.getByRole("region",{name:"Project invitations"})).toContainText(title);
+  await teammate.getByRole("region",{name:"Project invitations"}).getByRole("button",{name:"Decline",exact:true}).click();
+  await expect(teammate.getByRole("region",{name:"Project invitations"})).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("combobox",{name:"Developer to invite"}).fill(teammateName);
+  await page.getByRole("option",{name:new RegExp(teammateName)}).click();
+  await page.getByRole("button",{name:"Send invitation",exact:true}).click();
+  await expect(page.getByText("Invitation sent",{exact:true})).toBeVisible();
+  await teammate.reload();
+  await teammate.getByRole("link",{name:"Review invitation",exact:true}).click();
+  await teammate.getByRole("button",{name:"Accept invitation",exact:true}).click();
+  const joinDialog = teammate.getByRole("dialog");
+  await joinDialog.getByRole("checkbox",{name:/I can contribute/}).check();
+  await joinDialog.getByRole("button",{name:"Accept invitation",exact:true}).click();
+  await expect(teammate.getByRole("tab",{name:"Tasks",exact:true})).toHaveAttribute("aria-selected","true");
+  const deniedInvite = await request.post(`${api}/api/services/app/BuildJourney/InviteMember`,{headers:mateHeaders,data:{projectId,userName:"admin"}});
+  expect(deniedInvite.ok()).toBe(false);
+  await teammate.getByRole("button",{name:"Assign to me",exact:true}).click();
+  await teammate.getByRole("combobox",{name:`Status of ${milestone}`}).click();
+  await teammate.getByRole("option",{name:"In progress",exact:true}).click();
+  await teammate.goto("/app");
+  await teammate.getByRole("link",{name:"Open task",exact:true}).click();
+  await expect(teammate.locator('article[data-focused="true"]')).toContainText(milestone);
+  await teammate.getByRole("button",{name:"Share work for this task",exact:true}).click();
+  await expect(teammate.getByLabel("Work title",{exact:true})).toHaveValue(milestone);
+  await teammate.getByLabel("Work summary",{exact:true}).fill("Our shared note can now be opened and edited by the team.");
+  await teammate.getByLabel("Evidence link",{exact:true}).fill("https://github.com/example/notebook/pull/1");
+  await teammate.getByLabel("Self review",{exact:true}).fill("I learned to make a small change that a teammate can review.");
+  await teammate.reload();
+  await expect(teammate.getByLabel("Evidence link",{exact:true})).toHaveValue("https://github.com/example/notebook/pull/1");
+  await teammate.getByRole("button",{name:"Save progress",exact:true}).click();
+  await expect(teammate.getByText("Progress saved",{exact:true})).toBeVisible();
+  await page.getByRole("tab",{name:"Work & feedback",exact:true}).click();
+  await page.getByRole("textbox",{name:new RegExp("Feedback for Journey Teammate")}).fill("The note is easy to use. Good small first change.");
+  await page.getByRole("button",{name:"Leave feedback",exact:true}).click();
+  await expect(page.getByText("Feedback saved",{exact:true})).toBeVisible();
+  await teammate.getByRole("link",{name:"View your contributions",exact:true}).click();
+  await expect(teammate.getByRole("tab",{name:"Contributions",exact:true})).toHaveAttribute("aria-selected","true");
+  await expect(teammate.getByRole("heading",{name:milestone,exact:true})).toBeVisible();
+  await teammate.goto(`/app/build/${projectId}`);
+  await teammate.getByRole("combobox",{name:`Status of ${milestone}`}).click();
+  await teammate.getByRole("option",{name:"Done",exact:true}).click();
+  await expect(teammate.getByRole("region",{name:"Done",exact:true})).toContainText(milestone);
+  await page.reload();
+  await page.getByRole("tab",{name:"Settings",exact:true}).click();
+  await page.getByRole("button",{name:"Complete project",exact:true}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"Complete project",exact:true}).click();
+  await expect(page.getByText("Project completed",{exact:true})).toBeVisible();
+  await page.getByRole("link",{name:"Give peer feedback",exact:true}).click();
+  await expect(page).toHaveURL(new RegExp(`/app/reviews/${projectId}$`));
+  await expect(page.getByRole("heading",{name:title,exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Generate Reviews",exact:true})).toHaveCount(0);
+  await page.getByRole("radio").nth(7).click();
+  await expect(page.getByText("Score: 8/10",{exact:true})).toBeVisible();
+  const answers = page.getByPlaceholder("Write anonymous feedback...");
+  await expect(answers.first()).toBeVisible();
+  for (let index=0;index<await answers.count();index++) {
+    const [saved] = await Promise.all([
+      page.waitForResponse(response=>response.url().includes("SubmitReviewAnswer")&&response.request().method()==="POST"),
+      (async()=>{await answers.nth(index).fill("We kept the task small, communicated clearly, and reviewed the working result together.");await page.getByRole("button",{name:"Save answer",exact:true}).nth(index).click();})(),
+    ]);
+    expect(saved.ok()).toBe(true);
+  }
+  await page.reload();
+  await expect(answers.first()).toHaveValue("We kept the task small, communicated clearly, and reviewed the working result together.");
+  for (const width of [360,768,1280]) {
+    await page.setViewportSize({width,height:900});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Peer feedback at ${width}`).toBe(true);
+  }
+  await page.goto(`/app/build/${projectId}`);
+  await page.getByRole("tab",{name:"Team",exact:true}).click();
+  await page.getByRole("combobox",{name:`Role of ${teammateName}`}).click();
+  await page.getByRole("option",{name:"Project lead",exact:true}).click();
+  await expect(page.getByRole("combobox",{name:`Role of ${teammateName}`})).toBeEnabled();
+  await page.getByRole("tab",{name:"Tasks",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Add task",exact:true})).toHaveCount(0);
+  for (const width of [360,768,1280]) {
+    await page.setViewportSize({width,height:900});
+    for (const tab of ["Tasks","Team","Work & feedback","Settings"]) {
+      await page.getByRole("tab",{name:tab,exact:true}).click();
+      await expect(page.getByRole("tab",{name:tab,exact:true})).toHaveAttribute("aria-selected","true");
+      if (tab === "Team") {
+        const remove = page.getByRole("button",{name:"Remove member",exact:true});
+        await remove.scrollIntoViewIfNeeded();
+        await expect(remove).toBeInViewport();
+        await page.evaluate(()=>window.scrollTo(0,0));
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${tab} at ${width}`).toBe(true);
+      await page.screenshot({path:testInfo.outputPath(`workspace-${tab.replaceAll(" ","-")}-${width}.png`),fullPage:true,animations:"disabled"});
+    }
+    await page.screenshot({path:testInfo.outputPath(`workspace-${width}.png`),fullPage:true});
+  }
+  await teammate.goto(`/app/build/${projectId}?tab=settings`);
+  await teammate.getByRole("button",{name:"Leave project",exact:true}).click();
+  await teammate.getByLabel("Handover note").fill("The note feature is done and reviewed. This automated journey is complete.");
+  await teammate.getByRole("dialog").getByRole("button",{name:"Leave project",exact:true}).click();
+  await expect(teammate).toHaveURL(/\/app\/work$/);
+  await teammate.getByRole("tab",{name:"Contributions",exact:true}).click();
+  await expect(teammate.getByRole("heading",{name:milestone,exact:true})).toBeVisible();
+  await expect(teammate.getByRole("link",{name:title,exact:true})).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("button",{name:"Delete project",exact:true}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"Delete project",exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/work$/);
+  const inbox = await request.get(`${api}/api/services/app/BuildJourney/GetMyInvitations`,{headers:ownerHeaders});
+  expect((await inbox.json()).result).toEqual([]);
+  await teammateContext.close();
+});

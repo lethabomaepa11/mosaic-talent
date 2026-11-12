@@ -18,6 +18,9 @@ export const readApiErrorMessage = (error: unknown, fallback: string) => {
 
 export const normalizeProfile = (input: Partial<IDeveloperProfile>): IDeveloperProfile => ({
   userId: input.userId,
+  collaborationIntent: input.collaborationIntent ?? 0,
+  weeklyHours: input.weeklyHours,
+  timeZone: input.timeZone ?? "",
   fullName: input.fullName ?? "",
   emailAddress: input.emailAddress ?? "",
   hasCompletedOnboarding: input.hasCompletedOnboarding === true,
@@ -85,6 +88,9 @@ export const normalizeProfileFieldSuggestions = (
 });
 
 export const normalizeUpsertInput = (input: IDeveloperProfile): IDeveloperProfile => ({
+  collaborationIntent: input.collaborationIntent,
+  weeklyHours: input.weeklyHours,
+  timeZone: input.timeZone,
   completeOnboarding: input.completeOnboarding === true,
   onboardingStep: input.onboardingStep ?? 0,
   githubUsername: (input.githubUsername ?? "").trim(),

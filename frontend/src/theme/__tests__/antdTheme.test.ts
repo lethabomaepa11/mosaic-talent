@@ -6,7 +6,7 @@ describe("antdTheme", () => {
     expect(antdTheme.token?.colorPrimary).toBe(designTokens.gold);
     expect(antdTheme.token?.colorBgBase).toBe(designTokens.ink);
     expect(antdTheme.token?.colorTextBase).toBe(designTokens.paper);
-    expect(antdTheme.token?.borderRadius).toBe(12);
+    expect(antdTheme.token?.borderRadius).toBe(8);
     expect(antdTheme.token?.colorWarningBg).toBe(designTokens.warningBg);
     expect(antdTheme.token?.colorWarningBorder).toBe(designTokens.warningBorder);
     expect(antdTheme.token?.colorWarningText).toBe(designTokens.warningText);
