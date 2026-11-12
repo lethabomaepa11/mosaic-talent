@@ -1,11 +1,10 @@
 "use client";
 
 import { PropsWithChildren } from "react";
-import { AppOperatorPanel } from "@/components/app-operator";
 import { WithAuth } from "@/hoc/WithAuth/WithAuth";
 
 const AuthLayoutContent = ({ children }: PropsWithChildren) => {
-  return <>{children}<AppOperatorPanel /></>;
+  return <>{children}</>;
 };
 
 const AuthLayout = WithAuth(AuthLayoutContent);

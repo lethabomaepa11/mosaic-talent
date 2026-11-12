@@ -16,7 +16,8 @@ import { ProjectProgressProvider } from "@/providers/project-progress-provider";
 import { JobProvider } from "@/providers/job-provider";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { ReviewProvider } from "@/providers/review-provider";
-import { AppOperatorProvider } from "@/providers/app-operator-provider";
+import { SupportProvider } from "@/providers/support-provider";
+import { SupportLauncher } from "@/components/support/SupportLauncher";
 import {
   TenantResolutionProvider,
   useTenantResolutionAction,
@@ -108,15 +109,16 @@ export const AppProviders = ({ children }: PropsWithChildren) => {
                         <JobProvider>
                           <ReviewProvider>
                             <NotificationProvider>
-                              <AppOperatorProvider>
+                              <SupportProvider>
                                 <AppProgressProvider>
                                   <AntdProvider>
                                     <PageTransitionGate />
                                     <AntdToastViewport />
                                     {children}
+                                    <SupportLauncher />
                                   </AntdProvider>
                                 </AppProgressProvider>
-                              </AppOperatorProvider>
+                              </SupportProvider>
                             </NotificationProvider>
                           </ReviewProvider>
                         </JobProvider>

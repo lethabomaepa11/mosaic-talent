@@ -34,6 +34,7 @@ export {
   useProjectState,
 } from "./project-provider";
 export { IdeatorProvider, useIdeatorAction, useIdeatorState } from "./ideator-provider";
+export { SupportProvider, useSupportAction, useSupportState } from "./support-provider";
 export {
   ReviewProvider,
   useReviewAction,

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { AppOperatorPanel } from "@/components/app-operator";
 import { Button, Divider, Input, Upload } from "antd";
 import { toast } from "@/components/providers";
 import {
@@ -284,7 +283,6 @@ const CompanySignupPage = () => {
             </div>
         </form>
       </div>
-      <AppOperatorPanel />
     </div>
   );
 };
