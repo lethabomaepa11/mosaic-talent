@@ -1,60 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Button, Card, Empty, Input, Space, Tag, Typography } from "antd";
 import { toast } from "@/components/providers";
 import { useProjectProgressAction, useProjectProgressState } from "@/providers/project-progress-provider";
 import { useStyles } from "./styles";
+import { useAuthState } from "@/providers/auth-provider";
+import { useFormRecovery } from "@/lib/useFormRecovery";
 
 interface ProjectProgressProps {
   projectId: string;
   developerId?: string;
   canReview: boolean;
+  initialWork?: { id: string; title: string; summary: string };
 }
 
-const ProjectProgress = ({ projectId, developerId, canReview }: ProjectProgressProps) => {
+const ProjectProgress = ({ projectId, developerId, canReview, initialWork }: ProjectProgressProps) => {
   const { styles } = useStyles();
   const { entries, isPending } = useProjectProgressState();
+  const projectEntries = entries.filter(entry => entry.projectId === projectId);
   const { fetchProjectEntries, createEntry, reviewEntry } = useProjectProgressAction();
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
-  const [selfReview, setSelfReview] = useState("");
+  const { user } = useAuthState();
+  const draft = useFormRecovery(user ? `${user.userId}.${projectId}.work.${initialWork?.id || "general"}` : "", {
+    title: initialWork?.title.slice(0, 160) || "", summary: initialWork?.summary.slice(0, 3000) || "", evidenceUrl: "", selfReview: ""
+  });
+  const { title, summary, evidenceUrl, selfReview } = draft.values;
   const [comments, setComments] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const lock = useRef(false);
 
   useEffect(() => { void fetchProjectEntries(projectId).catch((error) => toast.error("Work evidence unavailable", error.message)); }, [fetchProjectEntries, projectId]);
 
   const submitEntry = async () => {
+    if (lock.current) return;
+    lock.current = true;
     setSaving(true);
     try {
       await createEntry({ projectId, title, summary, evidenceUrl, selfReview });
-      setTitle(""); setSummary(""); setEvidenceUrl(""); setSelfReview("");
+      draft.clear();
       toast.success("Progress saved", "Your work and reflection are now available to your project team.");
     } catch (error) { toast.error("Could not save progress", error instanceof Error ? error.message : "Try again."); }
-    finally { setSaving(false); }
+    finally { lock.current = false; setSaving(false); }
   };
 
   const submitReview = async (entryId: string) => {
+    if (lock.current) return;
+    lock.current = true;
     setSaving(true);
     try { await reviewEntry(entryId, comments[entryId] ?? ""); setComments((value) => ({ ...value, [entryId]: "" })); toast.success("Feedback saved", "Your teammate can now see your feedback."); }
     catch (error) { toast.error("Could not save feedback", error instanceof Error ? error.message : "Try again."); }
-    finally { setSaving(false); }
+    finally { lock.current = false; setSaving(false); }
   };
 
   return <div className={styles.layout}>
-    <Card title="Document your work" loading={isPending && entries.length === 0}>
+    <Card title="Document your work" loading={isPending && projectEntries.length === 0}>
       <Space direction="vertical" className={styles.form}>
-        <Input aria-label="Work title" placeholder="What did you work on?" maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} />
-        <Input.TextArea aria-label="Work summary" placeholder="Describe the contribution and its impact" rows={3} maxLength={3000} value={summary} onChange={(event) => setSummary(event.target.value)} />
-        <Input aria-label="Evidence link" placeholder="Link to a pull request, demo, or artifact" type="url" maxLength={2048} value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />
-        <Input.TextArea aria-label="Self review" placeholder="What went well, and what would you improve?" rows={3} maxLength={2000} value={selfReview} onChange={(event) => setSelfReview(event.target.value)} />
+        {draft.restored && <Typography.Text type="secondary">Your unfinished work update was restored.</Typography.Text>}
+        {initialWork && <Typography.Text type="secondary">For task: {initialWork.title}. Review the details before sharing.</Typography.Text>}
+        <label htmlFor="work-title">Work title</label><Input id="work-title" placeholder="What did you work on?" maxLength={160} value={title} onChange={(event) => draft.update({title:event.target.value})} />
+        <label htmlFor="work-summary">Work summary</label><Input.TextArea id="work-summary" placeholder="Describe the contribution and its impact" rows={3} maxLength={3000} value={summary} onChange={(event) => draft.update({summary:event.target.value})} />
+        <label htmlFor="evidence-link">Evidence link</label><Input id="evidence-link" placeholder="Link to a pull request, demo, or artifact" type="url" maxLength={2048} value={evidenceUrl} onChange={(event) => draft.update({evidenceUrl:event.target.value})} />
+        <label htmlFor="self-review">Self review</label><Input.TextArea id="self-review" placeholder="What went well, and what would you improve?" rows={3} maxLength={2000} value={selfReview} onChange={(event) => draft.update({selfReview:event.target.value})} />
         <Button type="primary" loading={saving} disabled={!title.trim() || !summary.trim() || !evidenceUrl.trim() || !selfReview.trim()} onClick={() => void submitEntry()}>Save progress</Button>
+        <Link href="/app/work?tab=contributions">View your contributions</Link>
       </Space>
     </Card>
     <section className={styles.entries} aria-label="Project work evidence">
       <Typography.Title level={4}>Team progress</Typography.Title>
-      {entries.length === 0 ? <Empty description="No progress documented yet." /> : entries.map((entry) => {
+      {projectEntries.length === 0 ? <Empty description="No progress documented yet." /> : projectEntries.map((entry) => {
         const ownEntry = entry.developerId === developerId;
         const myReview = entry.reviews.find((review) => review.reviewerDeveloperId === developerId);
         return <Card key={entry.id} title={<div className={styles.entryTitle}><span>{entry.title}</span><Typography.Text type="secondary">{entry.authorName}</Typography.Text></div>}>

@@ -79,11 +79,11 @@ export const CompanySidebar = ({ collapsed = false, onCollapseToggle }: ICompany
         ) : (
           <Image
             src={collapsed ? "/logo.svg" : defaultLogoSrc}
-            alt="Mosaic Talent"
+            alt="mosaic.talent"
             width={144}
             height={28}
             className={cx(styles.logoImage, collapsed && styles.logoImageCollapsed)}
-            priority
+            fetchPriority="high"
           />
         )}
         {onCollapseToggle ? (

@@ -37,7 +37,7 @@ export const hydrateModeError = createAction<AppearanceStatePatch>(
     isSuccess: false,
     isError: true,
     isHydrated: true,
-    mode: "dark",
+    mode: "light",
   }),
 );
 

@@ -1,5 +1,7 @@
 # Discover Mobile Swipe Layout
 
+> Superseded in the primary developer journey by [Build together](build-together.md), 7 November 2026. This document records the earlier interface. Existing backend endpoints remain available where documented.
+
 ## Summary
 
 Improved the Discover (`/app/projects/open`) mobile experience with a swipe-first card layout inspired by Tinder-style interaction hierarchy.

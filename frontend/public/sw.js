@@ -7,13 +7,13 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data.json();
   } catch {
-    data = { title: "Mosaic Talent", body: event.data.text() };
+    data = { title: "mosaic.talent", body: event.data.text() };
   }
 
   const title =
     typeof data.title === "string" && data.title.trim().length > 0
       ? data.title
-      : "Mosaic Talent";
+      : "mosaic.talent";
 
   const options = {
     body: typeof data.body === "string" ? data.body : "",

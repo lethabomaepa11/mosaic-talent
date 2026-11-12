@@ -76,12 +76,12 @@ const DeveloperLayout = ({ children }: PropsWithChildren) => {
         <main className={styles.content}><OnboardingGuard>{children}</OnboardingGuard></main>
         {!isCompanyTenant ? <MobileDeveloperNav /> : null}
       </div>
-      <AppOperatorPanel />
+      {isCompanyTenant ? <AppOperatorPanel /> : null}
       <Drawer
         open={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         placement="left"
-        width={280}
+        size={280}
         className={styles.mobileDrawer}
       >
         {isCompanyTenant ? <CompanySidebar /> : <AppSidebar />}

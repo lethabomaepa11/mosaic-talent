@@ -32,7 +32,7 @@ const applyModeToDocument = (mode: AppearanceMode) => {
 
 const resolvePreferredMode = (): AppearanceMode => {
   if (typeof window === "undefined") {
-    return "dark";
+    return "light";
   }
 
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -40,7 +40,7 @@ const resolvePreferredMode = (): AppearanceMode => {
     return stored;
   }
 
-  return "dark";
+  return "light";
 };
 
 export const AppearanceProvider = ({ children }: PropsWithChildren) => {
@@ -64,7 +64,7 @@ export const AppearanceProvider = ({ children }: PropsWithChildren) => {
       applyModeToDocument(preferredMode);
       dispatch(hydrateModeSuccess(preferredMode));
     } catch {
-      applyModeToDocument("dark");
+      applyModeToDocument("light");
       dispatch(hydrateModeError());
     }
   }, []);

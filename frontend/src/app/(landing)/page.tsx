@@ -2,132 +2,57 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, CheckCircle2, Compass, GitPullRequest, MessageCircle, Sparkles, Users } from "lucide-react";
-import { Spin } from "antd";
-import { useAppearanceState } from "@/providers/appearance-provider";
+import { Button, Spin } from "antd";
+import { Brand } from "@/components/journey/Brand";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
 import { shouldRestrictLandingOnTenantSubdomain } from "./landingAccess";
 import { useStyles } from "./style";
 
-const benefits = [
-  {
-    icon: Compass,
-    title: "Find a place to contribute",
-    description: "Explore open team projects and choose work that fits your skills and the skills you want to build.",
-  },
-  {
-    icon: GitPullRequest,
-    title: "Make your progress visible",
-    description: "Record what you built, link your work, and reflect on what you learned along the way.",
-  },
-  {
-    icon: MessageCircle,
-    title: "Grow with useful feedback",
-    description: "Get thoughtful reviews from teammates so you can see your strengths and decide what to improve next.",
-  },
-];
-
 const steps = [
-  { number: "01", title: "Create your account", description: "Sign up with your details to start your developer profile." },
-  { number: "02", title: "Set your direction", description: "Add your skills and goals. Connect GitHub if you want, or skip it for now." },
-  { number: "03", title: "Build with a team", description: "Find a project, contribute, and turn your work into evidence of your growth." },
+  { title: "Find a project", description: "Browse by skills, project goals, and hours per week. Read the brief and see who’s on the team before you join." },
+  { title: "Work with your team", description: "Agree on a first milestone, assign tasks, and keep your setup notes and resources in one place." },
+  { title: "Share what you made", description: "Link your work, explain what you learned, and get feedback from the people you worked with." },
 ];
 
 const LandingPage = () => {
-  const { mode } = useAppearanceState();
-  const { isResolved, tenancyName, source } = useTenantResolutionState();
   const { styles } = useStyles();
-  const logoSrc = mode === "light" ? "/text-logo-light.svg" : "/text-logo.svg";
-  const shouldRestrictLanding = shouldRestrictLandingOnTenantSubdomain({ isResolved, tenancyName, source });
+  const { isResolved, tenancyName, source } = useTenantResolutionState();
+  const restricted = shouldRestrictLandingOnTenantSubdomain({ isResolved, tenancyName, source });
+  useEffect(() => { if (restricted) window.location.replace("/app"); }, [restricted]);
 
-  useEffect(() => {
-    if (shouldRestrictLanding) window.location.replace("/app");
-  }, [shouldRestrictLanding]);
+  if (restricted) return <div className={styles.resolvingState}><Spin size="large"/></div>;
 
-  if (!isResolved || shouldRestrictLanding) {
-    return <div className={styles.resolvingState}><Spin size="large" /></div>;
-  }
-
-  return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <nav className={styles.container} aria-label="Main navigation">
-          <div className={styles.navInner}>
-            <Link href="/" className={styles.brand} aria-label="Mosaic Talent home">
-              <Image src={logoSrc} alt="Mosaic Talent" width={156} height={30} className={styles.brandLogo} loading="eager" />
-            </Link>
-            <div className={styles.navLinks}>
-              <a href="#benefits">Why join</a>
-              <Link href="/how-to">How to use</Link>
-            </div>
-            <div className={styles.navActions}>
-              <Link href="/login" className={styles.signIn}>Sign in</Link>
-              <Link href="/signup" className={styles.navCta}>Create account</Link>
-            </div>
-          </div>
-        </nav>
-      </header>
-
-      <main>
-        <section className={styles.hero} aria-labelledby="hero-title">
-          <div className={styles.container}>
-            <div className={styles.heroGrid}>
-              <div className={styles.heroCopy}>
-                <span className={styles.eyebrow}><Sparkles size={16} aria-hidden="true" /> Built for developers who want to grow</span>
-                <h1 id="hero-title" className={styles.heroTitle}>Build with people. <span>Grow with purpose.</span></h1>
-                <p className={styles.heroDescription}>Move beyond tutorials. Join team projects, make real contributions, and get feedback that helps you become a stronger developer.</p>
-                <div className={styles.heroActions}>
-                  <Link href="/signup" className={styles.primaryAction}>Create your free account <ArrowRight size={18} aria-hidden="true" /></Link>
-                  <a href="#how-it-works" className={styles.secondaryAction}>See how it works</a>
-                </div>
-                <p className={styles.heroNote}><CheckCircle2 size={17} aria-hidden="true" /> GitHub connection is optional during onboarding.</p>
-              </div>
-
-              <div className={styles.journeyCard} aria-label="Your developer journey">
-                <div className={styles.journeyHeader}>
-                  <span className={styles.journeyIcon}><Users size={23} aria-hidden="true" /></span>
-                  <div><p className={styles.journeyLabel}>YOUR NEXT CHAPTER</p><h2>Learn by building together</h2></div>
-                </div>
-                <div className={styles.journeyTrack}>
-                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>1</span><div><strong>Discover a project</strong><p>Find a team and a challenge that moves you forward.</p></div></div>
-                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>2</span><div><strong>Contribute real work</strong><p>Build, collaborate, and keep a record of your progress.</p></div></div>
-                  <div className={styles.journeyItem}><span className={styles.journeyMarker}>3</span><div><strong>Reflect and improve</strong><p>Learn from your own notes and your team&apos;s feedback.</p></div></div>
-                </div>
-                <div className={styles.journeyFooter}><span className={styles.journeyDot} /> Your growth starts with one project</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="benefits" className={styles.section} aria-labelledby="benefits-title">
-          <div className={styles.container}>
-            <div className={styles.sectionIntro}><span className={styles.sectionKicker}>WHY JOIN</span><h2 id="benefits-title">Experience you can talk about. Growth you can see.</h2><p>Mosaic Talent helps you practice the skills that matter when working with other developers.</p></div>
-            <div className={styles.benefitsGrid}>
-              {benefits.map(({ icon: Icon, title, description }) => <article className={styles.benefitCard} key={title}><span className={styles.benefitIcon}><Icon size={24} aria-hidden="true" /></span><h3>{title}</h3><p>{description}</p></article>)}
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className={styles.stepsSection} aria-labelledby="steps-title">
-          <div className={styles.container}>
-            <div className={styles.sectionIntro}><span className={styles.sectionKicker}>GET STARTED</span><h2 id="steps-title">From signup to your first contribution</h2><p>A simple path from what you know today to what you want to learn next.</p></div>
-            <div className={styles.stepsGrid}>
-              {steps.map((step) => <article className={styles.stepCard} key={step.number}><span className={styles.stepNumber}>{step.number}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.finalSection} aria-labelledby="final-title">
-          <div className={styles.container}>
-            <div className={styles.finalCard}><div><span className={styles.sectionKicker}>READY WHEN YOU ARE</span><h2 id="final-title">Your next project could change what you can do.</h2><p>Create your profile, meet a team, and start building.</p></div><Link href="/signup" className={styles.primaryAction}>Join Mosaic Talent <ArrowRight size={18} aria-hidden="true" /></Link></div>
-          </div>
-        </section>
-      </main>
-
-      <footer className={styles.footer}><div className={styles.container}><div className={styles.footerInner}><span>Mosaic Talent · Build together. Grow together.</span><Link href="/login">Already a member? Sign in</Link></div></div></footer>
-    </div>
-  );
+  return <div className={styles.page}>
+    <a className={styles.skipLink} href="#main-content">Skip to content</a>
+    <header className={styles.header}>
+      <nav className={styles.nav} aria-label="Main navigation">
+        <Brand/>
+        <div className={styles.navLinks}><a href="#how-it-works">How it works</a><Link href="/login">Sign in</Link></div>
+      </nav>
+    </header>
+    <main id="main-content" tabIndex={-1} className={styles.main}>
+      <section className={styles.hero} aria-labelledby="hero-title">
+        <h1 id="hero-title">Build a project with other developers.</h1>
+        <p className={styles.lead}>Find teammates, get practical experience, and meet potential cofounders by working on a project together.</p>
+        <div className={styles.actions}><Button href="/signup" type="primary" size="large">Create account</Button><a href="#how-it-works">How it works</a></div>
+        <p className={styles.note}>Use your existing skills or learn something new. Connecting GitHub is optional.</p>
+      </section>
+      <section id="how-it-works" className={styles.section} aria-labelledby="how-title">
+        <h2 id="how-title">From joining a team to your first contribution</h2>
+        <ol className={styles.steps}>{steps.map((step, index) => <li key={step.title}><span className={styles.stepNumber}>{index + 1}</span><div><h3>{step.title}</h3><p>{step.description}</p></div></li>)}</ol>
+      </section>
+      <section className={styles.useCases} aria-labelledby="use-cases-title">
+        <h2 id="use-cases-title">What do you want to work on?</h2>
+        <dl>
+          <div><dt>Practice working in a team</dt><dd>Join a learning project, take a manageable task, and ask teammates to review your work.</dd></div>
+          <div><dt>Develop a product idea</dt><dd>Post an idea for discussion or create a project with a clear problem and first milestone.</dd></div>
+          <div><dt>Find a cofounder</dt><dd>Try a small project together to understand how you communicate, make decisions, and get work done.</dd></div>
+        </dl>
+      </section>
+      <section className={styles.join}><div><h2>Ready to join a project?</h2><p>Create a profile with your skills and what you’d like to learn.</p></div><Button href="/signup" type="primary">Create account</Button></section>
+    </main>
+    <footer className={styles.footer}><span>mosaic.talent</span><Link href="/how-to">Getting started</Link><Link href="/login">Sign in</Link></footer>
+  </div>;
 };
 
 export default LandingPage;

@@ -22,7 +22,7 @@ export const INITIAL_STATE: IAppearanceStateContext = {
   isPending: false,
   isSuccess: false,
   isError: false,
-  mode: "dark",
+  mode: "light",
   isHydrated: false,
 };
 

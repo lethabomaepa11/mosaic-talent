@@ -171,6 +171,7 @@ public partial class DeveloperOnboardingAppService
             (item.User.UserName ?? string.Empty).ToLower().Contains(normalized) ||
             (item.User.Name ?? string.Empty).ToLower().Contains(normalized) ||
             (item.User.Surname ?? string.Empty).ToLower().Contains(normalized) ||
+            ((item.User.Name ?? string.Empty) + " " + (item.User.Surname ?? string.Empty)).ToLower().Contains(normalized) ||
             (item.Developer.GithubUsername ?? string.Empty).ToLower().Contains(normalized) ||
             skillDeveloperIds.Contains(item.Developer.Id));
 
@@ -208,6 +209,7 @@ public partial class DeveloperOnboardingAppService
                     Score =
                         ((item.User.UserName ?? string.Empty).ToLower().Contains(normalized) ? 4 : 0) +
                         ((item.User.Name ?? string.Empty).ToLower().Contains(normalized) ? 3 : 0) +
+                        (displayName.ToLowerInvariant().Contains(normalized) ? 3 : 0) +
                         ((item.User.Surname ?? string.Empty).ToLower().Contains(normalized) ? 2 : 0) +
                         ((item.Developer.GithubUsername ?? string.Empty).ToLower().Contains(normalized) ? 2 : 0) +
                         (skillDeveloperIds.Contains(item.Developer.Id) ? 1 : 0)

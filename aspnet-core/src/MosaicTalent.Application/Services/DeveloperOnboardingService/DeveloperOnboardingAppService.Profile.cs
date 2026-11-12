@@ -69,6 +69,9 @@ public partial class DeveloperOnboardingAppService
             FullName = string.Join(" ", new[] { user?.Name, user?.Surname }.Where(x => !string.IsNullOrWhiteSpace(x))),
             EmailAddress = user?.EmailAddress,
             HasCompletedOnboarding = profile?.HasCompletedOnboarding ?? false,
+            CollaborationIntent = profile?.CollaborationIntent ?? CollaborationIntent.LearnWithATeam,
+            WeeklyHours = profile?.WeeklyHours,
+            TimeZone = profile?.TimeZone,
             OnboardingStep = profile?.OnboardingStep ?? 0,
             GithubUsername = developer.GithubUsername,
             AvatarUrl = string.IsNullOrWhiteSpace(user?.AvatarUrl) && !string.IsNullOrWhiteSpace(developer.GithubUsername)

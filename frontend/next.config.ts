@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
+import { privatePaths } from "./src/lib/seo";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   reactCompiler: true,
+  async redirects() {
+    return [{ source: "/app/projects/:id([0-9a-fA-F-]{36})", destination: "/app/build/:id", permanent: false,
+      missing: [{ type: "query", key: "tools" }] }];
+  },
   images: {
     remotePatterns: [
       {
@@ -15,6 +21,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      ...privatePaths.map(path => ({ source: `${path}/:path*`, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
       {
         source: "/(.*)",
         headers: [

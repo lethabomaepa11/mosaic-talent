@@ -52,7 +52,7 @@ describe("AppearanceProvider", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 
-  it("toggles between dark and light mode", async () => {
+  it("starts light and toggles to dark mode", async () => {
     render(
       <AppearanceProvider>
         <Consumer />
@@ -62,9 +62,9 @@ describe("AppearanceProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("mode")).toHaveTextContent("light");
+      expect(screen.getByTestId("mode")).toHaveTextContent("dark");
     });
-    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-    expect(window.localStorage.getItem("mosaic-talent.theme-mode")).toBe("light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(window.localStorage.getItem("mosaic-talent.theme-mode")).toBe("dark");
   });
 });

@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MosaicTalent.Application\MosaicTalent.Application.csproj" />
+    <ProjectReference Include="..\..\src\MosaicTalent.Migrator\MosaicTalent.Migrator.csproj" />
     <ProjectReference Include="..\..\src\MosaicTalent.EntityFrameworkCore\MosaicTalent.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\src\MosaicTalent.Web.Core\MosaicTalent.Web.Core.csproj" />
   </ItemGroup>

@@ -9,7 +9,6 @@ using MosaicTalent.EntityFrameworkCore;
 using MosaicTalent.EntityFrameworkCore.Seed;
 using MosaicTalent.MultiTenancy;
 using System;
-using System.Collections.Generic;
 using System.Data.Common;
 
 namespace MosaicTalent.Migrator;
@@ -72,44 +71,17 @@ public class MultiTenantMigrateExecuter : ITransientDependency
         _log.Write("HOST database migration completed.");
         _log.Write("--------------------------------------------------------");
 
-        var migratedDatabases = new HashSet<string>();
         var tenants = _tenantRepository.GetAllList(t => t.ConnectionString != null && t.ConnectionString != "");
-        for (var i = 0; i < tenants.Count; i++)
+        var allSucceeded = TenantMigrationBatch.Run(tenants, tenant =>
         {
-            var tenant = tenants[i];
-            _log.Write(string.Format("Tenant database migration started... ({0} / {1})", (i + 1), tenants.Count));
-            _log.Write("Name              : " + tenant.Name);
-            _log.Write("TenancyName       : " + tenant.TenancyName);
-            _log.Write("Tenant Id         : " + tenant.Id);
-            _log.Write("Connection string : " + SimpleStringCipher.Instance.Decrypt(tenant.ConnectionString));
+            _log.Write("Tenant database migration started: " + tenant.TenancyName);
+            _log.Write("Connection string : " + CensorConnectionString(SimpleStringCipher.Instance.Decrypt(tenant.ConnectionString)));
+            _migrator.CreateOrMigrateForTenant(tenant);
+            _log.Write("Tenant database migration completed: " + tenant.TenancyName);
+        }, message => _log.Write(message));
 
-            if (!migratedDatabases.Contains(tenant.ConnectionString))
-            {
-                try
-                {
-                    _migrator.CreateOrMigrateForTenant(tenant);
-                }
-                catch (Exception ex)
-                {
-                    _log.Write("An error occured during migration of tenant database:");
-                    _log.Write(ex.ToString());
-                    _log.Write("Skipped this tenant and will continue for others...");
-                }
-
-                migratedDatabases.Add(tenant.ConnectionString);
-            }
-            else
-            {
-                _log.Write("This database has already migrated before (you have more than one tenant in same database). Skipping it....");
-            }
-
-            _log.Write(string.Format("Tenant database migration completed. ({0} / {1})", (i + 1), tenants.Count));
-            _log.Write("--------------------------------------------------------");
-        }
-
-        _log.Write("All databases have been migrated.");
-
-        return true;
+        _log.Write(allSucceeded ? "All databases have been migrated." : "One or more tenant databases failed to migrate.");
+        return allSucceeded;
     }
 
     private static string CensorConnectionString(string connectionString)

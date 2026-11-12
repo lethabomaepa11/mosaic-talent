@@ -6,6 +6,9 @@ namespace MosaicTalent.Services.DeveloperOnboardingService.DTO;
 public class DeveloperOnboardingDto
 {
     public long UserId { get; set; }
+    public CollaborationIntent CollaborationIntent { get; set; }
+    public int? WeeklyHours { get; set; }
+    public string TimeZone { get; set; }
     public string FullName { get; set; }
     public string EmailAddress { get; set; }
     public bool HasCompletedOnboarding { get; set; }

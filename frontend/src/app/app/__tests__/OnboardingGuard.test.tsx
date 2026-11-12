@@ -23,6 +23,17 @@ describe("developer onboarding guard", () => {
     expect(screen.getByText("Private page")).toBeVisible();
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
+  it("keeps a completed current account mounted during profile refresh", () => {
+    mocks.state.profile.hasCompletedOnboarding=true;
+    const {rerender}=render(<OnboardingGuard>Preferences form</OnboardingGuard>);
+    const content=screen.getByText("Preferences form");
+    mocks.state.profileStatus="loading";
+    rerender(<OnboardingGuard>Preferences form</OnboardingGuard>);
+    expect(screen.getByText("Preferences form")).toBe(content);
+    mocks.state.profile.userId=100;
+    rerender(<OnboardingGuard>Preferences form</OnboardingGuard>);
+    expect(screen.queryByText("Preferences form")).not.toBeInTheDocument();
+  });
   it("does not use another account's cached completion", () => {
     mocks.state.profile = { userId: 100, hasCompletedOnboarding: true };
     render(<OnboardingGuard>Private page</OnboardingGuard>);

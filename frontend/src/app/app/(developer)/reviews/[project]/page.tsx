@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Alert,
   Button,
   Card,
   Empty,
@@ -26,7 +27,7 @@ const ProjectReviewsPage = () => {
   const projectId = params.project;
 
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [isRequestingPeerReview, setIsRequestingPeerReview] = useState(false);
   const [projectLoading, setProjectLoading] = useState(false);
   const [ratingLoadingByReview, setRatingLoadingByReview] = useState<Record<string, boolean>>({});
@@ -36,7 +37,6 @@ const ProjectReviewsPage = () => {
   const {
     fetchMyProjectPeerReviews,
     fetchProjectPeerReviews,
-    generateProjectPeerReviews,
     requestProjectPeerReview,
     setPeerReviewRating,
     submitReviewAnswer,
@@ -47,9 +47,8 @@ const ProjectReviewsPage = () => {
       return;
     }
 
-    void fetchMyProjectPeerReviews();
     setProjectLoading(true);
-    void fetchProjectPeerReviews(projectId).finally(() => setProjectLoading(false));
+    void fetchProjectPeerReviews(projectId).catch(() => setLoadError("Peer feedback could not be loaded. Try again.")).finally(() => setProjectLoading(false));
   }, [projectId]);
 
   const activeProjectReview = useMemo(() => {
@@ -63,23 +62,6 @@ const ProjectReviewsPage = () => {
 
     return projectReviews.find((item) => item.projectId === projectId);
   }, [projectReviews, projectId, selectedProjectReview]);
-
-  const handleGenerateReviews = async () => {
-    if (!projectId) {
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      await generateProjectPeerReviews(projectId);
-      toast.success("Peer reviews ready", "AI-generated review questions were prepared.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate peer reviews.";
-      toast.error("Generation failed", message);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleRequestPeerReview = async () => {
     if (!projectId) return;
@@ -126,7 +108,7 @@ const ProjectReviewsPage = () => {
     setAnswerLoadingByQuestion((prev) => ({ ...prev, [questionId]: true }));
     try {
       const question = await submitReviewAnswer(questionId, text);
-      setDraftAnswers((prev) => ({ ...prev, [questionId]: "" }));
+      setDraftAnswers((prev) => { const next = { ...prev }; delete next[questionId]; return next; });
       toast.success("Answer saved", "Your anonymous response has been recorded.");
       if (question?.gamificationReward?.pointsAwarded) {
         const badges = question.gamificationReward.badgesUnlocked;
@@ -172,18 +154,7 @@ const ProjectReviewsPage = () => {
           >
             Request Peer Review
           </Button>
-        ) : (
-          <Button
-            icon={<Sparkles size={14} />}
-            type="primary"
-            onClick={() => void handleGenerateReviews()}
-            disabled={!projectId}
-            loading={isGenerating}
-            data-ai-action="generate-peer-reviews"
-          >
-            Generate Reviews
-          </Button>
-        )}
+        ) : null}
       </div>
 
       {activeProjectReview?.peerReviewRequestMessage ? (
@@ -192,7 +163,8 @@ const ProjectReviewsPage = () => {
 
       {projectLoading ? <Spin /> : null}
 
-      {!projectLoading && !activeProjectReview ? (
+      {loadError && <Alert type="error" title={loadError} action={<Button onClick={() => { setProjectLoading(true); void fetchProjectPeerReviews(projectId).then(() => setLoadError("")).catch(() => setLoadError("Peer feedback could not be loaded. Try again.")).finally(() => setProjectLoading(false)); }}>Try again</Button>}/>}
+      {!projectLoading && !activeProjectReview && !loadError ? (
         <Empty description="Project reviews not found." />
       ) : null}
 
@@ -207,7 +179,7 @@ const ProjectReviewsPage = () => {
                 <Card key={review.id} className={styles.reviewItem}>
                   <Space direction="vertical" size="small" className={styles.fullWidth}>
                     <Typography.Text strong>{toAnonymousReviewLabel(index)}</Typography.Text>
-                    <Rate
+                    <Rate aria-label="Teamwork rating"
                       count={10}
                       value={review.rating}
                       onChange={(value) => void handleRatingChange(review, value)}
@@ -239,6 +211,7 @@ const ProjectReviewsPage = () => {
                         <Button
                           onClick={() => void handleAnswerSubmit(question.id)}
                           loading={Boolean(answerLoadingByQuestion[question.id])}
+                          aria-label="Save answer"
                           data-ai-action="save-review-answer"
                         >
                           Save answer
@@ -271,8 +244,9 @@ const ProjectReviewsPage = () => {
           </Card>
 
           {activeProjectReview.feedback ? (
+            <details className={styles.feedbackDetails}><summary>Optional automated summary</summary>
             <Card className={styles.reviewCard}>
-              <Typography.Title level={5}>Project AI Feedback</Typography.Title>
+              <Typography.Title level={5}>Feedback summary</Typography.Title>
               <Typography.Paragraph>{activeProjectReview.feedback.summary}</Typography.Paragraph>
               <Typography.Paragraph>
                 <Typography.Text strong>Growth Score:</Typography.Text>{" "}
@@ -305,6 +279,7 @@ const ProjectReviewsPage = () => {
                 </ul>
               </Card>
             </Card>
+            </details>
           ) : null}
         </>
       ) : null}

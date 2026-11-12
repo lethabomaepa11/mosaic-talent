@@ -95,7 +95,7 @@ export const PageTransitionGate = () => {
         <div className={cx(styles.shard, styles.shardB)} />
         <div className={cx(styles.shard, styles.shardC)} />
 
-        <div className={styles.centerLabel}>Mosaic Talent</div>
+        <div className={styles.centerLabel}>mosaic.talent</div>
       </div>
     </div>
   );

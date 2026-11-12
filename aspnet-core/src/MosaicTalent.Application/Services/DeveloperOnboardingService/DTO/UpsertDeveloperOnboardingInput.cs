@@ -6,6 +6,15 @@ namespace MosaicTalent.Services.DeveloperOnboardingService.DTO;
 
 public class UpsertDeveloperOnboardingInput
 {
+    [EnumDataType(typeof(CollaborationIntent))]
+    public CollaborationIntent? CollaborationIntent { get; set; }
+
+    [Range(1, 40)]
+    public int? WeeklyHours { get; set; }
+
+    [MaxLength(64)]
+    public string TimeZone { get; set; }
+
     [MaxLength(64)]
     public string GithubUsername { get; set; }
 

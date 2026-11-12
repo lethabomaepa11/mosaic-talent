@@ -25,6 +25,14 @@ public class Project : FullAuditedEntity<Guid>, IMustHaveTenant
 
     public ProjectStatus Status { get; set; }
 
+    public BuildPurpose Purpose { get; set; }
+
+    [MaxLength(800)]
+    public string FirstOutcome { get; set; }
+
+    [MaxLength(64)]
+    public string TeamTimeZone { get; set; }
+
     public bool IsPublic { get; set; } = true;
 
     [Range(2, 8)]

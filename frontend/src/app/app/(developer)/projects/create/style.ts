@@ -2,6 +2,7 @@ import { createStyles } from "antd-style";
 
 export const useStyles = createStyles(({ token, css }) => ({
   page: css`
+    min-width: 0;
     display: grid;
     gap: ${token.marginLG}px;
     padding-bottom: ${token.paddingXL}px;
@@ -12,6 +13,8 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginSM}px;
   `,
   headerTitle: css`
+    font-family: ${token.fontFamily};
+    font-size: ${token.fontSizeHeading3}px !important;
     margin: 0 !important;
   `,
   headerMeta: css`
@@ -42,6 +45,12 @@ export const useStyles = createStyles(({ token, css }) => ({
   formGrid: css`
     display: grid;
     gap: ${token.marginSM}px;
+    min-width: 0;
+    & > * { min-width: 0; }
+  `,
+  optionalSections: css`
+    .ant-collapse-content-box { min-width: 0; }
+    .ant-collapse-header-text { overflow-wrap: anywhere; }
   `,
   twoCol: css`
     display: grid;
@@ -135,6 +144,16 @@ export const useStyles = createStyles(({ token, css }) => ({
     gap: ${token.marginSM}px;
     justify-content: flex-end;
     flex-wrap: wrap;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: ${token.colorBgLayout};
+    padding-block: ${token.paddingSM}px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+    @media (max-width: 767px) {
+      bottom: calc(64px + env(safe-area-inset-bottom));
+      & > button { flex: 1; min-height: ${token.controlHeightLG}px; }
+    }
   `,
   githubStatusLoader: css`
     display: flex;

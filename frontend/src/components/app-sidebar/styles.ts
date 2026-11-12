@@ -4,8 +4,8 @@ export const useStyles = createStyles(({ token, css }) => ({
   sidebar: css`
     display: flex;
     flex-direction: column;
-    width: 260px;
-    min-width: 260px;
+    width: 240px;
+    min-width: 240px;
     height: 100vh;
     position: sticky;
     top: 0;
@@ -72,9 +72,14 @@ export const useStyles = createStyles(({ token, css }) => ({
     display: block;
   `,
   navButton: css`
+    display: flex;
+    align-items: center;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px;
+    border-radius: ${token.borderRadius}px;
     justify-content: flex-start;
     width: 100%;
-    height: 40px;
+    min-height: 48px;
     color: ${token.colorTextSecondary};
 
     &:hover {
@@ -88,11 +93,11 @@ export const useStyles = createStyles(({ token, css }) => ({
     padding-inline: 0;
   `,
   navButtonActive: css`
-    color: ${token.colorPrimary};
+    color: ${token.colorText};
     background: color-mix(in srgb, ${token.colorPrimary} 12%, transparent);
 
     &:hover {
-      color: ${token.colorPrimary};
+      color: ${token.colorText};
       background: color-mix(in srgb, ${token.colorPrimary} 12%, transparent);
     }
   `,
@@ -137,4 +142,6 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorTextTertiary};
     font-size: ${token.fontSizeSM - 1}px;
   `,
+  startBuild: css`margin-top:${token.marginLG}px;border:1px solid ${token.colorBorder};font-weight:600;`,
+  footerMotto: css`font-family:var(--font-syne),sans-serif;font-size:${token.fontSizeXL}px;letter-spacing:-.04em;line-height:1.35;margin:0 0 ${token.marginLG}px;color:${token.colorText};`,
 }));

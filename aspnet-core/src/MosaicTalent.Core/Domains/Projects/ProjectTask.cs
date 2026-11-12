@@ -21,4 +21,9 @@ public class ProjectTask : FullAuditedEntity<Guid>, IMustHaveTenant
     public Guid? AssignedDeveloperId { get; set; }
 
     public ProjectTaskStatus Status { get; set; }
+
+    public bool IsStarterTask { get; set; }
+
+    [MaxLength(2000)]
+    public string AcceptanceCriteria { get; set; }
 }

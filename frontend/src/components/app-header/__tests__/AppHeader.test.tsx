@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { AuthStateContext, INITIAL_STATE } from "@/providers/auth-provider/context";
 import { AppHeader } from "@/components/app-header";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => "/app",
   useSearchParams: () => ({
     get: () => null,
   }),
@@ -49,6 +50,7 @@ vi.mock("@/components/notification-center", () => ({
 }));
 
 describe("AppHeader", () => {
+  afterEach(cleanup);
   beforeAll(() => {
     mocks.useDeveloperState.mockReturnValue({
       currentUser: undefined,
@@ -112,18 +114,18 @@ describe("AppHeader", () => {
     window.ResizeObserver = ResizeObserverMock;
   });
 
-  it("renders with search and action controls", () => {
+  it("renders team discovery and secondary account controls", () => {
     render(<AppHeader />);
 
     expect(
-      screen.getByPlaceholderText("Search developers and projects..."),
+      screen.getByRole("link", {name:"Find a project"}),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "User menu" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Your profile and settings" })).toBeInTheDocument();
   });
 
-  it("renders initials from fallback user name", () => {
+  it("makes peer feedback reachable from the account menu", async () => {
     render(
       <AuthStateContext.Provider
         value={{
@@ -135,6 +137,7 @@ describe("AppHeader", () => {
       </AuthStateContext.Provider>,
     );
 
-    expect(screen.getByText("U7")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"Your profile and settings"}));
+    expect(await screen.findByText("Peer feedback")).toBeInTheDocument();
   });
 });

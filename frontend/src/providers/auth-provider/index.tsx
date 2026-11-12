@@ -27,7 +27,7 @@ import {
 } from "./context";
 import { AuthReducer } from "./reducer";
 import { useTenantResolutionState } from "@/providers/tenant-provider";
-import { AxiosError } from "axios";
+import { registrationErrorMessage } from "./registrationError";
 
 interface IAuthResponse {
   accessToken: string;
@@ -188,9 +188,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } catch (error) {
       removeAuthToken();
       dispatch(registerError());
-      throw new Error(error instanceof AxiosError
-        ? error.response?.data?.error?.message || "Unable to create your account. Check your details and try again."
-        : error instanceof Error ? error.message : "Unable to create your account.");
+      throw new Error(registrationErrorMessage(error));
     }
   };
 

@@ -4,6 +4,7 @@ using Abp.Collections.Extensions;
 using Abp.Dependency;
 using Castle.Facilities.Logging;
 using System;
+using System.IO;
 
 namespace MosaicTalent.Migrator;
 
@@ -21,7 +22,7 @@ public class Program
         {
             bootstrapper.IocManager.IocContainer
                 .AddFacility<LoggingFacility>(
-                    f => f.UseAbpLog4Net().WithConfig("log4net.config")
+                    f => f.UseAbpLog4Net().WithConfig(Path.Combine(AppContext.BaseDirectory, "log4net.config"))
                 );
 
             bootstrapper.Initialize();

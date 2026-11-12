@@ -11,8 +11,11 @@ interface IHostTenancyOptions {
 
 const DEFAULT_ROOT_DOMAIN = "mosaictalent.co.za";
 
-export const normalizeHost = (hostname: string) =>
-  hostname.toLowerCase().split(":")[0];
+export const normalizeHost = (hostname: string) => {
+  const host = hostname.trim().toLowerCase();
+  if (host.startsWith("[")) return host.slice(1, host.indexOf("]"));
+  return host.split(":").length > 2 ? host : host.split(":")[0];
+};
 
 const parseVercelTenancy = (host: string) => {
   if (!host.endsWith("-mosaic-talent.vercel.app")) {
@@ -75,7 +78,8 @@ export const getTenancyCandidateFromHost = (
   host: string,
   options?: IHostTenancyOptions,
 ): ITenantCandidate | null => {
-  if (!host || host === "localhost" || host === "127.0.0.1") {
+  const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) && host.split(".").every((part) => Number(part) <= 255);
+  if (!host || host === "localhost" || isIpv4 || host.includes(":")) {
     return null;
   }
 

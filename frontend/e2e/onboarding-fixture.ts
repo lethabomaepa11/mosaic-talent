@@ -38,13 +38,15 @@ export const setupOnboarding = async (page: Page, options: { authenticated?: boo
       return route.fulfill(ok({ authorizationUrl: "https://github.com/login/oauth/authorize?state=protected-test-state" }));
     }
     if (path.endsWith("/GetGithubSkillSuggestions")) return route.fulfill(ok(["Python", "TypeScript"]));
+    if (path.endsWith("/BuildJourney/GetHome")) return route.fulfill(ok({profile,developerId:"dev-99",myProjects:[],openProjects:[]}));
     if (path.endsWith("/GetStudyLevels")) return route.fulfill(ok([]));
     if (path.endsWith("/GetMyProjects") || path.endsWith("/GetOpenProjects")) return route.fulfill(ok([]));
     return route.fulfill(ok({ items: [], totalCount: 0 }));
   });
   await page.route("https://github.com/login/oauth/authorize**", async (route) => {
     profile.githubUsername = "jane-github";
-    await route.fulfill({ status: 302, headers: { location: "http://127.0.0.1:3000/onboarding?githubConnected=1" }, body: "" });
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+    await route.fulfill({ status: 302, headers: { location: `${baseURL}/onboarding?githubConnected=1` }, body: "" });
   });
   return { saves, getProfile: () => profile, connectionStarted: () => connectionStarted };
 };

@@ -22,16 +22,16 @@ for (const width of [360, 768, 1280]) {
     await expect(page.getByRole("alert").filter({ hasText: "Add at least one skill" })).toBeVisible();
     await page.getByRole("combobox", { name: "Current skills" }).fill("Python");
     await page.getByRole("combobox", { name: "Current skills" }).press("Enter");
-    await page.getByRole("combobox", { name: "Current skills" }).press("Escape");
     await page.getByRole("button", { name: /Continue/ }).click();
-    await expect(page.getByRole("button", { name: "Finish onboarding" })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Finish setup" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/onboarding-${width}.png`, fullPage: true });
-    await page.getByRole("button", { name: "Skip goals and finish" }).click();
-    await expect(page).toHaveURL(/\/app\/projects\/my$/);
+    await page.getByRole("button", { name: "Finish setup" }).click();
+    await expect(page).toHaveURL(/\/app$/);
     expect(api.getProfile().hasCompletedOnboarding).toBe(true);
     expect(api.getProfile().githubUsername).toBe("");
     expect(api.saves.at(-1)).toMatchObject({ completeOnboarding: true, skills: ["Python"], goals: [] });
+    expect(api.saves.at(-1)?.weeklyHours).toBeUndefined();
   });
 }
 
@@ -83,8 +83,8 @@ test("connects using the authenticated action and lets users edit imported skill
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).fill("Lead a team");
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).press("Enter");
   await page.getByRole("combobox", { name: "Learning goals (optional)" }).press("Escape");
-  await page.getByRole("button", { name: "Finish onboarding" }).click();
-  await expect(page).toHaveURL(/\/app\/projects\/my$/);
+  await page.getByRole("button", { name: "Finish setup" }).click();
+  await expect(page).toHaveURL(/\/app$/);
   expect(api.getProfile()).toMatchObject({ userId: 99, githubUsername: "jane-github", skills: ["Python"], goals: ["Lead a team"] });
 });
 

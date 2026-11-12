@@ -29,12 +29,13 @@ test("shares, reacts to, comments on, and converts an idea responsively", async 
   });
 
   await page.goto("/app/ideator");
-  await expect(page.getByRole("heading", { name: "Ideator" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ideas", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Post an idea" }).click();
   await page.getByRole("textbox", { name: "Idea title" }).fill("Safer school routes");
   await page.getByRole("textbox", { name: "Problem statement" }).fill("Families cannot find safe routes.");
   await page.getByRole("textbox", { name: "Proposed solution" }).fill("Map community-verified paths.");
   await page.getByRole("checkbox", { name: "Share this idea publicly" }).uncheck();
-  await page.getByRole("button", { name: "Share idea" }).click();
+  await page.getByRole("button", { name: "Post idea" }).click();
   await expect(page.getByRole("heading", { name: "Safer school routes" })).toBeVisible();
   await expect(page.getByText("Only you can see this idea")).toBeVisible();
   await page.getByRole("button", { name: /Interested/ }).click();
@@ -45,6 +46,7 @@ test("shares, reacts to, comments on, and converts an idea responsively", async 
   await page.getByRole("button", { name: "Start a project" }).click();
   await page.getByRole("button", { name: "Create project", exact: true }).click();
   await expect(page.getByText("Project started")).toBeVisible();
+  await expect(page.getByRole("link", { name: "View project", exact: true })).toHaveAttribute("href", "/app/build/project-1");
 
   for (const width of [360, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
