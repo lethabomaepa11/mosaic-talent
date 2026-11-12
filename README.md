@@ -72,11 +72,11 @@ mosaic.talent helps developers learn by building real projects together, find te
   - developer points and levels for collaboration/growth actions
   - badge unlocks for review participation and project completion; previously earned simulation badges remain recorded
   - profile progression card and reward feedback within review workflows
-- Ask Moahi (AI assistant/operator):
-  - full-page command execution across routes/forms/workflows
-  - Groq-backed intent planning with deterministic local fallback
-  - chatbot + guided step-by-step mode for "how-to" questions
-  - manual voice mode (defaults off) with visual execution feedback
+- Human support through a shared `?` button and tawk.to:
+  - contact support or read the getting started guide
+  - separate website properties identify the originating site in the support dashboard
+  - optional build-time `NEXT_PUBLIC_TAWK_EMBED_URL` overrides the owner's mosaic.talent widget
+  - email notifications are configured in the tawk.to dashboard
 - AI peer reviews:
   - auto-generated after completed projects
   - teammate rating (1-10) and AI-generated review questions
@@ -143,6 +143,7 @@ mosaic.talent helps developers learn by building real projects together, find te
 - [Original mosaic.talent logo and product naming](docs/feature/original-branding.md)
 - [Developer journeys, invitations, draft recovery, and everyday automation](docs/feature/developer-journeys.md)
 - [Public SEO, crawl discovery, share cards, and accessibility basics](docs/feature/public-seo.md)
+- [Human support, per-site tawk.to properties, and email notification setup](docs/feature/human-support.md)
 
 - [Desktop sidebar scrolling fix](docs/feature/desktop-sidebar-scroll.md)
 
@@ -344,7 +345,7 @@ These endpoints remain for historical records. `CreateScenario` and `StartSessio
 - `GET /api/services/app/SimulationVoice/GetVoiceModels`
 - `SignalR Hub /signalr-simulation` (realtime turns, bot text/audio events, interrupt support)
 
-### Ask Moahi
+### Legacy app operator (UI removed)
 
 - `POST /api/services/app/AppOperator/Plan`
 
